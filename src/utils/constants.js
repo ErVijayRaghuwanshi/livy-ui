@@ -12,6 +12,7 @@ export const STORAGE_KEYS = {
   SQL_FILES: "livy-sql-files",
   ACTIVE_TAB: "livy-active-tab",
   SESSION_ID: "livy-session-id",
+  SESSION_CONF: "livy-session-conf",
 };
 
 export const SESSION_STATES = {

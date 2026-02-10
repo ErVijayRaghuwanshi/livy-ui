@@ -10,6 +10,7 @@ const initialState = {
   activeHostId: getItem(STORAGE_KEYS.ACTIVE_HOST, DEFAULT_HOST.id),
   sessionId: getItem(STORAGE_KEYS.SESSION_ID, null),
   sessionState: SESSION_STATES.NOT_STARTED,
+  sessionConf: getItem(STORAGE_KEYS.SESSION_CONF, {}),
   appId: null,
   error: null,
   loading: false,
@@ -21,6 +22,8 @@ function reducer(state, action) {
       return { ...state, hosts: action.payload };
     case "SET_ACTIVE_HOST":
       return { ...state, activeHostId: action.payload, sessionId: null, sessionState: SESSION_STATES.NOT_STARTED, appId: null, error: null };
+    case "SET_SESSION_CONF":
+      return { ...state, sessionConf: action.payload };
     case "SET_SESSION":
       return { ...state, sessionId: action.payload.id, sessionState: action.payload.state, appId: action.payload.appId || null, error: null };
     case "SET_SESSION_STATE":
@@ -102,19 +105,28 @@ export function LivyProvider({ children }) {
     }
   }, [state.sessionId]);
 
+  // Persist session conf
+  useEffect(() => {
+    setItem(STORAGE_KEYS.SESSION_CONF, state.sessionConf);
+  }, [state.sessionConf]);
+
+  const setSessionConf = useCallback((conf) => {
+    dispatch({ type: "SET_SESSION_CONF", payload: conf });
+  }, []);
+
   // Start session
   const startSession = useCallback(async () => {
     dispatch({ type: "SET_LOADING", payload: true });
     dispatch({ type: "SET_ERROR", payload: null });
     try {
-      const session = await livyApi.createSession();
+      const session = await livyApi.createSession(state.sessionConf);
       dispatch({ type: "SET_SESSION", payload: session });
     } catch (err) {
       dispatch({ type: "SET_ERROR", payload: err.message });
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
-  }, []);
+  }, [state.sessionConf]);
 
   // Stop session
   const stopSession = useCallback(async () => {
@@ -164,6 +176,7 @@ export function LivyProvider({ children }) {
     startSession,
     stopSession,
     refreshSession,
+    setSessionConf,
     dispatch,
   };
 

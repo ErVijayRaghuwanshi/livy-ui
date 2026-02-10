@@ -10,10 +10,13 @@ A modern web-based SQL editor for [Apache Livy](https://livy.incubator.apache.or
 - **Spark SQL Autocomplete** — Built-in completion for 300+ Spark SQL functions and keywords with documentation on hover
 - **Query Execution** — Run queries against any Livy server with live elapsed timer and cancel support
 - **Result Table** — Structured table display with column data types, row counts, and execution time
+- **Schema Explorer** — Collapsible left sidebar with lazy-loaded tree view of databases, tables, and columns
 - **Session Management** — Start, stop, and monitor Spark sessions with real-time status
+- **Session Configuration** — Pass custom Spark properties (e.g. Hive metastore, executor memory) when creating sessions
 - **Multi-host Support** — Connect to multiple Livy servers and switch between them
+- **HDFS / Parquet Support** — Query HDFS files directly using Spark SQL path-based table syntax
 - **Dark Theme** — Modern dark UI optimized for long coding sessions
-- **LocalStorage Persistence** — All hosts, SQL files, and session info persist across browser reloads
+- **LocalStorage Persistence** — All hosts, SQL files, session config, and session info persist across browser reloads
 - **CORS Proxy** — Built-in dynamic proxy handles cross-origin requests to any Livy host
 
 ## Tech Stack
@@ -59,6 +62,78 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 3. Click **Add Host** and select it
 4. Start a Spark session using the **Start Session** button
 
+## HDFS & Data Access
+
+This app supports querying data stored on HDFS, S3, or any Spark-compatible file system directly from the SQL editor.
+
+### Querying HDFS Files Directly
+
+Use Spark SQL's **path-based table syntax** to read files without registering them in a catalog:
+
+```sql
+-- Parquet files
+SELECT * FROM parquet.`hdfs://namenode/path/to/data` LIMIT 100
+
+-- CSV files
+SELECT * FROM csv.`hdfs://namenode/path/to/data.csv`
+
+-- JSON files
+SELECT * FROM json.`hdfs://namenode/path/to/data.json`
+
+-- ORC files
+SELECT * FROM orc.`hdfs://namenode/path/to/data`
+```
+
+> **Note:** Path-based tables do not appear in the Schema Explorer since they are not registered in any database catalog.
+
+### Registering Tables for Schema Explorer
+
+To make HDFS data visible in the Schema Explorer sidebar, register it as a named table:
+
+```sql
+CREATE TABLE IF NOT EXISTS default.my_table
+USING parquet
+LOCATION 'hdfs://namenode/path/to/data'
+```
+
+After running this, click **Refresh** in the Schema Explorer to see the table, its columns, and data types.
+
+### Schema Explorer
+
+The left sidebar provides a tree view of your Spark SQL catalog:
+
+```
+Databases
+└── default
+    └── my_table
+        ├── id (bigint)
+        ├── name (string)
+        └── created_at (timestamp)
+```
+
+- **Lazy loading** — Tables and columns are fetched on expand
+- **Copy to clipboard** — Click the copy icon on any node to copy its qualified name
+- **Refresh** — Reload the full tree after creating or dropping tables
+- **Collapsible** — Toggle the sidebar with the panel icon
+
+### Session Configuration
+
+Pass custom Spark properties when starting a new session via **Settings → Session Configuration**:
+
+| Property | Purpose | Example |
+|----------|---------|--------|
+| `spark.hadoop.hive.metastore.uris` | Connect to a Hive metastore | `thrift://hive-metastore:9083` |
+| `spark.sql.warehouse.dir` | Default storage for managed tables | `hdfs://namenode/user/hive/warehouse` |
+| `spark.hadoop.fs.defaultFS` | Default HDFS namenode | `hdfs://namenode:8020` |
+| `spark.executor.memory` | Executor memory | `4g` |
+| `spark.executor.cores` | Executor cores | `2` |
+| `spark.dynamicAllocation.enabled` | Enable dynamic allocation | `true` |
+| `spark.sql.shuffle.partitions` | Shuffle partitions | `200` |
+
+Config is persisted in localStorage and sent with every new session creation.
+
+> **Tip:** If your Livy server already runs on a Hadoop cluster with Hive configured, you typically don't need any session config — Spark inherits the cluster's `core-site.xml` and `hive-site.xml` automatically.
+
 ## Docker
 
 ```bash
@@ -76,25 +151,27 @@ Open [http://localhost:4173](http://localhost:4173).
 ```
 livy-ui/
 ├── Dockerfile
+├── .dockerignore
 ├── index.html
 ├── package.json
 ├── vite.config.js              # Vite config + Livy proxy plugin
 └── src/
     ├── main.jsx                # App entry point
-    ├── App.jsx                 # Root layout with resizable panels
+    ├── App.jsx                 # Root layout with sidebar + resizable panels
     ├── index.css               # Tailwind v4 + CSS variables (dark theme)
     ├── components/
     │   ├── Navbar.jsx          # Connection status, session controls
-    │   ├── ConnectionModal.jsx # Add/select/remove Livy hosts
+    │   ├── ConnectionModal.jsx # Host management + session configuration
     │   ├── TabBar.jsx          # Multi-tab SQL file management
     │   ├── SqlEditor.jsx       # Monaco Editor with Spark SQL support
-    │   └── ResultTable.jsx     # Query results with data types & timing
+    │   ├── ResultTable.jsx     # Query results with data types & timing
+    │   └── SchemaExplorer.jsx  # Database/table/column tree sidebar
     ├── context/
-    │   ├── LivyContext.jsx     # Livy session & connection state
+    │   ├── LivyContext.jsx     # Livy session, connection & config state
     │   └── SqlFilesContext.jsx # SQL files (tabs) state & persistence
     ├── services/
     │   ├── axiosConfig.js      # Axios client with dynamic proxy headers
-    │   └── livyApi.js          # Livy REST API functions
+    │   └── livyApi.js          # Livy REST API + runSql helper
     └── utils/
         ├── constants.js        # App constants & storage keys
         ├── localStorage.js     # localStorage helpers
