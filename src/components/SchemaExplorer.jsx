@@ -79,12 +79,24 @@ function LoadingNode() {
 
 export default function SchemaExplorer() {
   const { sessionId, sessionState } = useLivy();
-  const [collapsed, setCollapsed] = useState(true);
+  const CACHE_KEY_COLLAPSED = "livy-ui-explorer-collapsed";
+
+  // 1. Initialize state from LocalStorage (fall back to true if not found)
+  const [collapsed, setCollapsed] = useState(() => {
+    const saved = localStorage.getItem(CACHE_KEY_COLLAPSED);
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
   const [databases, setDatabases] = useState([]);
   const [tables, setTables] = useState({});
   const [columns, setColumns] = useState({});
   const [loading, setLoading] = useState({});
   const [error, setError] = useState(null);
+
+  // 2. Persist state to LocalStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem(CACHE_KEY_COLLAPSED, JSON.stringify(collapsed));
+  }, [collapsed]);
 
   const isReady = sessionState === SESSION_STATES.IDLE && sessionId;
 

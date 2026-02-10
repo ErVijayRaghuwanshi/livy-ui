@@ -56,16 +56,16 @@ export default function App() {
             onMouseDown={handleMouseDown}
             className={`flex items-center justify-center h-2 cursor-row-resize shrink-0 transition-colors ${
               isDragging
-                ? "bg-[var(--color-accent)]"
-                : "bg-[var(--color-border)] hover:bg-[var(--color-accent)]/50"
+                ? "bg-(--color-accent)"
+                : "bg-(--color-border) hover:bg-(--color-accent)/50"
             }`}
           >
-            <GripHorizontal size={14} className="text-[var(--color-text-muted)]" />
+            <GripHorizontal size={14} className="text-(--color-text-muted)" />
           </div>
 
           {/* Result Panel */}
           <div
-            className="shrink-0 bg-[var(--color-bg-secondary)] border-t border-[var(--color-border)]"
+            className="shrink-0 bg-(--color-bg-secondary) border-t border-(--color-border)"
             style={{ height: resultHeight }}
           >
             <ResultTable result={result} />

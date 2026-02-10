@@ -199,7 +199,7 @@ export default function SqlEditor({ onResult }) {
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border)] shrink-0">
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-(--color-bg-secondary) border-b border-[var(--color-border)] shrink-0">
         {running ? (
           <button
             onClick={handleCancel}
@@ -222,7 +222,7 @@ export default function SqlEditor({ onResult }) {
 
         <button
           onClick={handleFormat}
-          className="flex items-center gap-1.5 px-3 py-1 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] text-xs rounded-md transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-(--color-bg-tertiary) text-xs rounded-md transition-colors"
           title="Format SQL"
         >
           <AlignLeft size={13} />
