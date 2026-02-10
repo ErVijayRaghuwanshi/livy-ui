@@ -15,7 +15,7 @@ function ElapsedBadge({ elapsed }) {
   const text = formatElapsed(elapsed);
   if (!text) return null;
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] text-[var(--color-text-muted)] ml-2">
+    <span className="inline-flex items-center gap-1 text-[10px] text-(--color-text-muted) ml-2">
       <Clock size={10} />
       {text}
     </span>
@@ -37,7 +37,7 @@ function LiveTimer({ startTime }) {
 
   const elapsed = now - startTime;
   return (
-    <span className="inline-flex items-center gap-1 text-xs text-[var(--color-warning)] font-mono ml-2">
+    <span className="inline-flex items-center gap-1 text-xs text-(--color-warning) font-mono ml-2">
       <Clock size={12} />
       {formatElapsed(elapsed)}
     </span>
@@ -47,7 +47,7 @@ function LiveTimer({ startTime }) {
 export default function ResultTable({ result }) {
   if (!result) {
     return (
-      <div className="flex items-center justify-center h-full text-[var(--color-text-muted)] text-sm">
+      <div className="flex items-center justify-center h-full text-(--color-text-muted) text-sm">
         <Table size={16} className="mr-2" />
         Run a query to see results
       </div>
@@ -57,7 +57,7 @@ export default function ResultTable({ result }) {
   // Running state
   if (result.status === "running") {
     return (
-      <div className="flex items-center justify-center h-full text-[var(--color-warning)] text-sm">
+      <div className="flex items-center justify-center h-full text-(--color-warning) text-sm">
         <Loader2 size={16} className="animate-spin mr-2" />
         Executing query...
         {result.startTime && <LiveTimer startTime={result.startTime} />}
@@ -68,7 +68,7 @@ export default function ResultTable({ result }) {
   // Cancelled
   if (result.status === "cancelled") {
     return (
-      <div className="flex items-center justify-center h-full text-[var(--color-text-muted)] text-sm">
+      <div className="flex items-center justify-center h-full text-(--color-text-muted) text-sm">
         <Ban size={16} className="mr-2" />
         Query cancelled
         <ElapsedBadge elapsed={result.elapsed} />
@@ -80,12 +80,12 @@ export default function ResultTable({ result }) {
   if (result.status === "error") {
     return (
       <div className="flex flex-col items-start p-4 h-full overflow-auto">
-        <div className="flex items-center gap-2 text-[var(--color-error)] text-sm font-medium mb-2">
+        <div className="flex items-center gap-2 text-(--color-error) text-sm font-medium mb-2">
           <AlertCircle size={16} />
           Error
           <ElapsedBadge elapsed={result.elapsed} />
         </div>
-        <pre className="text-xs text-[var(--color-error)]/80 whitespace-pre-wrap font-mono bg-[var(--color-error)]/5 rounded-lg p-3 w-full">
+        <pre className="text-xs text-(--color-error)/80 whitespace-pre-wrap font-mono bg-(--color-error)/5 rounded-lg p-3 w-full">
           {result.error}
         </pre>
       </div>
@@ -108,12 +108,12 @@ export default function ResultTable({ result }) {
     if (textData) {
       return (
         <div className="flex flex-col h-full overflow-auto p-4">
-          <div className="flex items-center gap-2 text-[var(--color-success)] text-xs font-medium mb-2">
+          <div className="flex items-center gap-2 text-(--color-success) text-xs font-medium mb-2">
             <CheckCircle2 size={14} />
             Query completed
             <ElapsedBadge elapsed={result.elapsed} />
           </div>
-          <pre className="text-xs text-[var(--color-text-primary)] whitespace-pre-wrap font-mono bg-[var(--color-bg-primary)] rounded-lg p-3 flex-1 overflow-auto">
+          <pre className="text-xs text-(--color-text-primary) whitespace-pre-wrap font-mono bg-(--color-bg-primary) rounded-lg p-3 flex-1 overflow-auto">
             {textData}
           </pre>
         </div>
@@ -121,7 +121,7 @@ export default function ResultTable({ result }) {
     }
 
     return (
-      <div className="flex items-center justify-center h-full text-[var(--color-success)] text-sm">
+      <div className="flex items-center justify-center h-full text-(--color-success) text-sm">
         <CheckCircle2 size={16} className="mr-2" />
         Query completed (no output)
         <ElapsedBadge elapsed={result.elapsed} />
@@ -140,7 +140,7 @@ function renderJsonTable(data, elapsed) {
 
     return (
       <div className="flex flex-col h-full overflow-auto">
-        <div className="flex items-center gap-2 px-4 py-2 text-[var(--color-success)] text-xs font-medium border-b border-[var(--color-border)]">
+        <div className="flex items-center gap-2 px-4 py-2 text-(--color-success) text-xs font-medium border-b border-(--color-border)">
           <CheckCircle2 size={14} />
           {rows.length} row{rows.length !== 1 ? "s" : ""} returned
           <ElapsedBadge elapsed={elapsed} />
@@ -148,7 +148,7 @@ function renderJsonTable(data, elapsed) {
         <div className="flex-1 overflow-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="bg-[var(--color-bg-tertiary)] sticky top-0">
+              <tr className="bg-(--color-bg-tertiary) sticky top-0">
                 {fields.map((field, i) => {
                   const name = field.name || field;
                   const type = field.type
@@ -159,11 +159,11 @@ function renderJsonTable(data, elapsed) {
                   return (
                     <th
                       key={i}
-                      className="px-3 py-1.5 text-left border-b border-[var(--color-border)] whitespace-nowrap"
+                      className="px-3 py-1.5 text-left border-b border-(--color-border) whitespace-nowrap"
                     >
-                      <span className="text-[var(--color-text-secondary)] font-semibold text-xs">{name}</span>
+                      <span className="text-(--color-text-secondary) font-semibold text-xs">{name}</span>
                       {type && (
-                        <span className="block text-[10px] font-normal text-[var(--color-accent)] opacity-70 mt-0.5">
+                        <span className="block text-[10px] font-normal text-(--color-accent) opacity-70 mt-0.5">
                           {type}
                         </span>
                       )}
@@ -176,12 +176,12 @@ function renderJsonTable(data, elapsed) {
               {rows.map((row, ri) => (
                 <tr
                   key={ri}
-                  className="border-b border-[var(--color-border)]/50 hover:bg-[var(--color-bg-tertiary)]/30"
+                  className="border-b border-(--color-border)/50 hover:bg-(--color-bg-tertiary)/30"
                 >
                   {fields.map((field, ci) => (
                     <td
                       key={ci}
-                      className="px-3 py-1.5 text-[var(--color-text-primary)] whitespace-nowrap font-mono"
+                      className="px-3 py-1.5 text-(--color-text-primary) whitespace-nowrap font-mono"
                     >
                       {row[field.name || field] !== undefined
                         ? String(row[field.name || field])
@@ -202,11 +202,11 @@ function renderJsonTable(data, elapsed) {
   // Fallback: render as JSON
   return (
     <div className="flex flex-col h-full overflow-auto p-4">
-      <div className="flex items-center gap-2 text-[var(--color-success)] text-xs font-medium mb-2">
+      <div className="flex items-center gap-2 text-(--color-success) text-xs font-medium mb-2">
         <CheckCircle2 size={14} />
         Query completed
       </div>
-      <pre className="text-xs text-[var(--color-text-primary)] whitespace-pre-wrap font-mono bg-[var(--color-bg-primary)] rounded-lg p-3 flex-1 overflow-auto">
+      <pre className="text-xs text-(--color-text-primary) whitespace-pre-wrap font-mono bg-(--color-bg-primary) rounded-lg p-3 flex-1 overflow-auto">
         {JSON.stringify(data, null, 2)}
       </pre>
     </div>

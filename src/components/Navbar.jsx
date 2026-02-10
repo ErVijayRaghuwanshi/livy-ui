@@ -47,11 +47,11 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="flex items-center justify-between px-4 py-2.5 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border)] shrink-0">
+      <nav className="flex items-center justify-between px-4 py-2.5 bg-(--color-bg-secondary) border-b border-(--color-border) shrink-0">
         {/* Left: Logo */}
         <div className="flex items-center gap-2.5">
-          <Zap size={22} className="text-[var(--color-accent)]" />
-          <span className="text-base font-bold tracking-tight text-[var(--color-text-primary)]">
+          <Zap size={22} className="text-(--color-accent)" />
+          <span className="text-base font-bold tracking-tight text-(--color-text-primary)">
             Livy SQL
           </span>
         </div>
@@ -60,31 +60,31 @@ export default function Navbar() {
         <div className="flex items-center gap-3">
           {/* Error message */}
           {error && (
-            <span className="text-xs text-[var(--color-error)] max-w-48 truncate" title={error}>
+            <span className="text-xs text-(--color-error) max-w-48 truncate" title={error}>
               {error}
             </span>
           )}
 
           {/* App ID */}
           {appId && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--color-bg-primary)] rounded-md border border-[var(--color-border)]">
-              <span className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wide">App</span>
-              <span className="text-xs text-[var(--color-text-primary)] font-mono">{appId}</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-(--color-bg-primary) rounded-md border border-(--color-border)">
+              <span className="text-[10px] text-(--color-text-muted) uppercase tracking-wide">App</span>
+              <span className="text-xs text-(--color-text-primary) font-mono">{appId}</span>
             </div>
           )}
 
           {/* Session ID */}
           {sessionId && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--color-bg-primary)] rounded-md border border-[var(--color-border)]">
-              <span className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wide">Sess</span>
-              <span className="text-xs text-[var(--color-text-primary)] font-mono">{sessionId}</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-(--color-bg-primary) rounded-md border border-(--color-border)">
+              <span className="text-[10px] text-(--color-text-muted) uppercase tracking-wide">Sess</span>
+              <span className="text-xs text-(--color-text-primary) font-mono">{sessionId}</span>
             </div>
           )}
 
           {/* Session Status */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[var(--color-bg-primary)] rounded-md border border-[var(--color-border)]">
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-(--color-bg-primary) rounded-md border border-(--color-border)">
             <span className={`w-2 h-2 rounded-full ${stateColors[sessionState] || "bg-gray-500"}`} />
-            <span className="text-xs text-[var(--color-text-secondary)] capitalize">
+            <span className="text-xs text-(--color-text-secondary) capitalize">
               {sessionState.replace(/_/g, " ")}
             </span>
           </div>
@@ -92,22 +92,22 @@ export default function Navbar() {
           {/* Host selector */}
           <button
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[var(--color-bg-primary)] rounded-md border border-[var(--color-border)] hover:border-[var(--color-text-muted)] transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-(--color-bg-primary) rounded-md border border-(--color-border) hover:border-(--color-text-muted) transition-colors"
           >
-            <Server size={13} className="text-[var(--color-text-muted)]" />
-            <span className="text-xs text-[var(--color-text-secondary)] max-w-28 truncate">
+            <Server size={13} className="text-(--color-text-muted)" />
+            <span className="text-xs text-(--color-text-secondary) max-w-28 truncate">
               {activeHost.name}
             </span>
-            <ChevronDown size={12} className="text-[var(--color-text-muted)]" />
+            <ChevronDown size={12} className="text-(--color-text-muted)" />
           </button>
 
           {/* Session controls */}
-          <div className="flex items-center gap-1 border-l border-[var(--color-border)] pl-3">
+          <div className="flex items-center gap-1 border-l border-(--color-border) pl-3">
             {!isActive && !isStarting ? (
               <button
                 onClick={startSession}
                 disabled={loading}
-                className="flex items-center gap-1 px-3 py-1.5 bg-[var(--color-success)]/20 text-[var(--color-success)] hover:bg-[var(--color-success)]/30 disabled:opacity-40 text-xs font-medium rounded-md transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 bg-(--color-success)/20 text-(--color-success) hover:bg-(--color-success)/30 disabled:opacity-40 text-xs font-medium rounded-md transition-colors"
                 title="Start Session"
               >
                 {loading ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
@@ -117,7 +117,7 @@ export default function Navbar() {
               <button
                 onClick={stopSession}
                 disabled={loading || isStarting}
-                className="flex items-center gap-1 px-3 py-1.5 bg-[var(--color-error)]/20 text-[var(--color-error)] hover:bg-[var(--color-error)]/30 disabled:opacity-40 text-xs font-medium rounded-md transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 bg-(--color-error)/20 text-(--color-error) hover:bg-(--color-error)/30 disabled:opacity-40 text-xs font-medium rounded-md transition-colors"
                 title="Stop Session"
               >
                 {loading ? <Loader2 size={13} className="animate-spin" /> : <Square size={13} />}
@@ -128,7 +128,7 @@ export default function Navbar() {
             <button
               onClick={refreshSession}
               disabled={loading || !sessionId}
-              className="p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] disabled:opacity-40 rounded-md transition-colors"
+              className="p-1.5 text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary) disabled:opacity-40 rounded-md transition-colors"
               title="Refresh Session"
             >
               <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
@@ -136,7 +136,7 @@ export default function Navbar() {
 
             <button
               onClick={() => setShowModal(true)}
-              className="p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] rounded-md transition-colors"
+              className="p-1.5 text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary) rounded-md transition-colors"
               title="Connection Settings"
             >
               <Settings size={14} />
