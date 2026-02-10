@@ -27,19 +27,19 @@ export default function TabBar() {
   };
 
   return (
-    <div className="flex items-center bg-[var(--color-bg-secondary)] border-b border-[var(--color-border)] shrink-0 overflow-x-auto">
+    <div className="flex items-center bg-(--color-bg-secondary) border-b border-(--color-border) shrink-0 overflow-x-auto">
       <div className="flex items-center min-w-0">
         {files.map((file) => (
           <div
             key={file.id}
             onClick={() => setActiveTab(file.id)}
-            className={`group flex items-center gap-1.5 px-3 py-2 text-xs cursor-pointer border-r border-[var(--color-border)] min-w-0 max-w-48 transition-colors ${
+            className={`group flex items-center gap-1.5 px-3 py-2 text-xs cursor-pointer border-r border-(--color-border) min-w-0 max-w-48 transition-colors ${
               file.id === activeTabId
-                ? "bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border-b-2 border-b-[var(--color-accent)]"
-                : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-primary)]/50"
+                ? "bg-(--color-bg-primary) text-(--color-text-primary) border-b-2 border-b-(--color-accent)"
+                : "text-(--color-text-muted) hover:text-(--color-text-secondary) hover:bg-(--color-bg-primary)/50"
             }`}
           >
-            <FileCode size={13} className="shrink-0 text-[var(--color-accent)]" />
+            <FileCode size={13} className="shrink-0 text-(--color-accent)" />
 
             {renamingId === file.id ? (
               <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -52,10 +52,10 @@ export default function TabBar() {
                     if (e.key === "Escape") setRenamingId(null);
                   }}
                   onBlur={() => handleFinishRename(file.id)}
-                  className="w-24 bg-[var(--color-bg-primary)] border border-[var(--color-accent)] rounded px-1 py-0.5 text-xs text-[var(--color-text-primary)] outline-none"
+                  className="w-24 bg-(--color-bg-primary) border border-(--color-accent) rounded px-1 py-0.5 text-xs text-(--color-text-primary) outline-none"
                 />
                 <button onClick={() => handleFinishRename(file.id)} className="p-0.5">
-                  <Check size={11} className="text-[var(--color-success)]" />
+                  <Check size={11} className="text-(--color-success)" />
                 </button>
               </div>
             ) : (
@@ -63,9 +63,9 @@ export default function TabBar() {
                 <span className="truncate">{file.name}</span>
                 <button
                   onClick={(e) => handleStartRename(e, file)}
-                  className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-[var(--color-bg-tertiary)] transition-opacity"
+                  className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-(--color-bg-tertiary) transition-opacity"
                 >
-                  <Pencil size={10} className="text-[var(--color-text-muted)]" />
+                  <Pencil size={10} className="text-(--color-text-muted)" />
                 </button>
               </>
             )}
@@ -73,7 +73,7 @@ export default function TabBar() {
             {files.length > 1 && (
               <button
                 onClick={(e) => handleClose(e, file.id)}
-                className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-[var(--color-bg-tertiary)] hover:text-[var(--color-error)] transition-opacity ml-auto"
+                className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-(--color-bg-tertiary) hover:text-(--color-error) transition-opacity ml-auto"
               >
                 <X size={11} />
               </button>
@@ -84,7 +84,7 @@ export default function TabBar() {
 
       <button
         onClick={() => addFile()}
-        className="flex items-center gap-1 px-3 py-2 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-primary)]/50 transition-colors shrink-0"
+        className="flex items-center gap-1 px-3 py-2 text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-primary)/50 transition-colors shrink-0"
         title="New SQL File"
       >
         <Plus size={14} />

@@ -28,22 +28,22 @@ function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy }) {
   return (
     <div>
       <div
-        className="flex items-center gap-1 px-2 py-1 text-xs cursor-pointer hover:bg-[var(--color-bg-tertiary)] rounded group"
+        className="flex items-center gap-1 px-2 py-1 text-xs cursor-pointer hover:bg-(--color-bg-tertiary) rounded group"
         onClick={toggle}
       >
         {hasChildren ? (
           open ? (
-            <ChevronDown size={12} className="shrink-0 text-[var(--color-text-muted)]" />
+            <ChevronDown size={12} className="shrink-0 text-(--color-text-muted)" />
           ) : (
-            <ChevronRight size={12} className="shrink-0 text-[var(--color-text-muted)]" />
+            <ChevronRight size={12} className="shrink-0 text-(--color-text-muted)" />
           )
         ) : (
           <span className="w-3 shrink-0" />
         )}
-        <Icon size={13} className="shrink-0 text-[var(--color-accent)]" />
-        <span className="truncate text-[var(--color-text-primary)]">{label}</span>
+        <Icon size={13} className="shrink-0 text-(--color-accent)" />
+        <span className="truncate text-(--color-text-primary)">{label}</span>
         {sublabel && (
-          <span className="ml-auto text-[10px] text-[var(--color-text-muted)] font-mono shrink-0">
+          <span className="ml-auto text-[10px] text-(--color-text-muted) font-mono shrink-0">
             {sublabel}
           </span>
         )}
@@ -53,7 +53,7 @@ function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy }) {
               e.stopPropagation();
               onCopy();
             }}
-            className="ml-1 opacity-0 group-hover:opacity-100 text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-opacity"
+            className="ml-1 opacity-0 group-hover:opacity-100 text-(--color-text-muted) hover:text-(--color-accent) transition-opacity"
             title="Copy name"
           >
             <Copy size={11} />
@@ -61,7 +61,7 @@ function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy }) {
         )}
       </div>
       {open && children && (
-        <div className="ml-3 border-l border-[var(--color-border)]/30 pl-1">
+        <div className="ml-3 border-l border-(--color-border)/30 pl-1">
           {children}
         </div>
       )}
@@ -71,7 +71,7 @@ function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy }) {
 
 function LoadingNode() {
   return (
-    <div className="flex items-center gap-1 px-2 py-1 text-xs text-[var(--color-text-muted)]">
+    <div className="flex items-center gap-1 px-2 py-1 text-xs text-(--color-text-muted)">
       <Loader2 size={11} className="animate-spin" /> Loading...
     </div>
   );
@@ -79,7 +79,7 @@ function LoadingNode() {
 
 export default function SchemaExplorer() {
   const { sessionId, sessionState } = useLivy();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [databases, setDatabases] = useState([]);
   const [tables, setTables] = useState({});
   const [columns, setColumns] = useState({});
@@ -191,10 +191,10 @@ export default function SchemaExplorer() {
 
   if (collapsed) {
     return (
-      <div className="flex flex-col items-center py-2 w-10 shrink-0 bg-[var(--color-bg-secondary)] border-r border-[var(--color-border)]">
+      <div className="flex flex-col items-center py-2 w-10 shrink-0 bg-(--color-bg-secondary) border-r border-(--color-border)">
         <button
           onClick={() => setCollapsed(false)}
-          className="p-1.5 rounded hover:bg-[var(--color-bg-tertiary)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+          className="p-1.5 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary)"
           title="Show Schema Explorer"
         >
           <PanelLeft size={16} />
@@ -204,10 +204,10 @@ export default function SchemaExplorer() {
   }
 
   return (
-    <div className="flex flex-col w-60 shrink-0 bg-[var(--color-bg-secondary)] border-r border-[var(--color-border)] overflow-hidden">
+    <div className="flex flex-col w-60 shrink-0 bg-(--color-bg-secondary) border-r border-(--color-border) overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--color-border)]">
-        <span className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border)">
+        <span className="text-xs font-semibold text-(--color-text-secondary) uppercase tracking-wider">
           Schema Explorer
         </span>
         <div className="flex items-center gap-1">
@@ -218,7 +218,7 @@ export default function SchemaExplorer() {
               loadDatabases();
             }}
             disabled={!isReady || loading._dbs}
-            className="p-1 rounded hover:bg-[var(--color-bg-tertiary)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] disabled:opacity-30"
+            className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) disabled:opacity-30"
             title="Refresh"
           >
             {loading._dbs ? (
@@ -229,7 +229,7 @@ export default function SchemaExplorer() {
           </button>
           <button
             onClick={() => setCollapsed(true)}
-            className="p-1 rounded hover:bg-[var(--color-bg-tertiary)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+            className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary)"
             title="Collapse"
           >
             <PanelLeftClose size={13} />
@@ -240,19 +240,19 @@ export default function SchemaExplorer() {
       {/* Content */}
       <div className="flex-1 overflow-auto py-1">
         {!isReady && (
-          <div className="px-3 py-4 text-xs text-[var(--color-text-muted)] text-center">
+          <div className="px-3 py-4 text-xs text-(--color-text-muted) text-center">
             Start a session to explore schema
           </div>
         )}
 
         {error && (
-          <div className="px-3 py-2 text-xs text-[var(--color-error)]">
+          <div className="px-3 py-2 text-xs text-(--color-error)">
             {error}
           </div>
         )}
 
         {isReady && databases.length === 0 && !loading._dbs && !error && (
-          <div className="px-3 py-4 text-xs text-[var(--color-text-muted)] text-center">
+          <div className="px-3 py-4 text-xs text-(--color-text-muted) text-center">
             No databases found
           </div>
         )}
@@ -269,7 +269,7 @@ export default function SchemaExplorer() {
               <LoadingNode />
             ) : tables[db] ? (
               tables[db].length === 0 ? (
-                <div className="px-2 py-1 text-[10px] text-[var(--color-text-muted)]">
+                <div className="px-2 py-1 text-[10px] text-(--color-text-muted)">
                   No tables
                 </div>
               ) : (
@@ -289,7 +289,7 @@ export default function SchemaExplorer() {
                         <LoadingNode />
                       ) : columns[key] ? (
                         columns[key].length === 0 ? (
-                          <div className="px-2 py-1 text-[10px] text-[var(--color-text-muted)]">
+                          <div className="px-2 py-1 text-[10px] text-(--color-text-muted)">
                             No columns
                           </div>
                         ) : (
