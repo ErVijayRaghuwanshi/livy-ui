@@ -199,11 +199,11 @@ export default function SqlEditor({ onResult }) {
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-(--color-bg-secondary) border-b border-[var(--color-border)] shrink-0">
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-(--color-bg-secondary) border-b border-(--color-border) shrink-0">
         {running ? (
           <button
             onClick={handleCancel}
-            className="flex items-center gap-1.5 px-3 py-1 bg-[var(--color-error)]/20 text-[var(--color-error)] hover:bg-[var(--color-error)]/30 text-xs font-medium rounded-md transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1 bg-(--color-error)/20 text-(--color-error) hover:bg-(--color-error)/30 text-xs font-medium rounded-md transition-colors"
           >
             <Ban size={13} />
             Cancel
@@ -212,7 +212,7 @@ export default function SqlEditor({ onResult }) {
           <button
             onClick={handleRun}
             disabled={!canRun}
-            className="flex items-center gap-1.5 px-3 py-1 bg-[var(--color-success)]/20 text-[var(--color-success)] hover:bg-[var(--color-success)]/30 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium rounded-md transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1 bg-(--color-success)/20 text-(--color-success) hover:bg-(--color-success)/30 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium rounded-md transition-colors"
             title="Run SQL (selected text or all)"
           >
             <Play size={13} />
@@ -222,7 +222,7 @@ export default function SqlEditor({ onResult }) {
 
         <button
           onClick={handleFormat}
-          className="flex items-center gap-1.5 px-3 py-1 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-(--color-bg-tertiary) text-xs rounded-md transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1 text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary) text-xs rounded-md transition-colors"
           title="Format SQL"
         >
           <AlignLeft size={13} />
@@ -230,13 +230,13 @@ export default function SqlEditor({ onResult }) {
         </button>
 
         {running && (
-          <div className="flex items-center gap-1.5 ml-2 text-[var(--color-warning)]">
+          <div className="flex items-center gap-1.5 ml-2 text-(--color-warning)">
             <Loader2 size={13} className="animate-spin" />
             <span className="text-xs">Executing...</span>
           </div>
         )}
 
-        <div className="ml-auto text-[10px] text-[var(--color-text-muted)]">
+        <div className="ml-auto text-[10px] text-(--color-text-muted)">
           {activeFile?.name}
         </div>
       </div>

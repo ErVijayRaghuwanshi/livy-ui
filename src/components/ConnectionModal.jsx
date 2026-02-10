@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 
 const COMMON_CONF_KEYS = [
   "spark.sql.warehouse.dir",
+  "spark.sql.extensions",
   "spark.hadoop.hive.metastore.uris",
   "spark.executor.memory",
   "spark.executor.cores",
@@ -149,14 +150,14 @@ export default function ConnectionModal({ isOpen, onClose }) {
         </div>
 
         {/* Session Configuration */}
-        <div className="px-5 py-4 border-t border-[var(--color-border)]">
+        <div className="px-5 py-4 border-t border-(--color-border)">
           <div className="flex items-center gap-1.5 mb-3">
-            <Settings2 size={13} className="text-[var(--color-text-muted)]" />
-            <p className="text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wide">
+            <Settings2 size={13} className="text-(--color-text-muted)" />
+            <p className="text-xs text-(--color-text-muted) font-medium uppercase tracking-wide">
               Session Configuration
             </p>
           </div>
-          <p className="text-[10px] text-[var(--color-text-muted)] mb-3">
+          <p className="text-[10px] text-(--color-text-muted) mb-3">
             Spark properties applied when starting a new session (e.g. Hive metastore, executor memory).
           </p>
 
@@ -166,13 +167,13 @@ export default function ConnectionModal({ isOpen, onClose }) {
               {Object.entries(sessionConf).map(([key, value]) => (
                 <div
                   key={key}
-                  className="flex items-center gap-2 px-2.5 py-1.5 bg-[var(--color-bg-primary)] rounded-md border border-[var(--color-border)] group"
+                  className="flex items-center gap-2 px-2.5 py-1.5 bg-(--color-bg-primary) rounded-md border border-(--color-border) group"
                 >
-                  <span className="text-xs text-[var(--color-accent)] font-mono truncate min-w-0 flex-1">
+                  <span className="text-xs text-(--color-accent) font-mono truncate min-w-0 flex-1">
                     {key}
                   </span>
-                  <span className="text-[10px] text-[var(--color-text-muted)]">=</span>
-                  <span className="text-xs text-[var(--color-text-primary)] font-mono truncate min-w-0 flex-1">
+                  <span className="text-[10px] text-(--color-text-muted)">=</span>
+                  <span className="text-xs text-(--color-text-primary) font-mono truncate min-w-0 flex-1">
                     {value}
                   </span>
                   <button
@@ -181,7 +182,7 @@ export default function ConnectionModal({ isOpen, onClose }) {
                       delete next[key];
                       setSessionConf(next);
                     }}
-                    className="p-0.5 rounded opacity-0 group-hover:opacity-100 text-[var(--color-text-muted)] hover:text-[var(--color-error)] transition-opacity"
+                    className="p-0.5 rounded opacity-0 group-hover:opacity-100 text-(--color-text-muted) hover:text-(--color-error) transition-opacity"
                   >
                     <Trash2 size={12} />
                   </button>
@@ -198,7 +199,7 @@ export default function ConnectionModal({ isOpen, onClose }) {
                 onChange={(e) => setConfKey(e.target.value)}
                 placeholder="spark.property.name"
                 list="common-spark-keys"
-                className="w-full bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-[var(--color-text-primary)] font-mono outline-none focus:border-[var(--color-accent)] placeholder:text-[var(--color-text-muted)]"
+                className="w-full bg-(--color-bg-primary) border border-(--color-border) rounded-lg px-3 py-2 text-xs text-(--color-text-primary) font-mono outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted)"
               />
               <datalist id="common-spark-keys">
                 {COMMON_CONF_KEYS.filter((k) => !(k in sessionConf)).map((k) => (
@@ -210,7 +211,7 @@ export default function ConnectionModal({ isOpen, onClose }) {
               value={confValue}
               onChange={(e) => setConfValue(e.target.value)}
               placeholder="value"
-              className="flex-1 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-[var(--color-text-primary)] font-mono outline-none focus:border-[var(--color-accent)] placeholder:text-[var(--color-text-muted)]"
+              className="flex-1 bg-(--color-bg-primary) border border-(--color-border) rounded-lg px-3 py-2 text-xs text-(--color-text-primary) font-mono outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted)"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && confKey.trim() && confValue.trim()) {
                   setSessionConf({ ...sessionConf, [confKey.trim()]: confValue.trim() });
@@ -227,7 +228,7 @@ export default function ConnectionModal({ isOpen, onClose }) {
                 setConfValue("");
               }}
               disabled={!confKey.trim() || !confValue.trim()}
-              className="flex items-center gap-1 px-3 py-2 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg transition-colors"
+              className="flex items-center gap-1 px-3 py-2 bg-(--color-accent) hover:bg-(--color-accent-hover) disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg transition-colors"
             >
               <Plus size={12} />
               Add
