@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState, forwardRef, useImperativeHandle } from "react";
 import Editor from "@monaco-editor/react";
 import { Play, AlignLeft, Loader2, Ban } from "lucide-react";
 import { format } from "sql-formatter";
@@ -54,7 +54,7 @@ function registerSparkProviders(monaco) {
         range,
       }));
 
-      // 3. Generate Predefined Code Snippets (NEW!)
+            // 3. Generate Predefined Code Snippets (NEW!)
       const snippetSuggestions = SPARK_SQL_SNIPPETS.map((snippet) => ({
         label: snippet.label,
         kind: monaco.languages.CompletionItemKind.Snippet, // Marks it as a Snippet icon in the UI
@@ -96,8 +96,8 @@ function registerSparkProviders(monaco) {
   });
 }
 
-export default function SqlEditor({ onResult }) {
-  const { activeFile, updateContent } = useSqlFiles();
+const SqlEditor = forwardRef(function SqlEditor(props, ref) {
+  const { activeFile, updateContent, setResult } = useSqlFiles();
   const { sessionId, sessionState } = useLivy();
   const editorRef = useRef(null);
   const [running, setRunning] = useState(false);
@@ -153,7 +153,7 @@ export default function SqlEditor({ onResult }) {
     setRunning(true);
     abortRef.current = false;
     const startTime = performance.now();
-    onResult({ status: "running", data: null, error: null, elapsed: null, startTime });
+    setResult(activeFile.id, { status: "running", data: null, error: null, elapsed: null, startTime });
 
     try {
       const stmt = await livyApi.submitStatement(sessionId, sql);
@@ -163,7 +163,7 @@ export default function SqlEditor({ onResult }) {
       while (true) {
         if (abortRef.current) {
           await livyApi.cancelStatement(sessionId, stmtId);
-          onResult({ status: "cancelled", data: null, error: "Query cancelled", elapsed: performance.now() - startTime });
+          setResult(activeFile.id, { status: "cancelled", data: null, error: "Query cancelled", elapsed: performance.now() - startTime });
           break;
         }
 
@@ -172,9 +172,9 @@ export default function SqlEditor({ onResult }) {
         if (result.state === STATEMENT_STATES.AVAILABLE) {
           const output = result.output;
           if (output.status === "ok") {
-            onResult({ status: "ok", data: output.data, error: null, elapsed: performance.now() - startTime });
+            setResult(activeFile.id, { status: "ok", data: output.data, error: null, elapsed: performance.now() - startTime });
           } else {
-            onResult({
+            setResult(activeFile.id, {
               status: "error",
               data: null,
               error: output.evalue || output.traceback?.join("\n") || "Unknown error",
@@ -185,7 +185,7 @@ export default function SqlEditor({ onResult }) {
         }
 
         if (result.state === STATEMENT_STATES.ERROR || result.state === STATEMENT_STATES.CANCELLED) {
-          onResult({
+          setResult(activeFile.id, {
             status: "error",
             data: null,
             error: result.output?.evalue || `Statement ${result.state}`,
@@ -197,7 +197,7 @@ export default function SqlEditor({ onResult }) {
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
       }
     } catch (err) {
-      onResult({ status: "error", data: null, error: err.message, elapsed: performance.now() - startTime });
+      setResult(activeFile.id, { status: "error", data: null, error: err.message, elapsed: performance.now() - startTime });
     } finally {
       setRunning(false);
     }
@@ -206,6 +206,11 @@ export default function SqlEditor({ onResult }) {
   const handleCancel = () => {
     abortRef.current = true;
   };
+
+  useImperativeHandle(ref, () => ({
+    run: handleRun,
+    format: handleFormat,
+  }));
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -283,4 +288,6 @@ export default function SqlEditor({ onResult }) {
       </div>
     </div>
   );
-}
+});
+
+export default SqlEditor;

@@ -67,9 +67,5 @@ function livyProxyPlugin() {
 
 export default defineConfig({
   base: '/livy-ui/',
-  plugins: [
-    react(), 
-    tailwindcss(), 
-    livyProxyPlugin()
-  ],
+  plugins: [react(), tailwindcss(), livyProxyPlugin()],
 });

@@ -16,6 +16,7 @@ const defaultFile = {
 const initialState = {
   files: getItem(STORAGE_KEYS.SQL_FILES, [defaultFile]),
   activeTabId: getItem(STORAGE_KEYS.ACTIVE_TAB, "default"),
+  results: {},
 };
 
 function reducer(state, action) {
@@ -36,14 +37,16 @@ function reducer(state, action) {
     }
     case "REMOVE_FILE": {
       const filtered = state.files.filter((f) => f.id !== action.payload);
+      const nextResults = { ...state.results };
+      delete nextResults[action.payload];
       if (filtered.length === 0) {
-        return { files: [defaultFile], activeTabId: defaultFile.id };
+        return { files: [defaultFile], activeTabId: defaultFile.id, results: {} };
       }
       const newActiveId =
         state.activeTabId === action.payload
           ? filtered[filtered.length - 1].id
           : state.activeTabId;
-      return { ...state, files: filtered, activeTabId: newActiveId };
+      return { ...state, files: filtered, activeTabId: newActiveId, results: nextResults };
     }
     case "UPDATE_FILE_CONTENT": {
       const files = state.files.map((f) =>
@@ -61,6 +64,8 @@ function reducer(state, action) {
     }
     case "SET_ACTIVE_TAB":
       return { ...state, activeTabId: action.payload };
+    case "SET_RESULT":
+      return { ...state, results: { ...state.results, [action.payload.id]: action.payload.result } };
     default:
       return state;
   }
@@ -86,16 +91,21 @@ export function SqlFilesProvider({ children }) {
   const updateContent = useCallback((id, content) => dispatch({ type: "UPDATE_FILE_CONTENT", payload: { id, content } }), []);
   const renameFile = useCallback((id, name) => dispatch({ type: "RENAME_FILE", payload: { id, name } }), []);
   const setActiveTab = useCallback((id) => dispatch({ type: "SET_ACTIVE_TAB", payload: id }), []);
+  const setResult = useCallback((id, result) => dispatch({ type: "SET_RESULT", payload: { id, result } }), []);
+
+  const activeResult = state.results[state.activeTabId] || null;
 
   const value = {
     files: state.files,
     activeTabId: state.activeTabId,
     activeFile,
+    activeResult,
     addFile,
     removeFile,
     updateContent,
     renameFile,
     setActiveTab,
+    setResult,
   };
 
   return <SqlFilesContext.Provider value={value}>{children}</SqlFilesContext.Provider>;
