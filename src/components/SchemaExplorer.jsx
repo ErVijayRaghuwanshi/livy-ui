@@ -10,12 +10,13 @@ import {
   PanelLeftClose,
   PanelLeft,
   Copy,
+  Trash2,
 } from "lucide-react";
 import { useLivy } from "../context/LivyContext";
 import { SESSION_STATES } from "../utils/constants";
 import * as livyApi from "../services/livyApi";
 
-function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy }) {
+function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy, onDelete }) {
   const [open, setOpen] = useState(false);
   const hasChildren = !!children || !!onOpen;
 
@@ -47,13 +48,25 @@ function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy }) {
             {sublabel}
           </span>
         )}
+        {onDelete && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="ml-auto opacity-0 group-hover:opacity-100 text-(--color-text-muted) hover:text-(--color-error) transition-opacity"
+            title="Drop table"
+          >
+            <Trash2 size={11} />
+          </button>
+        )}
         {onCopy && (
           <button
             onClick={(e) => {
               e.stopPropagation();
               onCopy();
             }}
-            className="ml-1 opacity-0 group-hover:opacity-100 text-(--color-text-muted) hover:text-(--color-accent) transition-opacity"
+            className={`${onDelete ? "" : "ml-auto"} ml-1 opacity-0 group-hover:opacity-100 text-(--color-text-muted) hover:text-(--color-accent) transition-opacity`}
             title="Copy name"
           >
             <Copy size={11} />
@@ -188,6 +201,33 @@ export default function SchemaExplorer() {
     [sessionId, isReady]
   );
 
+  const dropTable = useCallback(
+    async (db, table) => {
+      if (!isReady) return;
+      if (!window.confirm(`Drop table \`${db}\`.\`${table}\`?\n\nThis will remove the table from the catalog. If it was created with LOCATION, the underlying data will NOT be deleted.`)) return;
+      const key = `${db}.${table}`;
+      setLoading((p) => ({ ...p, [key]: true }));
+      try {
+        await livyApi.runSql(sessionId, `DROP TABLE IF EXISTS \`${db}\`.\`${table}\``);
+        setTables((p) => ({
+          ...p,
+          [db]: (p[db] || []).filter((t) => t !== table),
+        }));
+        setColumns((p) => {
+          const next = { ...p };
+          delete next[key];
+          return next;
+        });
+      } catch (err) {
+        console.error(`[SchemaExplorer] Error dropping ${key}:`, err);
+        setError(`Failed to drop ${table}: ${err.message}`);
+      } finally {
+        setLoading((p) => ({ ...p, [key]: false }));
+      }
+    },
+    [sessionId, isReady]
+  );
+
   useEffect(() => {
     if (isReady && databases.length === 0) {
       loadDatabases();
@@ -296,6 +336,7 @@ export default function SchemaExplorer() {
                       onCopy={() =>
                         copyToClipboard(`\`${db}\`.\`${tbl}\``)
                       }
+                      onDelete={() => dropTable(db, tbl)}
                     >
                       {loading[key] ? (
                         <LoadingNode />
