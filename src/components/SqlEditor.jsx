@@ -8,6 +8,7 @@ import { SESSION_STATES, STATEMENT_STATES, POLL_INTERVAL_MS } from "../utils/con
 import * as livyApi from "../services/livyApi";
 import { SPARK_FUNCTIONS_DATA } from "../utils/spark-functions-data";
 import { SPARK_SQL_KEYWORDS } from "../utils/spark-keywords-data";
+import { SPARK_SQL_SNIPPETS } from "../utils/spark_sql_snippets";
 
 let providersRegistered = false;
 
@@ -53,7 +54,17 @@ function registerSparkProviders(monaco) {
         range,
       }));
 
-      return { suggestions: [...keywordSuggestions, ...functionSuggestions] };
+      // 3. Generate Predefined Code Snippets (NEW!)
+      const snippetSuggestions = SPARK_SQL_SNIPPETS.map((snippet) => ({
+        label: snippet.label,
+        kind: monaco.languages.CompletionItemKind.Snippet, // Marks it as a Snippet icon in the UI
+        insertText: snippet.insertText,
+        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+        detail: "Spark SQL Template",
+        documentation: snippet.description,
+        range,
+      }));
+      return { suggestions: [...keywordSuggestions, ...functionSuggestions, ...snippetSuggestions] };
     },
   });
 

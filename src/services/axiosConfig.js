@@ -11,11 +11,13 @@ export function getLivyTargetUrl() {
 
 export function createLivyClient() {
   const targetUrl = getLivyTargetUrl();
-
   const client = axios.create({
     baseURL: "/api",
+    // ✅ FIX 1: Point directly to the Livy URL instead of the local Vite "/api" route
+    // baseURL: targetUrl,
     headers: {
       "Content-Type": "application/json",
+      // ✅ FIX 2: Removed "X-Livy-Target" since the proxy is no longer intercepting it
       "X-Livy-Target": targetUrl,
     },
     timeout: 30000,
