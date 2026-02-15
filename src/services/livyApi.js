@@ -11,9 +11,12 @@ export async function listSessions() {
   return data;
 }
 
-export async function createSession(conf = {}) {
+export async function createSession(conf = {}, name = "") {
   const client = getClient();
   const body = { kind: SESSION_KIND };
+  if (name.trim()) {
+    body.name = name.trim();
+  }
   const cleanConf = Object.fromEntries(
     Object.entries(conf).filter(([k, v]) => k.trim() && v.trim())
   );

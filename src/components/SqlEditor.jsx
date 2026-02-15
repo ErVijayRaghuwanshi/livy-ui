@@ -1,6 +1,6 @@
-import { useRef, useCallback, useState, forwardRef, useImperativeHandle } from "react";
+import { useRef, useCallback, useState, forwardRef, useImperativeHandle, useEffect } from "react";
 import Editor from "@monaco-editor/react";
-import { Play, AlignLeft, Loader2, Ban } from "lucide-react";
+import { Play, AlignLeft, WrapText, Loader2, Ban } from "lucide-react";
 import { format } from "sql-formatter";
 import { useSqlFiles } from "../context/SqlFilesContext";
 import { useLivy } from "../context/LivyContext";
@@ -9,6 +9,7 @@ import * as livyApi from "../services/livyApi";
 import { SPARK_FUNCTIONS_DATA } from "../utils/spark-functions-data";
 import { SPARK_SQL_KEYWORDS } from "../utils/spark-keywords-data";
 import { SPARK_SQL_SNIPPETS } from "../utils/spark_sql_snippets";
+import { useToast } from "./Toast";
 
 let providersRegistered = false;
 
@@ -96,22 +97,121 @@ function registerSparkProviders(monaco) {
   });
 }
 
+function parseStatements(content) {
+  if (!content) return [];
+  const lines = content.split("\n");
+  const statements = [];
+  let currentSql = "";
+  let startLine = 1;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.replace(/--.*$/, "").trim();
+    if (!currentSql && !trimmed) {
+      startLine = i + 2;
+      continue;
+    }
+    currentSql += (currentSql ? "\n" : "") + line;
+
+    if (trimmed.endsWith(";")) {
+      const sql = currentSql.replace(/--.*$/gm, "").trim().replace(/;\s*$/, "").trim();
+      if (sql) {
+        statements.push({ sql, startLine, endLine: i + 1 });
+      }
+      currentSql = "";
+      startLine = i + 2;
+    }
+  }
+
+  // Handle trailing statement without semicolon
+  const trailing = currentSql.replace(/--.*$/gm, "").trim().replace(/;\s*$/, "").trim();
+  if (trailing) {
+    statements.push({ sql: trailing, startLine, endLine: lines.length });
+  }
+
+  return statements;
+}
+
+const ORIGINAL_TITLE = document.title;
+
+function formatElapsedShort(ms) {
+  if (ms == null) return "";
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  const secs = ms / 1000;
+  if (secs < 60) return `${secs.toFixed(1)}s`;
+  const mins = Math.floor(secs / 60);
+  return `${mins}m ${(secs % 60).toFixed(0)}s`;
+}
+
 const SqlEditor = forwardRef(function SqlEditor(props, ref) {
   const { activeFile, updateContent, setResult } = useSqlFiles();
   const { sessionId, sessionState } = useLivy();
+  const { addToast } = useToast();
   const editorRef = useRef(null);
+  const monacoRef = useRef(null);
   const [running, setRunning] = useState(false);
   const abortRef = useRef(false);
+  const statementsRef = useRef([]);
+  const decorationsRef = useRef([]);
+  const runningDecorationsRef = useRef([]);
+  const handleRunSqlRef = useRef(null);
+
+  // Reset tab title when window regains focus
+  useEffect(() => {
+    const resetTitle = () => { document.title = ORIGINAL_TITLE; };
+    window.addEventListener("focus", resetTitle);
+    return () => window.removeEventListener("focus", resetTitle);
+  }, []);
 
   const canRun =
-    sessionState === SESSION_STATES.IDLE && sessionId && !running;
+    sessionState === SESSION_STATES.IDLE && sessionId !== null && !running;
 
   const handleBeforeMount = (monaco) => {
     registerSparkProviders(monaco);
   };
 
-  const handleEditorMount = (editor) => {
+  const updateDecorations = useCallback((editor) => {
+    if (!editor) return;
+    const content = editor.getValue();
+    const stmts = parseStatements(content);
+    statementsRef.current = stmts;
+
+    const newDecorations = stmts.map((s) => ({
+      range: new monacoRef.current.Range(s.startLine, 1, s.startLine, 1),
+      options: {
+        isWholeLine: false,
+        glyphMarginClassName: "run-glyph",
+        glyphMarginHoverMessage: { value: "**Run this statement**" },
+      },
+    }));
+
+    decorationsRef.current = editor.deltaDecorations(
+      decorationsRef.current,
+      newDecorations
+    );
+  }, []);
+
+  const handleEditorMount = (editor, monaco) => {
     editorRef.current = editor;
+    monacoRef.current = monaco;
+
+    updateDecorations(editor);
+
+    // Monaco MouseTargetType.GLYPH_MARGIN = 2
+    const GLYPH_MARGIN_TYPE = 2;
+
+    editor.onMouseDown((e) => {
+      if (e.target.type === GLYPH_MARGIN_TYPE) {
+        const lineNumber = e.target.position?.lineNumber;
+        if (!lineNumber) return;
+        const stmt = statementsRef.current.find(
+          (s) => s.startLine === lineNumber
+        );
+        if (stmt && stmt.sql && handleRunSqlRef.current) {
+          handleRunSqlRef.current(stmt.sql, stmt.startLine, stmt.endLine);
+        }
+      }
+    });
   };
 
   const handleChange = useCallback(
@@ -135,6 +235,20 @@ const SqlEditor = forwardRef(function SqlEditor(props, ref) {
     }
   };
 
+  const handleMinify = () => {
+    if (!editorRef.current) return;
+    const value = editorRef.current.getValue();
+    const minified = value
+      .split("\n")
+      .map((line) => line.replace(/--.*$/, "").trim())
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+    editorRef.current.setValue(minified);
+    updateContent(activeFile.id, minified);
+  };
+
   const getSelectedOrAll = () => {
     if (!editorRef.current) return "";
     const selection = editorRef.current.getSelection();
@@ -145,15 +259,52 @@ const SqlEditor = forwardRef(function SqlEditor(props, ref) {
     return editorRef.current.getValue();
   };
 
-  const handleRun = async () => {
+  const setRunningHighlight = useCallback((startLine, endLine) => {
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    if (!editor || !monaco) return;
+
+    const decos = [];
+    for (let ln = startLine; ln <= endLine; ln++) {
+      decos.push({
+        range: new monaco.Range(ln, 1, ln, 1),
+        options: {
+          isWholeLine: true,
+          className: "running-statement-line",
+          glyphMarginClassName: ln === startLine ? "running-statement-glyph" : undefined,
+        },
+      });
+    }
+    runningDecorationsRef.current = editor.deltaDecorations(
+      runningDecorationsRef.current,
+      decos
+    );
+  }, []);
+
+  const clearRunningHighlight = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    runningDecorationsRef.current = editor.deltaDecorations(
+      runningDecorationsRef.current,
+      []
+    );
+  }, []);
+
+  const handleRunSql = async (sqlOverride, startLine, endLine) => {
     if (!canRun) return;
-    const sql = getSelectedOrAll().trim();
+    const sql = (sqlOverride || getSelectedOrAll()).trim();
     if (!sql) return;
 
     setRunning(true);
     abortRef.current = false;
     const startTime = performance.now();
+    let finalStatus = null;
+    let finalError = null;
     setResult(activeFile.id, { status: "running", data: null, error: null, elapsed: null, startTime });
+
+    if (startLine && endLine) {
+      setRunningHighlight(startLine, endLine);
+    }
 
     try {
       const stmt = await livyApi.submitStatement(sessionId, sql);
@@ -163,6 +314,7 @@ const SqlEditor = forwardRef(function SqlEditor(props, ref) {
       while (true) {
         if (abortRef.current) {
           await livyApi.cancelStatement(sessionId, stmtId);
+          finalStatus = "cancelled";
           setResult(activeFile.id, { status: "cancelled", data: null, error: "Query cancelled", elapsed: performance.now() - startTime });
           break;
         }
@@ -172,12 +324,15 @@ const SqlEditor = forwardRef(function SqlEditor(props, ref) {
         if (result.state === STATEMENT_STATES.AVAILABLE) {
           const output = result.output;
           if (output.status === "ok") {
+            finalStatus = "ok";
             setResult(activeFile.id, { status: "ok", data: output.data, error: null, elapsed: performance.now() - startTime });
           } else {
+            finalStatus = "error";
+            finalError = output.evalue || output.traceback?.join("\n") || "Unknown error";
             setResult(activeFile.id, {
               status: "error",
               data: null,
-              error: output.evalue || output.traceback?.join("\n") || "Unknown error",
+              error: finalError,
               elapsed: performance.now() - startTime,
             });
           }
@@ -185,10 +340,12 @@ const SqlEditor = forwardRef(function SqlEditor(props, ref) {
         }
 
         if (result.state === STATEMENT_STATES.ERROR || result.state === STATEMENT_STATES.CANCELLED) {
+          finalStatus = "error";
+          finalError = result.output?.evalue || `Statement ${result.state}`;
           setResult(activeFile.id, {
             status: "error",
             data: null,
-            error: result.output?.evalue || `Statement ${result.state}`,
+            error: finalError,
             elapsed: performance.now() - startTime,
           });
           break;
@@ -197,11 +354,54 @@ const SqlEditor = forwardRef(function SqlEditor(props, ref) {
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
       }
     } catch (err) {
+      finalStatus = "error";
+      finalError = err.message;
       setResult(activeFile.id, { status: "error", data: null, error: err.message, elapsed: performance.now() - startTime });
     } finally {
+      clearRunningHighlight();
       setRunning(false);
     }
+
+    // Notify if tab is not focused
+    if (!document.hasFocus()) {
+      const elapsed = formatElapsedShort(performance.now() - startTime);
+      let notifTitle = "";
+      let notifBody = "";
+      if (finalStatus === "ok") {
+        addToast("ok", activeFile?.name || "Query", elapsed);
+        document.title = `✅ Query done — ${ORIGINAL_TITLE}`;
+        notifTitle = "✅ Query completed";
+        notifBody = `${activeFile?.name || "Query"} finished in ${elapsed}`;
+      } else if (finalStatus === "error") {
+        addToast("error", finalError?.substring(0, 80) || "Unknown error", elapsed);
+        document.title = `❌ Query failed — ${ORIGINAL_TITLE}`;
+        notifTitle = "❌ Query failed";
+        notifBody = finalError?.substring(0, 120) || "Unknown error";
+      } else if (finalStatus === "cancelled") {
+        addToast("cancelled", activeFile?.name || "Query", elapsed);
+        document.title = `⚠️ Cancelled — ${ORIGINAL_TITLE}`;
+        notifTitle = "⚠️ Query cancelled";
+        notifBody = activeFile?.name || "Query";
+      }
+
+      // Browser notification
+      if (notifTitle && "Notification" in window) {
+        if (Notification.permission === "granted") {
+          new Notification(notifTitle, { body: notifBody, icon: "/livy-ui/favicon.ico" });
+        } else if (Notification.permission !== "denied") {
+          Notification.requestPermission().then((perm) => {
+            if (perm === "granted") {
+              new Notification(notifTitle, { body: notifBody, icon: "/livy-ui/favicon.ico" });
+            }
+          });
+        }
+      }
+    }
   };
+
+  handleRunSqlRef.current = handleRunSql;
+
+  const handleRun = () => handleRunSql();
 
   const handleCancel = () => {
     abortRef.current = true;
@@ -210,7 +410,15 @@ const SqlEditor = forwardRef(function SqlEditor(props, ref) {
   useImperativeHandle(ref, () => ({
     run: handleRun,
     format: handleFormat,
+    minify: handleMinify,
   }));
+
+  // Update glyph decorations when content changes
+  useEffect(() => {
+    if (editorRef.current && monacoRef.current) {
+      updateDecorations(editorRef.current);
+    }
+  }, [activeFile?.content, updateDecorations]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -239,10 +447,19 @@ const SqlEditor = forwardRef(function SqlEditor(props, ref) {
         <button
           onClick={handleFormat}
           className="flex items-center gap-1.5 px-3 py-1 text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary) text-xs rounded-md transition-colors"
-          title="Format SQL"
+          title="Format SQL (Ctrl+Shift+F)"
         >
           <AlignLeft size={13} />
           Format
+        </button>
+
+        <button
+          onClick={handleMinify}
+          className="flex items-center gap-1.5 px-3 py-1 text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary) text-xs rounded-md transition-colors"
+          title="Minify SQL to one line (Ctrl+Shift+M)"
+        >
+          <WrapText size={13} />
+          Minify
         </button>
 
         {running && (
@@ -271,6 +488,9 @@ const SqlEditor = forwardRef(function SqlEditor(props, ref) {
           options={{
             fontSize: 14,
             fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
+            glyphMargin: true,
+            glyphMarginWidth: 16,
+            lineNumbersMinChars: 2,
             minimap: { enabled: true },
             lineNumbers: "on",
             scrollBeyondLastLine: false,

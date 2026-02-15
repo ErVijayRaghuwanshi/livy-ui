@@ -6,6 +6,7 @@ import ResultTable from "./components/ResultTable";
 import SchemaExplorer from "./components/SchemaExplorer";
 import { GripHorizontal } from "lucide-react";
 import { useSqlFiles } from "./context/SqlFilesContext";
+import { ToastContainer } from "./components/Toast";
 
 const SIDEBAR_CACHE_KEY = "livy-ui-explorer-collapsed";
 const DEFAULT_RESULT_HEIGHT = 250;
@@ -63,6 +64,13 @@ export default function App() {
       if (ctrl && e.shiftKey && e.key === "F") {
         e.preventDefault();
         editorRef.current?.format();
+        return;
+      }
+
+      // Ctrl+Shift+M — minify SQL to one line
+      if (ctrl && e.shiftKey && e.key === "M") {
+        e.preventDefault();
+        editorRef.current?.minify();
         return;
       }
 
@@ -126,6 +134,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
+      <ToastContainer />
       <Navbar />
 
       <div className="flex flex-1 min-h-0">

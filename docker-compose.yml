@@ -1,0 +1,29 @@
+services:
+
+  livy:
+      build: 
+        context: .
+        dockerfile: DockerfileLivy
+      container_name: livy-server
+      hostname: livy-server
+      environment:
+        - SPARK_PUBLIC_DNS=localhost
+      ports:
+        - '8998:8998'
+        - '4040-4050:4040-4050'  # <--- Map a range for multiple sessions
+      volumes:
+        - ./data:/opt/spark/data
+        - ./livy.conf:/opt/livy/conf/livy.conf
+
+  livy-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GIT_REPO: https://github.com/ErVijayRaghuwanshi/livy-ui.git
+        GIT_BRANCH: main
+    container_name: livy-ui
+    ports:
+      - '4173:4173'
+    depends_on:
+      - livy

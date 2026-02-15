@@ -11,6 +11,8 @@ const initialState = {
   sessionId: getItem(STORAGE_KEYS.SESSION_ID, null),
   sessionState: SESSION_STATES.NOT_STARTED,
   sessionConf: getItem(STORAGE_KEYS.SESSION_CONF, {}),
+  sessions: [],
+  sessionsLoading: false,
   appId: null,
   error: null,
   loading: false,
@@ -25,7 +27,7 @@ function reducer(state, action) {
     case "SET_SESSION_CONF":
       return { ...state, sessionConf: action.payload };
     case "SET_SESSION":
-      return { ...state, sessionId: action.payload.id, sessionState: action.payload.state, appId: action.payload.appId || null, error: null };
+      return { ...state, sessionId: action.payload.id, sessionState: action.payload.state, appId: action.payload.appId || null, sessionName: action.payload.name || null, error: null };
     case "SET_SESSION_STATE":
       return { ...state, sessionState: action.payload };
     case "SET_LOADING":
@@ -33,7 +35,11 @@ function reducer(state, action) {
     case "SET_ERROR":
       return { ...state, error: action.payload, loading: false };
     case "CLEAR_SESSION":
-      return { ...state, sessionId: null, sessionState: SESSION_STATES.NOT_STARTED, appId: null, error: null };
+      return { ...state, sessionId: null, sessionState: SESSION_STATES.NOT_STARTED, appId: null, sessionName: null, error: null };
+    case "SET_SESSIONS":
+      return { ...state, sessions: action.payload };
+    case "SET_SESSIONS_LOADING":
+      return { ...state, sessionsLoading: action.payload };
     default:
       return state;
   }
@@ -54,7 +60,7 @@ export function LivyProvider({ children }) {
 
   // Persist session id
   useEffect(() => {
-    if (state.sessionId) {
+    if (state.sessionId !== null) {
       setItem(STORAGE_KEYS.SESSION_ID, state.sessionId);
     } else {
       removeItem(STORAGE_KEYS.SESSION_ID);
@@ -92,7 +98,7 @@ export function LivyProvider({ children }) {
 
   // Refresh session
   const refreshSession = useCallback(async () => {
-    if (!state.sessionId) return;
+    if (state.sessionId === null) return;
     dispatch({ type: "SET_LOADING", payload: true });
     try {
       const session = await livyApi.getSession(state.sessionId);
@@ -114,12 +120,43 @@ export function LivyProvider({ children }) {
     dispatch({ type: "SET_SESSION_CONF", payload: conf });
   }, []);
 
-  // Start session
-  const startSession = useCallback(async () => {
+  // Fetch all sessions for current host
+  const fetchSessions = useCallback(async () => {
+    dispatch({ type: "SET_SESSIONS_LOADING", payload: true });
+    try {
+      const data = await livyApi.listSessions();
+      const sqlSessions = (data.sessions || []).filter(
+        (s) => s.kind === "sql" || s.kind === "spark"
+      );
+      dispatch({ type: "SET_SESSIONS", payload: sqlSessions });
+    } catch (err) {
+      console.error("Failed to fetch sessions:", err.message);
+      dispatch({ type: "SET_SESSIONS", payload: [] });
+    } finally {
+      dispatch({ type: "SET_SESSIONS_LOADING", payload: false });
+    }
+  }, []);
+
+  // Attach to an existing session
+  const attachSession = useCallback(async (id) => {
     dispatch({ type: "SET_LOADING", payload: true });
     dispatch({ type: "SET_ERROR", payload: null });
     try {
-      const session = await livyApi.createSession(state.sessionConf);
+      const session = await livyApi.getSession(id);
+      dispatch({ type: "SET_SESSION", payload: session });
+    } catch (err) {
+      dispatch({ type: "SET_ERROR", payload: err.message });
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
+  }, []);
+
+  // Start session
+  const startSession = useCallback(async (name = "") => {
+    dispatch({ type: "SET_LOADING", payload: true });
+    dispatch({ type: "SET_ERROR", payload: null });
+    try {
+      const session = await livyApi.createSession(state.sessionConf, name);
       dispatch({ type: "SET_SESSION", payload: session });
     } catch (err) {
       dispatch({ type: "SET_ERROR", payload: err.message });
@@ -130,7 +167,7 @@ export function LivyProvider({ children }) {
 
   // Stop session
   const stopSession = useCallback(async () => {
-    if (!state.sessionId) return;
+    if (state.sessionId === null) return;
     dispatch({ type: "SET_LOADING", payload: true });
     try {
       await livyApi.deleteSession(state.sessionId);
@@ -144,7 +181,7 @@ export function LivyProvider({ children }) {
 
   // Auto-refresh session state on mount if sessionId exists
   useEffect(() => {
-    if (state.sessionId) {
+    if (state.sessionId !== null) {
       refreshSession();
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -176,6 +213,8 @@ export function LivyProvider({ children }) {
     startSession,
     stopSession,
     refreshSession,
+    fetchSessions,
+    attachSession,
     setSessionConf,
     dispatch,
   };

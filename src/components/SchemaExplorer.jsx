@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Database,
   Table2,
@@ -10,14 +10,26 @@ import {
   PanelLeftClose,
   PanelLeft,
   Copy,
+  Check,
   Trash2,
+  Search,
+  X,
 } from "lucide-react";
 import { useLivy } from "../context/LivyContext";
 import { SESSION_STATES } from "../utils/constants";
 import * as livyApi from "../services/livyApi";
 
-function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy, onDelete }) {
-  const [open, setOpen] = useState(false);
+function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy, onDelete, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const prevDefaultOpen = useRef(defaultOpen);
+
+  useEffect(() => {
+    if (defaultOpen !== prevDefaultOpen.current) {
+      setOpen(defaultOpen);
+      prevDefaultOpen.current = defaultOpen;
+    }
+  }, [defaultOpen]);
+  const [copied, setCopied] = useState(false);
   const hasChildren = !!children || !!onOpen;
 
   const toggle = () => {
@@ -65,11 +77,13 @@ function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy, onDel
             onClick={(e) => {
               e.stopPropagation();
               onCopy();
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
             }}
-            className={`${onDelete ? "" : "ml-auto"} ml-1 opacity-0 group-hover:opacity-100 text-(--color-text-muted) hover:text-(--color-accent) transition-opacity`}
+            className={`${onDelete ? "" : "ml-auto"} ml-1 ${copied ? "opacity-100" : "opacity-0 group-hover:opacity-100"} text-(--color-text-muted) hover:text-(--color-accent) transition-opacity`}
             title="Copy name"
           >
-            <Copy size={11} />
+            {copied ? <Check size={11} className="text-(--color-success)" /> : <Copy size={11} />}
           </button>
         )}
       </div>
@@ -98,8 +112,9 @@ export default function SchemaExplorer({ collapsed, setCollapsed }) {
   const [columns, setColumns] = useState({});
   const [loading, setLoading] = useState({});
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const isReady = sessionState === SESSION_STATES.IDLE && sessionId;
+  const isReady = sessionState === SESSION_STATES.IDLE && sessionId !== null;
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).catch(() => {});
@@ -222,6 +237,28 @@ export default function SchemaExplorer({ collapsed, setCollapsed }) {
     }
   }, [isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-load all tables and columns when user starts searching
+  useEffect(() => {
+    if (!searchTerm || !isReady || databases.length === 0) return;
+
+    // Load tables for all databases that haven't been loaded yet
+    databases.forEach((db) => {
+      if (!tablesRef.current[db] && !loading[db]) {
+        loadTables(db);
+      }
+    });
+
+    // Load columns for all loaded tables that haven't been loaded yet
+    Object.entries(tablesRef.current).forEach(([db, tbls]) => {
+      tbls.forEach((tbl) => {
+        const key = `${db}.${tbl}`;
+        if (!columnsRef.current[key] && !loading[key]) {
+          loadColumns(db, tbl);
+        }
+      });
+    });
+  }, [searchTerm, isReady, databases, tables, loading, loadTables, loadColumns]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     setDatabases([]);
     setTables({});
@@ -277,6 +314,30 @@ export default function SchemaExplorer({ collapsed, setCollapsed }) {
         </div>
       </div>
 
+      {/* Search */}
+      {isReady && databases.length > 0 && (
+        <div className="px-2 py-1.5 border-b border-(--color-border)">
+          <div className="relative">
+            <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-(--color-text-muted)" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Filter schema..."
+              className="w-full pl-7 pr-7 py-1 text-xs bg-(--color-bg-primary) text-(--color-text-primary) border border-(--color-border) rounded focus:outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted)"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm("")}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-(--color-text-muted) hover:text-(--color-text-primary)"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Content */}
       <div className="flex-1 overflow-auto py-1">
         {!isReady && (
@@ -297,61 +358,93 @@ export default function SchemaExplorer({ collapsed, setCollapsed }) {
           </div>
         )}
 
-        {databases.map((db) => (
-          <TreeNode
-            key={db}
-            icon={Database}
-            label={db}
-            onOpen={() => loadTables(db)}
-            onCopy={() => copyToClipboard(db)}
-          >
-            {loading[db] ? (
-              <LoadingNode />
-            ) : tables[db] ? (
-              tables[db].length === 0 ? (
-                <div className="px-2 py-1 text-[10px] text-(--color-text-muted)">
-                  No tables
-                </div>
-              ) : (
-                tables[db].map((tbl) => {
-                  const key = `${db}.${tbl}`;
-                  return (
-                    <TreeNode
-                      key={tbl}
-                      icon={Table2}
-                      label={tbl}
-                      onOpen={() => loadColumns(db, tbl)}
-                      onCopy={() =>
-                        copyToClipboard(`\`${db}\`.\`${tbl}\``)
-                      }
-                      onDelete={() => dropTable(db, tbl)}
-                    >
-                      {loading[key] ? (
-                        <LoadingNode />
-                      ) : columns[key] ? (
-                        columns[key].length === 0 ? (
-                          <div className="px-2 py-1 text-[10px] text-(--color-text-muted)">
-                            No columns
-                          </div>
-                        ) : (
-                          columns[key].map((col) => (
-                            <TreeNode
-                              key={col.name}
-                              icon={Columns3}
-                              label={col.name}
-                              sublabel={col.type}
-                              onCopy={() => copyToClipboard(col.name)}
-                            />
-                          ))
-                        )
-                      ) : null}
-                    </TreeNode>
-                  );
-                })
-              )
-            ) : null}
-          </TreeNode>
-        ))}
+        {databases.map((db) => {
+          const term = searchTerm.toLowerCase();
+          const dbMatch = !term || db.toLowerCase().includes(term);
+          const dbTables = tables[db] || [];
+
+          // Filter tables: show if table name matches or any of its columns match
+          const filteredTables = term
+            ? dbTables.filter((tbl) => {
+                if (tbl.toLowerCase().includes(term)) return true;
+                const colKey = `${db}.${tbl}`;
+                const cols = columns[colKey] || [];
+                return cols.some((c) => c.name.toLowerCase().includes(term) || c.type.toLowerCase().includes(term));
+              })
+            : dbTables;
+
+          // Skip this database if searching and nothing matches
+          if (term && !dbMatch && filteredTables.length === 0) return null;
+
+          const forceDbOpen = term && (filteredTables.length > 0 || dbMatch);
+
+          return (
+            <TreeNode
+              key={db}
+              icon={Database}
+              label={db}
+              onOpen={() => loadTables(db)}
+              onCopy={() => copyToClipboard(db)}
+              defaultOpen={!!forceDbOpen}
+            >
+              {loading[db] ? (
+                <LoadingNode />
+              ) : tables[db] ? (
+                filteredTables.length === 0 ? (
+                  <div className="px-2 py-1 text-[10px] text-(--color-text-muted)">
+                    {term ? "No matches" : "No tables"}
+                  </div>
+                ) : (
+                  filteredTables.map((tbl) => {
+                    const colKey = `${db}.${tbl}`;
+                    const tblMatch = !term || tbl.toLowerCase().includes(term);
+                    const cols = columns[colKey] || [];
+
+                    const filteredCols = term
+                      ? cols.filter((c) => c.name.toLowerCase().includes(term) || c.type.toLowerCase().includes(term))
+                      : cols;
+
+                    const forceTblOpen = term && (filteredCols.length > 0 || tblMatch);
+
+                    return (
+                      <TreeNode
+                        key={tbl}
+                        icon={Table2}
+                        label={tbl}
+                        onOpen={() => loadColumns(db, tbl)}
+                        onCopy={() =>
+                          copyToClipboard(`\`${db}\`.\`${tbl}\``)
+                        }
+                        onDelete={() => dropTable(db, tbl)}
+                        defaultOpen={!!forceTblOpen}
+                      >
+                        {loading[colKey] ? (
+                          <LoadingNode />
+                        ) : columns[colKey] ? (
+                          (term ? filteredCols : cols).length === 0 ? (
+                            <div className="px-2 py-1 text-[10px] text-(--color-text-muted)">
+                              {term ? "No matches" : "No columns"}
+                            </div>
+                          ) : (
+                            (term ? filteredCols : cols).map((col) => (
+                              <TreeNode
+                                key={col.name}
+                                icon={Columns3}
+                                label={col.name}
+                                sublabel={col.type}
+                                onCopy={() => copyToClipboard(col.name)}
+                              />
+                            ))
+                          )
+                        ) : null}
+                      </TreeNode>
+                    );
+                  })
+                )
+              ) : null}
+            </TreeNode>
+          );
+        })}
       </div>
     </div>
   );

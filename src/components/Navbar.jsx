@@ -1,16 +1,17 @@
-import { useState, useEffect } from "react"; // Added useEffect
+import { useState, useEffect, useRef } from "react";
 import {
   Server,
   Play,
   Square,
   RefreshCw,
   ChevronDown,
-  Settings,
   Zap,
   Loader2,
   Github,
   GitFork,
-  Star
+  Star,
+  Plus,
+  Link
 } from "lucide-react";
 import { useLivy } from "../context/LivyContext";
 import { SESSION_STATES } from "../utils/constants";
@@ -29,20 +30,27 @@ const stateColors = {
 };
 
 export default function Navbar() {
-  // 1. ALL HOOKS MUST BE AT THE TOP LEVEL OF THE COMPONENT
   const {
     activeHost,
     sessionId,
     sessionState,
+    sessionName,
     appId,
     loading,
     error,
+    sessions,
+    sessionsLoading,
     startSession,
     stopSession,
     refreshSession,
+    fetchSessions,
+    attachSession,
   } = useLivy();
 
   const [showModal, setShowModal] = useState(false);
+  const [showSessionDropdown, setShowSessionDropdown] = useState(false);
+  const [newSessionName, setNewSessionName] = useState("");
+  const dropdownRef = useRef(null);
   const [repoStats, setRepoStats] = useState({ stars: 0, forks: 0, version: "v1.0.0" });
 
   // 2. FETCH GITHUB DATA WITH CACHING
@@ -88,10 +96,50 @@ export default function Navbar() {
     fetchStats();
   }, []);
 
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowSessionDropdown(false);
+      }
+    };
+    if (showSessionDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showSessionDropdown]);
+
+  // Fetch sessions when dropdown opens
+  useEffect(() => {
+    if (showSessionDropdown) {
+      fetchSessions();
+    }
+  }, [showSessionDropdown, fetchSessions]);
+
   const isActive =
     sessionState === SESSION_STATES.IDLE ||
     sessionState === SESSION_STATES.BUSY;
   const isStarting = sessionState === SESSION_STATES.STARTING;
+
+  const handleCreateSession = () => {
+    startSession(newSessionName);
+    setNewSessionName("");
+    setShowSessionDropdown(false);
+  };
+
+  const handleAttach = (id) => {
+    attachSession(id);
+    setShowSessionDropdown(false);
+  };
+
+  const handleStop = () => {
+    stopSession();
+    setShowSessionDropdown(false);
+  };
+
+  const sessionLabel = sessionId !== null
+    ? sessionName || `Session ${sessionId}`
+    : "No Session";
 
   return (
     <>
@@ -134,7 +182,6 @@ export default function Navbar() {
 
         {/* Right Section (Controls) */}
         <div className="flex items-center gap-3">
-          {/* ... keeping your existing right-side controls logic ... */}
           {error && <span className="text-xs text-(--color-error) max-w-48 truncate">{error}</span>}
           
           {appId && (
@@ -144,13 +191,7 @@ export default function Navbar() {
             </div>
           )}
 
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-(--color-bg-primary) rounded-md border border-(--color-border)">
-            <span className={`w-2 h-2 rounded-full ${stateColors[sessionState] || "bg-gray-500"}`} />
-            <span className="text-xs text-(--color-text-secondary) capitalize">
-              {sessionState?.replace(/_/g, " ")}
-            </span>
-          </div>
-
+          {/* Host selector */}
           <button
             onClick={() => setShowModal(true)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-(--color-bg-primary) rounded-md border border-(--color-border) hover:border-(--color-text-muted) transition-colors"
@@ -162,19 +203,144 @@ export default function Navbar() {
             <ChevronDown size={12} className="text-(--color-text-muted)" />
           </button>
 
+          {/* Session picker dropdown */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setShowSessionDropdown((v) => !v)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-colors ${
+                isActive
+                  ? "bg-(--color-success)/10 border-(--color-success)/30 hover:border-(--color-success)/50"
+                  : isStarting
+                  ? "bg-(--color-warning)/10 border-(--color-warning)/30"
+                  : "bg-(--color-bg-primary) border-(--color-border) hover:border-(--color-text-muted)"
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full shrink-0 ${stateColors[sessionState] || "bg-gray-500"}`} />
+              <span className="text-xs text-(--color-text-secondary) max-w-36 truncate">
+                {sessionLabel}
+              </span>
+              <ChevronDown size={12} className="text-(--color-text-muted)" />
+            </button>
+
+            {showSessionDropdown && (
+              <div className="absolute right-0 top-full mt-1 w-80 bg-(--color-bg-secondary) border border-(--color-border) rounded-lg shadow-2xl z-50 overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border)">
+                  <span className="text-xs font-semibold text-(--color-text-primary)">Sessions on {activeHost.name}</span>
+                  <button
+                    onClick={() => fetchSessions()}
+                    disabled={sessionsLoading}
+                    className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary)"
+                  >
+                    <RefreshCw size={12} className={sessionsLoading ? "animate-spin" : ""} />
+                  </button>
+                </div>
+
+                {/* Session list */}
+                <div className="max-h-52 overflow-y-auto">
+                  {sessionsLoading && sessions.length === 0 ? (
+                    <div className="flex items-center justify-center gap-2 py-6 text-(--color-text-muted)">
+                      <Loader2 size={14} className="animate-spin" />
+                      <span className="text-xs">Loading sessions...</span>
+                    </div>
+                  ) : sessions.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-(--color-text-muted)">No active sessions</div>
+                  ) : (
+                    sessions.map((s) => {
+                      const isCurrent = s.id === sessionId;
+                      const sAlive = s.state === "idle" || s.state === "busy" || s.state === "starting";
+                      return (
+                        <div
+                          key={s.id}
+                          className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${
+                            isCurrent
+                              ? "bg-(--color-accent)/10 border-l-2 border-(--color-accent)"
+                              : "hover:bg-(--color-bg-tertiary) border-l-2 border-transparent"
+                          }`}
+                          onClick={() => !isCurrent && sAlive && handleAttach(s.id)}
+                        >
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${stateColors[s.state] || "bg-gray-500"}`} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-medium text-(--color-text-primary) truncate">
+                                {s.name || `Session ${s.id}`}
+                              </span>
+                              {isCurrent && (
+                                <span className="text-[9px] font-medium text-(--color-accent) bg-(--color-accent)/20 px-1.5 py-0 rounded-full shrink-0">
+                                  ATTACHED
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] text-(--color-text-muted) font-mono">#{s.id}</span>
+                              <span className="text-[10px] text-(--color-text-muted) capitalize">{s.state}</span>
+                              {s.appId && <span className="text-[10px] text-(--color-text-muted) font-mono truncate">{s.appId}</span>}
+                            </div>
+                          </div>
+                          {!isCurrent && sAlive && (
+                            <Link size={12} className="text-(--color-text-muted) shrink-0" />
+                          )}
+                          {!sAlive && (
+                            <span className="text-[9px] text-(--color-error) shrink-0">dead</span>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Create new session */}
+                <div className="border-t border-(--color-border) px-3 py-2.5">
+                  <p className="text-[10px] text-(--color-text-muted) mb-1.5 uppercase tracking-wide font-medium">New Session</p>
+                  <div className="flex gap-1.5">
+                    <input
+                      value={newSessionName}
+                      onChange={(e) => setNewSessionName(e.target.value)}
+                      placeholder="Session name (optional)"
+                      className="flex-1 bg-(--color-bg-primary) border border-(--color-border) rounded px-2 py-1.5 text-xs text-(--color-text-primary) outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted)"
+                      onKeyDown={(e) => e.key === "Enter" && handleCreateSession()}
+                    />
+                    <button
+                      onClick={handleCreateSession}
+                      disabled={loading}
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-(--color-success)/20 text-(--color-success) hover:bg-(--color-success)/30 rounded text-xs font-medium transition-colors disabled:opacity-40"
+                    >
+                      {loading ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                      Create
+                    </button>
+                  </div>
+                </div>
+
+                {/* Stop current session */}
+                {(isActive || isStarting) && (
+                  <div className="border-t border-(--color-border) px-3 py-2">
+                    <button
+                      onClick={handleStop}
+                      disabled={loading || isStarting}
+                      className="flex items-center gap-1.5 w-full justify-center px-3 py-1.5 bg-(--color-error)/10 text-(--color-error) hover:bg-(--color-error)/20 rounded text-xs font-medium transition-colors disabled:opacity-40"
+                    >
+                      {loading ? <Loader2 size={12} className="animate-spin" /> : <Square size={12} />}
+                      Stop Session #{sessionId}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Quick actions */}
           <div className="flex items-center gap-1 border-l border-(--color-border) pl-3">
-             {/* ... Start/Stop buttons ... */}
-             {!isActive && !isStarting ? (
-              <button onClick={startSession} disabled={loading} className="flex items-center gap-1 px-3 py-1.5 bg-(--color-success)/20 text-(--color-success) hover:bg-(--color-success)/30 rounded-md text-xs font-medium transition-colors">
+            {!isActive && !isStarting ? (
+              <button onClick={() => startSession()} disabled={loading} className="flex items-center gap-1 px-3 py-1.5 bg-(--color-success)/20 text-(--color-success) hover:bg-(--color-success)/30 rounded-md text-xs font-medium transition-colors disabled:opacity-40">
                 {loading ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />} Start
               </button>
             ) : (
-              <button onClick={stopSession} disabled={loading || isStarting} className="flex items-center gap-1 px-3 py-1.5 bg-(--color-error)/20 text-(--color-error) hover:bg-(--color-error)/30 rounded-md text-xs font-medium transition-colors">
+              <button onClick={stopSession} disabled={loading || isStarting} className="flex items-center gap-1 px-3 py-1.5 bg-(--color-error)/20 text-(--color-error) hover:bg-(--color-error)/30 rounded-md text-xs font-medium transition-colors disabled:opacity-40">
                 {loading ? <Loader2 size={13} className="animate-spin" /> : <Square size={13} />} Stop
               </button>
             )}
-            
-            <button onClick={refreshSession} disabled={loading || !sessionId} className="p-1.5 text-(--color-text-muted) hover:text-(--color-text-primary) rounded-md">
+
+            <button onClick={refreshSession} disabled={loading || sessionId === null} className="p-1.5 text-(--color-text-muted) hover:text-(--color-text-primary) rounded-md disabled:opacity-40">
               <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
             </button>
           </div>

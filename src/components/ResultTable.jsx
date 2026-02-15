@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { AlertCircle, Loader2, Table, CheckCircle2, Ban, Clock } from "lucide-react";
+import { AlertCircle, Loader2, Table, CheckCircle2, Ban, Clock, FileText, Copy, Check } from "lucide-react";
 
 function formatElapsed(ms) {
   if (ms == null) return null;
@@ -44,6 +44,43 @@ function LiveTimer({ startTime }) {
   );
 }
 
+function CopyButton({ getText, className = "" }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    const text = typeof getText === "function" ? getText() : getText;
+    if (!text) return;
+    const onSuccess = () => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(onSuccess);
+    } else {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      onSuccess();
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-colors cursor-pointer ${className}`}
+      title="Copy to clipboard"
+    >
+      {copied ? <Check size={12} className="text-(--color-success)" /> : <Copy size={12} />}
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
 export default function ResultTable({ result }) {
   if (!result) {
     return (
@@ -80,10 +117,11 @@ export default function ResultTable({ result }) {
   if (result.status === "error") {
     return (
       <div className="flex flex-col items-start p-4 h-full overflow-auto">
-        <div className="flex items-center gap-2 text-(--color-error) text-sm font-medium mb-2">
+        <div className="flex items-center gap-2 text-(--color-error) text-sm font-medium mb-2 w-full">
           <AlertCircle size={16} />
           Error
           <ElapsedBadge elapsed={result.elapsed} />
+          <CopyButton getText={() => result.error} className="ml-auto" />
         </div>
         <pre className="text-xs text-(--color-error)/80 whitespace-pre-wrap font-mono bg-(--color-error)/5 rounded-lg p-3 w-full">
           {result.error}
@@ -108,10 +146,11 @@ export default function ResultTable({ result }) {
     if (textData) {
       return (
         <div className="flex flex-col h-full overflow-auto p-4">
-          <div className="flex items-center gap-2 text-(--color-success) text-xs font-medium mb-2">
+          <div className="flex items-center gap-2 text-(--color-success) text-xs font-medium mb-2 w-full">
             <CheckCircle2 size={14} />
             Query completed
             <ElapsedBadge elapsed={result.elapsed} />
+            <CopyButton getText={() => textData} className="ml-auto" />
           </div>
           <pre className="text-xs text-(--color-text-primary) whitespace-pre-wrap font-mono bg-(--color-bg-primary) rounded-lg p-3 flex-1 overflow-auto">
             {textData}
@@ -130,6 +169,69 @@ export default function ResultTable({ result }) {
   }
 
   return null;
+}
+
+const PLAN_OPERATORS = [
+  "AdaptiveSparkPlan", "Project", "Filter", "BroadcastHashJoin", "SortMergeJoin",
+  "ShuffledHashJoin", "CartesianProduct", "Exchange", "BroadcastExchange",
+  "ObjectHashAggregate", "HashAggregate", "SortAggregate", "Sort", "Generate",
+  "FileScan", "Scan", "SubqueryBroadcast", "ReusedExchange", "Union",
+  "TakeOrderedAndProject", "CollectLimit", "Window", "Expand",
+  "InMemoryTableScan", "InMemoryRelation", "BatchScan",
+];
+
+const PLAN_OP_REGEX = new RegExp(`\\b(${PLAN_OPERATORS.join("|")})\\b`, "g");
+
+function highlightPlanLine(line) {
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+  const regex = new RegExp(PLAN_OP_REGEX.source, "g");
+  while ((match = regex.exec(line)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(<span key={lastIndex}>{line.slice(lastIndex, match.index)}</span>);
+    }
+    parts.push(
+      <span key={match.index} className="text-(--color-accent) font-bold">
+        {match[0]}
+      </span>
+    );
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < line.length) {
+    parts.push(<span key={lastIndex}>{line.slice(lastIndex)}</span>);
+  }
+  return parts;
+}
+
+function ExplainPlan({ planText, elapsed }) {
+  const lines = planText.split("\n");
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center gap-2 px-4 py-2 text-(--color-accent) text-xs font-medium border-b border-(--color-border) shrink-0">
+        <FileText size={14} />
+        Execution Plan
+        <ElapsedBadge elapsed={elapsed} />
+        <CopyButton getText={() => planText} className="ml-auto" />
+      </div>
+      <div className="flex-1 overflow-auto p-4">
+        <pre className="text-xs font-mono leading-5 text-(--color-text-secondary) whitespace-pre overflow-x-auto">
+          {lines.map((line, i) => (
+            <div key={i}>{highlightPlanLine(line)}</div>
+          ))}
+        </pre>
+      </div>
+    </div>
+  );
+}
+
+function isExplainResult(data) {
+  if (!data || !data.schema || !data.data) return false;
+  const fields = data.schema.fields || [];
+  if (fields.length !== 1) return false;
+  const field = fields[0];
+  return field.name === "plan" && field.type === "string" && data.data.length === 1;
 }
 
 const ROW_HEIGHT = 28;
@@ -154,13 +256,19 @@ function JsonTable({ data, elapsed }) {
     setScrollTop(e.currentTarget.scrollTop);
   }, []);
 
+  if (isExplainResult(data)) {
+    const planText = Array.isArray(data.data[0]) ? data.data[0][0] : data.data[0].plan;
+    return <ExplainPlan planText={planText} elapsed={elapsed} />;
+  }
+
   if (!(data && data.schema && data.data)) {
     // Fallback: render as JSON
     return (
       <div className="flex flex-col h-full overflow-auto p-4">
-        <div className="flex items-center gap-2 text-(--color-success) text-xs font-medium mb-2">
+        <div className="flex items-center gap-2 text-(--color-success) text-xs font-medium mb-2 w-full">
           <CheckCircle2 size={14} />
           Query completed
+          <CopyButton getText={() => JSON.stringify(data, null, 2)} className="ml-auto" />
         </div>
         <pre className="text-xs text-(--color-text-primary) whitespace-pre-wrap font-mono bg-(--color-bg-primary) rounded-lg p-3 flex-1 overflow-auto">
           {JSON.stringify(data, null, 2)}
@@ -185,6 +293,25 @@ function JsonTable({ data, elapsed }) {
         <CheckCircle2 size={14} />
         {totalRows} row{totalRows !== 1 ? "s" : ""} returned
         <ElapsedBadge elapsed={elapsed} />
+        <CopyButton
+          getText={() => {
+            const csvEscape = (v) => {
+              const s = String(v);
+              return s.includes(",") || s.includes('"') || s.includes("\n")
+                ? '"' + s.replace(/"/g, '""') + '"'
+                : s;
+            };
+            const header = fields.map((f) => csvEscape(f.name || f)).join(",");
+            const body = rows.map((row) =>
+              fields.map((f, ci) => {
+                const val = row[f.name || f] !== undefined ? row[f.name || f] : Array.isArray(row) ? (row[ci] ?? "") : "";
+                return csvEscape(val);
+              }).join(",")
+            ).join("\n");
+            return header + "\n" + body;
+          }}
+          className="ml-auto"
+        />
       </div>
       <div className="flex-1 overflow-auto" ref={scrollRef} onScroll={handleScroll}>
         <table className="w-full text-xs">
@@ -231,8 +358,8 @@ function JsonTable({ data, elapsed }) {
                     {row[field.name || field] !== undefined
                       ? String(row[field.name || field])
                       : Array.isArray(row)
-                      ? String(row[ci] ?? "")
-                      : ""}
+                        ? String(row[ci] ?? "")
+                        : ""}
                   </td>
                 ))}
               </tr>
