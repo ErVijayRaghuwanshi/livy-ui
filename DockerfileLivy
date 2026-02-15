@@ -1,0 +1,40 @@
+# Use the official Apache Spark image
+FROM apache/spark:3.5.4
+
+# Switch to root to install dependencies and Livy
+USER root
+
+RUN apt-get update && apt-get install -y wget unzip procps
+
+# Download and extract Apache Livy
+RUN wget https://archive.apache.org/dist/incubator/livy/0.8.0-incubating/apache-livy-0.8.0-incubating_2.12-bin.zip -O /tmp/livy.zip && \
+    unzip /tmp/livy.zip -d /opt/ && \
+    mv /opt/apache-livy-0.8.0-incubating_2.12-bin /opt/livy && \
+    rm /tmp/livy.zip
+
+# --- FIX START: Remove duplicate JARs to prevent Spark 3.5 conflicts ---
+# Livy 0.8 adds both rsc-jars and repl-jars to the classpath. 
+# We remove duplicates from repl-jars to stop the "already registered" error.
+RUN cd /opt/livy/repl_2.12-jars && \
+    for jar in *.jar; do \
+        if [ -f "/opt/livy/rsc-jars/$jar" ]; then \
+            echo "Removing duplicate jar: $jar"; \
+            rm "$jar"; \
+        fi; \
+    done
+# --- FIX END ---
+
+# Create log directory and hand ownership to the official spark user
+RUN mkdir -p /opt/livy/logs && chown -R 185:185 /opt/livy
+
+# Switch back to the official Spark user (UID 185) for security
+USER 185
+
+# Set environment variables
+ENV SPARK_HOME=/opt/spark
+ENV LIVY_HOME=/opt/livy
+
+EXPOSE 8998
+
+# Start Livy
+CMD /opt/livy/bin/livy-server start && tail -f /opt/livy/logs/*

@@ -12,6 +12,7 @@ const COMMON_CONF_KEYS = [
   "spark.driver.memory",
   "spark.dynamicAllocation.enabled",
   "spark.sql.shuffle.partitions",
+  "spark.rsc.sql.num-rows",
 ];
 
 export default function ConnectionModal({ isOpen, onClose }) {

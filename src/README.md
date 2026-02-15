@@ -182,71 +182,30 @@ SELECT * FROM parquet.`hdfs://namenode/path/to/data` LIMIT 100
 
 ## Docker
 
-The multi-stage Dockerfile fetches source directly from GitHub — no local checkout needed.
-
-### Multi-Stage Build
-
-| Stage | Base Image | Purpose |
-|-------|------------|--------|
-| **Stage 0** (`git-fetch`) | `alpine/git` | Shallow-clones the repo from GitHub |
-| **Stage 1** (`build`) | `node:22-alpine` | Installs dependencies and builds the app |
-| **Stage 2** (production) | `node:22-alpine` | Serves the production build via `vite preview` |
-
-### Build & Run
+The Dockerfile clones the source directly from GitHub — no local checkout needed:
 
 ```bash
 # Build the image (fetches code from GitHub automatically)
-docker build -t livy-ui .
-
-# Build from a specific branch
-docker build --build-arg GIT_BRANCH=feature/v1.3.0 -t livy-ui .
+docker build -t livy-ui https://github.com/ErVijayRaghuwanshi/livy-ui.git
 
 # Run the container
 docker run -p 4173:4173 livy-ui
 ```
 
-Open [http://localhost:4173](http://localhost:4173).
-
-### Docker Compose
-
-The `docker-compose.yml` spins up both the **Livy server** and **Livy UI** together:
+Or build from a local clone:
 
 ```bash
-# Start all services
-docker compose up --build
-
-# Start in detached mode
-docker compose up --build -d
-
-# Stop all services
-docker compose down
+docker build -t livy-ui .
+docker run -p 4173:4173 livy-ui
 ```
 
-| Service | Container | Ports | Description |
-|---------|-----------|-------|-------------|
-| `livy` | `livy-server` | `8998`, `4040-4050` | Apache Livy server with Spark |
-| `livy-ui` | `livy-ui` | `4173` | Livy UI web application |
-
-After starting, open [http://localhost:4173](http://localhost:4173) for the UI and [http://localhost:8998](http://localhost:8998) for the Livy REST API.
-
-#### Customizing the Compose Build
-
-You can override the Git repo and branch in `docker-compose.yml` under `livy-ui.build.args`:
-
-```yaml
-args:
-  GIT_REPO: https://github.com/ErVijayRaghuwanshi/livy-ui.git
-  GIT_BRANCH: main
-```
+Open [http://localhost:4173](http://localhost:4173).
 
 ## Project Structure
 
 ```
 livy-ui/
-├── Dockerfile                  # Multi-stage build (git-fetch → build → production)
-├── DockerfileLivy              # Livy server Dockerfile
-├── docker-compose.yml          # Compose: Livy server + Livy UI
-├── livy.conf                   # Livy server configuration
+├── Dockerfile
 ├── .dockerignore
 ├── index.html
 ├── package.json
