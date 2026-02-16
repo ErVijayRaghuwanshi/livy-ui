@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { AlertCircle, Loader2, Table, CheckCircle2, Ban, Clock, FileText, Copy, Check } from "lucide-react";
+import { AlertCircle, Loader2, Table, CheckCircle2, Ban, Clock, FileText, Copy, Check, Download } from "lucide-react";
 
 function formatElapsed(ms) {
   if (ms == null) return null;
@@ -81,6 +81,43 @@ function CopyButton({ getText, className = "" }) {
   );
 }
 
+function downloadFile(content, filename, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function DownloadButtons({ getCsv, getJson, className = "" }) {
+  return (
+    <span className={`flex items-center gap-1 ${className}`}>
+      {getCsv && (
+        <button
+          onClick={() => downloadFile(getCsv(), `result_${Date.now()}.csv`, "text/csv")}
+          className="flex items-center gap-1 px-2 py-1 rounded text-[11px] hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-colors cursor-pointer"
+          title="Download CSV"
+        >
+          <Download size={12} /> CSV
+        </button>
+      )}
+      {getJson && (
+        <button
+          onClick={() => downloadFile(getJson(), `result_${Date.now()}.json`, "application/json")}
+          className="flex items-center gap-1 px-2 py-1 rounded text-[11px] hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-colors cursor-pointer"
+          title="Download JSON"
+        >
+          <Download size={12} /> JSON
+        </button>
+      )}
+    </span>
+  );
+}
+
 export default function ResultTable({ result }) {
   if (!result) {
     return (
@@ -151,6 +188,7 @@ export default function ResultTable({ result }) {
             Query completed
             <ElapsedBadge elapsed={result.elapsed} />
             <CopyButton getText={() => textData} className="ml-auto" />
+            <DownloadButtons getCsv={() => textData} />
           </div>
           <pre className="text-xs text-(--color-text-primary) whitespace-pre-wrap font-mono bg-(--color-bg-primary) rounded-lg p-3 flex-1 overflow-auto">
             {textData}
@@ -214,6 +252,7 @@ function ExplainPlan({ planText, elapsed }) {
         Execution Plan
         <ElapsedBadge elapsed={elapsed} />
         <CopyButton getText={() => planText} className="ml-auto" />
+        <DownloadButtons getCsv={() => planText} />
       </div>
       <div className="flex-1 overflow-auto p-4">
         <pre className="text-xs font-mono leading-5 text-(--color-text-secondary) whitespace-pre overflow-x-auto">
@@ -241,6 +280,8 @@ function JsonTable({ data, elapsed }) {
   const scrollRef = useRef(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewHeight, setViewHeight] = useState(400);
+  const [colWidths, setColWidths] = useState({});
+  const resizingRef = useRef(null);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -293,8 +334,8 @@ function JsonTable({ data, elapsed }) {
         <CheckCircle2 size={14} />
         {totalRows} row{totalRows !== 1 ? "s" : ""} returned
         <ElapsedBadge elapsed={elapsed} />
-        <CopyButton
-          getText={() => {
+        {(() => {
+          const buildCsv = () => {
             const csvEscape = (v) => {
               const s = String(v);
               return s.includes(",") || s.includes('"') || s.includes("\n")
@@ -309,12 +350,34 @@ function JsonTable({ data, elapsed }) {
               }).join(",")
             ).join("\n");
             return header + "\n" + body;
-          }}
-          className="ml-auto"
-        />
+          };
+          const buildJson = () => {
+            return JSON.stringify(rows.map((row) => {
+              const obj = {};
+              fields.forEach((f, ci) => {
+                const name = f.name || f;
+                obj[name] = row[name] !== undefined ? row[name] : Array.isArray(row) ? (row[ci] ?? "") : "";
+              });
+              return obj;
+            }), null, 2);
+          };
+          return (
+            <>
+              <CopyButton getText={buildCsv} className="ml-auto" />
+              <DownloadButtons getCsv={buildCsv} getJson={buildJson} />
+            </>
+          );
+        })()}
       </div>
       <div className="flex-1 overflow-auto" ref={scrollRef} onScroll={handleScroll}>
-        <table className="w-full text-xs">
+        <table className="text-xs" style={{ tableLayout: Object.keys(colWidths).length > 0 ? "fixed" : "auto", width: Object.keys(colWidths).length > 0 ? undefined : "100%" }}>
+          {Object.keys(colWidths).length > 0 && (
+            <colgroup>
+              {fields.map((_, i) => (
+                <col key={i} style={{ width: colWidths[i] || 150 }} />
+              ))}
+            </colgroup>
+          )}
           <thead>
             <tr className="bg-(--color-bg-tertiary) sticky top-0 z-10">
               {fields.map((field, i) => {
@@ -327,7 +390,7 @@ function JsonTable({ data, elapsed }) {
                 return (
                   <th
                     key={i}
-                    className="px-3 py-1.5 text-left border-b border-(--color-border) whitespace-nowrap"
+                    className="px-3 py-1.5 text-left border-b border-(--color-border) whitespace-nowrap relative group/th"
                   >
                     <span className="text-(--color-text-secondary) font-semibold text-xs">{name}</span>
                     {type && (
@@ -335,6 +398,28 @@ function JsonTable({ data, elapsed }) {
                         {type}
                       </span>
                     )}
+                    <div
+                      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize opacity-0 group-hover/th:opacity-100 hover:bg-(--color-accent)/40 transition-opacity"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        const startX = e.clientX;
+                        const th = e.target.parentElement;
+                        const startWidth = th.offsetWidth;
+                        resizingRef.current = i;
+                        const onMove = (me) => {
+                          const delta = me.clientX - startX;
+                          const newWidth = Math.max(60, startWidth + delta);
+                          setColWidths((prev) => ({ ...prev, [i]: newWidth }));
+                        };
+                        const onUp = () => {
+                          resizingRef.current = null;
+                          document.removeEventListener("mousemove", onMove);
+                          document.removeEventListener("mouseup", onUp);
+                        };
+                        document.addEventListener("mousemove", onMove);
+                        document.addEventListener("mouseup", onUp);
+                      }}
+                    />
                   </th>
                 );
               })}

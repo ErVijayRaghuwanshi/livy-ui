@@ -1,14 +1,18 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Navbar from "./components/Navbar";
 import TabBar from "./components/TabBar";
 import SqlEditor from "./components/SqlEditor";
 import ResultTable from "./components/ResultTable";
 import SchemaExplorer from "./components/SchemaExplorer";
+import KeyboardShortcuts from "./components/KeyboardShortcuts";
+import QueryHistory from "./components/QueryHistory";
+import StatusBar from "./components/StatusBar";
 import { GripHorizontal } from "lucide-react";
 import { useSqlFiles } from "./context/SqlFilesContext";
 import { ToastContainer } from "./components/Toast";
 
 const SIDEBAR_CACHE_KEY = "livy-ui-explorer-collapsed";
+const THEME_CACHE_KEY = "livy-ui-theme";
 const DEFAULT_RESULT_HEIGHT = 250;
 
 export default function App() {
@@ -18,15 +22,37 @@ export default function App() {
     const saved = localStorage.getItem(SIDEBAR_CACHE_KEY);
     return saved !== null ? JSON.parse(saved) : true;
   });
+  const [theme, setTheme] = useState(() => localStorage.getItem(THEME_CACHE_KEY) || "dark");
   const [resultHeight, setResultHeight] = useState(DEFAULT_RESULT_HEIGHT);
   const [isDragging, setIsDragging] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [cursorPosition, setCursorPosition] = useState(null);
   const editorRef = useRef(null);
   const prevResultHeight = useRef(DEFAULT_RESULT_HEIGHT);
+
+  const handleInsertAtCursor = useCallback((text) => {
+    editorRef.current?.insertText(text);
+  }, []);
 
   // Persist sidebar collapsed state
   useEffect(() => {
     localStorage.setItem(SIDEBAR_CACHE_KEY, JSON.stringify(sidebarCollapsed));
   }, [sidebarCollapsed]);
+
+  // Apply theme class to root
+  useEffect(() => {
+    localStorage.setItem(THEME_CACHE_KEY, theme);
+    if (theme === "light") {
+      document.documentElement.classList.add("light");
+    } else {
+      document.documentElement.classList.remove("light");
+    }
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((t) => (t === "dark" ? "light" : "dark"));
+  }, []);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -90,6 +116,20 @@ export default function App() {
         return;
       }
 
+      // Ctrl+H — toggle query history
+      if (ctrl && !e.shiftKey && e.key === "h") {
+        e.preventDefault();
+        setShowHistory((p) => !p);
+        return;
+      }
+
+      // Ctrl+/ — show keyboard shortcuts
+      if (ctrl && !e.shiftKey && e.key === "/") {
+        e.preventDefault();
+        setShowShortcuts((p) => !p);
+        return;
+      }
+
       // Ctrl+PageDown / Ctrl+PageUp — next/prev tab
       if (ctrl && !e.shiftKey && (e.key === "PageDown" || e.key === "PageUp")) {
         e.preventDefault();
@@ -135,16 +175,25 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <ToastContainer />
-      <Navbar />
+      <KeyboardShortcuts isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+      <QueryHistory
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+        onRerun={(sql) => {
+          setShowHistory(false);
+          editorRef.current?.runSql(sql);
+        }}
+      />
+      <Navbar theme={theme} toggleTheme={toggleTheme} />
 
       <div className="flex flex-1 min-h-0">
         {/* Schema Explorer Sidebar */}
-        <SchemaExplorer collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
+        <SchemaExplorer collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} onInsertAtCursor={handleInsertAtCursor} />
 
         {/* Main Editor + Results Area */}
         <div className="flex flex-col flex-1 min-h-0 min-w-0">
           <TabBar />
-          <SqlEditor ref={editorRef} />
+          <SqlEditor ref={editorRef} onCursorPositionChange={setCursorPosition} theme={theme} />
 
           {/* Resize Handle */}
           <div
@@ -167,6 +216,7 @@ export default function App() {
           </div>
         </div>
       </div>
+      <StatusBar cursorPosition={cursorPosition} onShowShortcuts={() => setShowShortcuts(true)} />
     </div>
   );
 }
