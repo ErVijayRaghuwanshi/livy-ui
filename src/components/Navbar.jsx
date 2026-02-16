@@ -11,7 +11,9 @@ import {
   GitFork,
   Star,
   Plus,
-  Link
+  Link,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { useLivy } from "../context/LivyContext";
 import { SESSION_STATES } from "../utils/constants";
@@ -29,7 +31,7 @@ const stateColors = {
   [SESSION_STATES.SUCCESS]: "bg-green-500",
 };
 
-export default function Navbar() {
+export default function Navbar({ theme, toggleTheme }) {
   const {
     activeHost,
     sessionId,
@@ -96,17 +98,23 @@ export default function Navbar() {
     fetchStats();
   }, []);
 
-  // Close dropdown on outside click
+  // Close dropdown on outside click or Escape key
   useEffect(() => {
+    if (!showSessionDropdown) return;
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setShowSessionDropdown(false);
       }
     };
-    if (showSessionDropdown) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    const handleKey = (e) => {
+      if (e.key === "Escape") setShowSessionDropdown(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKey);
+    };
   }, [showSessionDropdown]);
 
   // Fetch sessions when dropdown opens
@@ -129,12 +137,10 @@ export default function Navbar() {
 
   const handleAttach = (id) => {
     attachSession(id);
-    setShowSessionDropdown(false);
   };
 
   const handleStop = () => {
     stopSession();
-    setShowSessionDropdown(false);
   };
 
   const sessionLabel = sessionId !== null
@@ -182,7 +188,7 @@ export default function Navbar() {
 
         {/* Right Section (Controls) */}
         <div className="flex items-center gap-3">
-          {error && <span className="text-xs text-(--color-error) max-w-48 truncate">{error}</span>}
+          {error && <span className="text-xs text-(--color-error) max-w-48 truncate" title={error}>{error}</span>}
           
           {appId && (
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-(--color-bg-primary) rounded-md border border-(--color-border)">
@@ -225,15 +231,8 @@ export default function Navbar() {
             {showSessionDropdown && (
               <div className="absolute right-0 top-full mt-1 w-80 bg-(--color-bg-secondary) border border-(--color-border) rounded-lg shadow-2xl z-50 overflow-hidden">
                 {/* Header */}
-                <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border)">
+                <div className="flex items-center px-3 py-2 border-b border-(--color-border)">
                   <span className="text-xs font-semibold text-(--color-text-primary)">Sessions on {activeHost.name}</span>
-                  <button
-                    onClick={() => fetchSessions()}
-                    disabled={sessionsLoading}
-                    className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary)"
-                  >
-                    <RefreshCw size={12} className={sessionsLoading ? "animate-spin" : ""} />
-                  </button>
                 </div>
 
                 {/* Session list */}
@@ -252,10 +251,12 @@ export default function Navbar() {
                       return (
                         <div
                           key={s.id}
-                          className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${
+                          className={`flex items-center gap-2 px-3 py-2 transition-colors ${
                             isCurrent
                               ? "bg-(--color-accent)/10 border-l-2 border-(--color-accent)"
-                              : "hover:bg-(--color-bg-tertiary) border-l-2 border-transparent"
+                              : sAlive
+                              ? "hover:bg-(--color-bg-tertiary) border-l-2 border-transparent cursor-pointer"
+                              : "border-l-2 border-transparent opacity-60 cursor-not-allowed"
                           }`}
                           onClick={() => !isCurrent && sAlive && handleAttach(s.id)}
                         >
@@ -310,37 +311,55 @@ export default function Navbar() {
                     </button>
                   </div>
                 </div>
-
-                {/* Stop current session */}
-                {(isActive || isStarting) && (
-                  <div className="border-t border-(--color-border) px-3 py-2">
-                    <button
-                      onClick={handleStop}
-                      disabled={loading || isStarting}
-                      className="flex items-center gap-1.5 w-full justify-center px-3 py-1.5 bg-(--color-error)/10 text-(--color-error) hover:bg-(--color-error)/20 rounded text-xs font-medium transition-colors disabled:opacity-40"
-                    >
-                      {loading ? <Loader2 size={12} className="animate-spin" /> : <Square size={12} />}
-                      Stop Session #{sessionId}
-                    </button>
-                  </div>
-                )}
               </div>
             )}
           </div>
 
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            className="p-1.5 text-(--color-text-muted) hover:text-(--color-text-primary) rounded-md transition-colors"
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+          </button>
+
           {/* Quick actions */}
           <div className="flex items-center gap-1 border-l border-(--color-border) pl-3">
-            {!isActive && !isStarting ? (
-              <button onClick={() => startSession()} disabled={loading} className="flex items-center gap-1 px-3 py-1.5 bg-(--color-success)/20 text-(--color-success) hover:bg-(--color-success)/30 rounded-md text-xs font-medium transition-colors disabled:opacity-40">
-                {loading ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />} Start
+            {isStarting ? (
+              <button
+                disabled
+                className="p-1.5 bg-(--color-warning)/10 text-(--color-warning) rounded-md"
+                title="Starting session..."
+              >
+                <Loader2 size={15} className="animate-spin" />
+              </button>
+            ) : isActive ? (
+              <button
+                onClick={handleStop}
+                disabled={loading}
+                className="p-1.5 bg-(--color-error)/15 text-(--color-error) hover:bg-(--color-error)/25 rounded-md transition-colors disabled:opacity-40"
+                title="Stop Session"
+              >
+                {loading ? <Loader2 size={15} className="animate-spin" /> : <Square size={15} />}
               </button>
             ) : (
-              <button onClick={stopSession} disabled={loading || isStarting} className="flex items-center gap-1 px-3 py-1.5 bg-(--color-error)/20 text-(--color-error) hover:bg-(--color-error)/30 rounded-md text-xs font-medium transition-colors disabled:opacity-40">
-                {loading ? <Loader2 size={13} className="animate-spin" /> : <Square size={13} />} Stop
+              <button
+                onClick={() => startSession()}
+                disabled={loading}
+                className="p-1.5 bg-(--color-success)/15 text-(--color-success) hover:bg-(--color-success)/25 rounded-md transition-colors disabled:opacity-40"
+                title="Start Session"
+              >
+                {loading ? <Loader2 size={15} className="animate-spin" /> : <Play size={15} />}
               </button>
             )}
 
-            <button onClick={refreshSession} disabled={loading || sessionId === null} className="p-1.5 text-(--color-text-muted) hover:text-(--color-text-primary) rounded-md disabled:opacity-40">
+            <button
+              onClick={refreshSession}
+              disabled={loading || sessionId === null}
+              className="p-1.5 text-(--color-text-muted) hover:text-(--color-text-primary) rounded-md disabled:opacity-40 transition-colors"
+              title="Refresh Session"
+            >
               <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
             </button>
           </div>

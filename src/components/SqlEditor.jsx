@@ -1,6 +1,6 @@
 import { useRef, useCallback, useState, forwardRef, useImperativeHandle, useEffect } from "react";
 import Editor from "@monaco-editor/react";
-import { Play, AlignLeft, WrapText, Loader2, Ban } from "lucide-react";
+import { Play, Loader2, Ban, AlignLeft, WrapText } from "lucide-react";
 import { format } from "sql-formatter";
 import { useSqlFiles } from "../context/SqlFilesContext";
 import { useLivy } from "../context/LivyContext";
@@ -10,6 +10,7 @@ import { SPARK_FUNCTIONS_DATA } from "../utils/spark-functions-data";
 import { SPARK_SQL_KEYWORDS } from "../utils/spark-keywords-data";
 import { SPARK_SQL_SNIPPETS } from "../utils/spark_sql_snippets";
 import { useToast } from "./Toast";
+import { addHistoryEntry } from "./QueryHistory";
 
 let providersRegistered = false;
 
@@ -143,18 +144,22 @@ function formatElapsedShort(ms) {
   return `${mins}m ${(secs % 60).toFixed(0)}s`;
 }
 
-const SqlEditor = forwardRef(function SqlEditor(props, ref) {
+const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme }, ref) {
   const { activeFile, updateContent, setResult } = useSqlFiles();
   const { sessionId, sessionState } = useLivy();
   const { addToast } = useToast();
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
   const [running, setRunning] = useState(false);
+  const [glyphPopup, setGlyphPopup] = useState(null);
+  const glyphPopupRef = useRef(null);
   const abortRef = useRef(false);
   const statementsRef = useRef([]);
   const decorationsRef = useRef([]);
   const runningDecorationsRef = useRef([]);
   const handleRunSqlRef = useRef(null);
+  const handleFormatRef = useRef(null);
+  const handleMinifyRef = useRef(null);
 
   // Reset tab title when window regains focus
   useEffect(() => {
@@ -181,7 +186,6 @@ const SqlEditor = forwardRef(function SqlEditor(props, ref) {
       options: {
         isWholeLine: false,
         glyphMarginClassName: "run-glyph",
-        glyphMarginHoverMessage: { value: "**Run this statement**" },
       },
     }));
 
@@ -197,8 +201,33 @@ const SqlEditor = forwardRef(function SqlEditor(props, ref) {
 
     updateDecorations(editor);
 
+    // Track cursor position
+    editor.onDidChangeCursorPosition((e) => {
+      if (onCursorPositionChange) {
+        onCursorPositionChange({ lineNumber: e.position.lineNumber, column: e.position.column });
+      }
+    });
+
     // Monaco MouseTargetType.GLYPH_MARGIN = 2
     const GLYPH_MARGIN_TYPE = 2;
+
+    // Context menu actions
+    editor.addAction({
+      id: "format-sql",
+      label: "Format SQL",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF],
+      contextMenuGroupId: "1_sql",
+      contextMenuOrder: 1,
+      run: () => handleFormatRef.current?.(),
+    });
+    editor.addAction({
+      id: "minify-sql",
+      label: "Minify SQL",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyM],
+      contextMenuGroupId: "1_sql",
+      contextMenuOrder: 2,
+      run: () => handleMinifyRef.current?.(),
+    });
 
     editor.onMouseDown((e) => {
       if (e.target.type === GLYPH_MARGIN_TYPE) {
@@ -207,8 +236,14 @@ const SqlEditor = forwardRef(function SqlEditor(props, ref) {
         const stmt = statementsRef.current.find(
           (s) => s.startLine === lineNumber
         );
-        if (stmt && stmt.sql && handleRunSqlRef.current) {
-          handleRunSqlRef.current(stmt.sql, stmt.startLine, stmt.endLine);
+        if (stmt && stmt.sql) {
+          e.event.preventDefault();
+          e.event.stopPropagation();
+          const editorDom = editor.getDomNode();
+          const rect = editorDom.getBoundingClientRect();
+          const top = editor.getTopForLineNumber(lineNumber) - editor.getScrollTop() + rect.top;
+          const left = rect.left;
+          setGlyphPopup({ stmt, top, left });
         }
       }
     });
@@ -223,30 +258,68 @@ const SqlEditor = forwardRef(function SqlEditor(props, ref) {
     [activeFile, updateContent]
   );
 
+  const formatRange = (startLine, endLine) => {
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    if (!editor || !monaco) return;
+    const model = editor.getModel();
+    const range = new monaco.Range(startLine, 1, endLine, model.getLineMaxColumn(endLine));
+    const text = model.getValueInRange(range);
+    try {
+      const formatted = format(text, { language: "spark", tabWidth: 2 });
+      editor.executeEdits("format-sql", [{ range, text: formatted }]);
+      editor.pushUndoStop();
+    } catch { /* ignore */ }
+  };
+
+  const minifyRange = (startLine, endLine) => {
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    if (!editor || !monaco) return;
+    const model = editor.getModel();
+    const range = new monaco.Range(startLine, 1, endLine, model.getLineMaxColumn(endLine));
+    const text = model.getValueInRange(range);
+    const minified = text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+    editor.executeEdits("minify-sql", [{ range, text: minified }]);
+    editor.pushUndoStop();
+  };
+
   const handleFormat = () => {
-    if (!editorRef.current) return;
-    const value = editorRef.current.getValue();
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    if (!editor || !monaco) return;
+    const value = editor.getValue();
     try {
       const formatted = format(value, { language: "spark", tabWidth: 2 });
-      editorRef.current.setValue(formatted);
-      updateContent(activeFile.id, formatted);
+      const fullRange = editor.getModel().getFullModelRange();
+      editor.executeEdits("format-sql", [{ range: fullRange, text: formatted }]);
+      editor.pushUndoStop();
     } catch {
       // formatting failed, ignore
     }
   };
 
   const handleMinify = () => {
-    if (!editorRef.current) return;
-    const value = editorRef.current.getValue();
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    if (!editor || !monaco) return;
+    const value = editor.getValue();
     const minified = value
       .split("\n")
-      .map((line) => line.replace(/--.*$/, "").trim())
+      .map((line) => line.trim())
       .filter(Boolean)
       .join(" ")
       .replace(/\s+/g, " ")
       .trim();
-    editorRef.current.setValue(minified);
-    updateContent(activeFile.id, minified);
+    const fullRange = editor.getModel().getFullModelRange();
+    editor.executeEdits("minify-sql", [{ range: fullRange, text: minified }]);
+    editor.pushUndoStop();
   };
 
   const getSelectedOrAll = () => {
@@ -360,6 +433,15 @@ const SqlEditor = forwardRef(function SqlEditor(props, ref) {
     } finally {
       clearRunningHighlight();
       setRunning(false);
+      // Record in query history
+      if (finalStatus) {
+        addHistoryEntry({
+          sql: sql.length > 500 ? sql.substring(0, 500) + "..." : sql,
+          status: finalStatus,
+          elapsed: performance.now() - startTime,
+          fileName: activeFile?.name,
+        });
+      }
     }
 
     // Notify if tab is not focused
@@ -400,6 +482,8 @@ const SqlEditor = forwardRef(function SqlEditor(props, ref) {
   };
 
   handleRunSqlRef.current = handleRunSql;
+  handleFormatRef.current = handleFormat;
+  handleMinifyRef.current = handleMinify;
 
   const handleRun = () => handleRunSql();
 
@@ -409,9 +493,44 @@ const SqlEditor = forwardRef(function SqlEditor(props, ref) {
 
   useImperativeHandle(ref, () => ({
     run: handleRun,
+    runSql: (sql) => handleRunSql(sql),
     format: handleFormat,
     minify: handleMinify,
+    insertText: (text) => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      const position = editor.getPosition();
+      editor.executeEdits("insert-schema", [{
+        range: new monacoRef.current.Range(position.lineNumber, position.column, position.lineNumber, position.column),
+        text,
+      }]);
+      editor.focus();
+    },
   }));
+
+  // Close glyph popup on outside click or Escape
+  useEffect(() => {
+    if (!glyphPopup) return;
+    let rafId;
+    const handleClick = (e) => {
+      if (glyphPopupRef.current && !glyphPopupRef.current.contains(e.target)) {
+        setGlyphPopup(null);
+      }
+    };
+    const handleKey = (e) => {
+      if (e.key === "Escape") setGlyphPopup(null);
+    };
+    // Delay attaching so the opening click doesn't immediately close the popup
+    rafId = requestAnimationFrame(() => {
+      document.addEventListener("mousedown", handleClick);
+      document.addEventListener("keydown", handleKey);
+    });
+    return () => {
+      cancelAnimationFrame(rafId);
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [glyphPopup]);
 
   // Update glyph decorations when content changes
   useEffect(() => {
@@ -444,24 +563,6 @@ const SqlEditor = forwardRef(function SqlEditor(props, ref) {
           </button>
         )}
 
-        <button
-          onClick={handleFormat}
-          className="flex items-center gap-1.5 px-3 py-1 text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary) text-xs rounded-md transition-colors"
-          title="Format SQL (Ctrl+Shift+F)"
-        >
-          <AlignLeft size={13} />
-          Format
-        </button>
-
-        <button
-          onClick={handleMinify}
-          className="flex items-center gap-1.5 px-3 py-1 text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary) text-xs rounded-md transition-colors"
-          title="Minify SQL to one line (Ctrl+Shift+M)"
-        >
-          <WrapText size={13} />
-          Minify
-        </button>
-
         {running && (
           <div className="flex items-center gap-1.5 ml-2 text-(--color-warning)">
             <Loader2 size={13} className="animate-spin" />
@@ -475,13 +576,53 @@ const SqlEditor = forwardRef(function SqlEditor(props, ref) {
       </div>
 
       {/* Monaco Editor */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 relative">
+        {/* Glyph popup menu */}
+        {glyphPopup && (
+          <div
+            ref={glyphPopupRef}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="fixed z-50 bg-(--color-bg-secondary) border border-(--color-border) rounded-lg shadow-2xl py-1 min-w-35 animate-in fade-in zoom-in-95 duration-100"
+            style={{ top: glyphPopup.top, left: glyphPopup.left + 20 }}
+          >
+            <button
+              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-(--color-text-secondary) hover:bg-(--color-bg-tertiary) hover:text-(--color-success) transition-colors"
+              onClick={() => {
+                const { stmt } = glyphPopup;
+                setGlyphPopup(null);
+                handleRunSqlRef.current?.(stmt.sql, stmt.startLine, stmt.endLine);
+              }}
+            >
+              <Play size={12} /> Run
+            </button>
+            <button
+              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-(--color-text-secondary) hover:bg-(--color-bg-tertiary) hover:text-(--color-accent) transition-colors"
+              onClick={() => {
+                const { stmt } = glyphPopup;
+                setGlyphPopup(null);
+                formatRange(stmt.startLine, stmt.endLine);
+              }}
+            >
+              <AlignLeft size={12} /> Format
+            </button>
+            <button
+              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-(--color-text-secondary) hover:bg-(--color-bg-tertiary) hover:text-(--color-accent) transition-colors"
+              onClick={() => {
+                const { stmt } = glyphPopup;
+                setGlyphPopup(null);
+                minifyRange(stmt.startLine, stmt.endLine);
+              }}
+            >
+              <WrapText size={12} /> Minify
+            </button>
+          </div>
+        )}
         <Editor
           key={activeFile?.id}
           height="100%"
           defaultLanguage="sql"
           defaultValue={activeFile?.content || ""}
-          theme="vs-dark"
+          theme={theme === "light" ? "light" : "vs-dark"}
           beforeMount={handleBeforeMount}
           onChange={handleChange}
           onMount={handleEditorMount}

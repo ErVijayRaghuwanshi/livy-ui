@@ -34,7 +34,7 @@ USER 185
 ENV SPARK_HOME=/opt/spark
 ENV LIVY_HOME=/opt/livy
 
-EXPOSE 8998
+EXPOSE 8998 4040-4050
 
 # Start Livy
 CMD /opt/livy/bin/livy-server start && tail -f /opt/livy/logs/*

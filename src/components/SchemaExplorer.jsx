@@ -14,12 +14,13 @@ import {
   Trash2,
   Search,
   X,
+  TextCursorInput,
 } from "lucide-react";
 import { useLivy } from "../context/LivyContext";
 import { SESSION_STATES } from "../utils/constants";
 import * as livyApi from "../services/livyApi";
 
-function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy, onDelete, defaultOpen = false }) {
+function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy, onInsert, onDelete, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
   const prevDefaultOpen = useRef(defaultOpen);
 
@@ -72,6 +73,18 @@ function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy, onDel
             <Trash2 size={11} />
           </button>
         )}
+        {onInsert && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onInsert();
+            }}
+            className={`${onDelete ? "" : "ml-auto"} opacity-0 group-hover:opacity-100 text-(--color-text-muted) hover:text-(--color-accent) transition-opacity`}
+            title="Insert into editor"
+          >
+            <TextCursorInput size={11} />
+          </button>
+        )}
         {onCopy && (
           <button
             onClick={(e) => {
@@ -80,7 +93,7 @@ function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy, onDel
               setCopied(true);
               setTimeout(() => setCopied(false), 1500);
             }}
-            className={`${onDelete ? "" : "ml-auto"} ml-1 ${copied ? "opacity-100" : "opacity-0 group-hover:opacity-100"} text-(--color-text-muted) hover:text-(--color-accent) transition-opacity`}
+            className={`ml-1 ${copied ? "opacity-100" : "opacity-0 group-hover:opacity-100"} text-(--color-text-muted) hover:text-(--color-accent) transition-opacity`}
             title="Copy name"
           >
             {copied ? <Check size={11} className="text-(--color-success)" /> : <Copy size={11} />}
@@ -104,7 +117,7 @@ function LoadingNode() {
   );
 }
 
-export default function SchemaExplorer({ collapsed, setCollapsed }) {
+export default function SchemaExplorer({ collapsed, setCollapsed, onInsertAtCursor }) {
   const { sessionId, sessionState } = useLivy();
 
   const [databases, setDatabases] = useState([]);
@@ -235,7 +248,7 @@ export default function SchemaExplorer({ collapsed, setCollapsed }) {
     if (isReady && databases.length === 0) {
       loadDatabases();
     }
-  }, [isReady]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isReady, sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-load all tables and columns when user starts searching
   useEffect(() => {
@@ -352,6 +365,13 @@ export default function SchemaExplorer({ collapsed, setCollapsed }) {
           </div>
         )}
 
+        {isReady && databases.length === 0 && loading._dbs && (
+          <div className="flex items-center justify-center gap-2 px-3 py-6 text-xs text-(--color-text-muted)">
+            <Loader2 size={14} className="animate-spin" />
+            Loading databases...
+          </div>
+        )}
+
         {isReady && databases.length === 0 && !loading._dbs && !error && (
           <div className="px-3 py-4 text-xs text-(--color-text-muted) text-center">
             No databases found
@@ -385,6 +405,7 @@ export default function SchemaExplorer({ collapsed, setCollapsed }) {
               label={db}
               onOpen={() => loadTables(db)}
               onCopy={() => copyToClipboard(db)}
+              onInsert={onInsertAtCursor ? () => onInsertAtCursor(db) : undefined}
               defaultOpen={!!forceDbOpen}
             >
               {loading[db] ? (
@@ -415,6 +436,7 @@ export default function SchemaExplorer({ collapsed, setCollapsed }) {
                         onCopy={() =>
                           copyToClipboard(`\`${db}\`.\`${tbl}\``)
                         }
+                        onInsert={onInsertAtCursor ? () => onInsertAtCursor(`\`${db}\`.\`${tbl}\``) : undefined}
                         onDelete={() => dropTable(db, tbl)}
                         defaultOpen={!!forceTblOpen}
                       >
@@ -433,6 +455,7 @@ export default function SchemaExplorer({ collapsed, setCollapsed }) {
                                 label={col.name}
                                 sublabel={col.type}
                                 onCopy={() => copyToClipboard(col.name)}
+                                onInsert={onInsertAtCursor ? () => onInsertAtCursor(col.name) : undefined}
                               />
                             ))
                           )

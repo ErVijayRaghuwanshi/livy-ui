@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { X, Plus, Trash2, Save, Settings2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Plus, Trash2, Save, Pencil, Settings2, AlertTriangle } from "lucide-react";
 import { useLivy } from "../context/LivyContext";
 import { v4 as uuidv4 } from "uuid";
 
@@ -12,7 +12,7 @@ const COMMON_CONF_KEYS = [
   "spark.driver.memory",
   "spark.dynamicAllocation.enabled",
   "spark.sql.shuffle.partitions",
-  "spark.rsc.sql.num-rows",
+  "livy.rsc.sql.num-rows",
 ];
 
 export default function ConnectionModal({ isOpen, onClose }) {
@@ -24,6 +24,17 @@ export default function ConnectionModal({ isOpen, onClose }) {
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
   const [editUrl, setEditUrl] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
+  // Close on Escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKey = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -47,8 +58,8 @@ export default function ConnectionModal({ isOpen, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-(--color-bg-secondary) border border-(--color-border) rounded-xl shadow-2xl w-full max-w-lg mx-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
+      <div className="bg-(--color-bg-secondary) border border-(--color-border) rounded-xl shadow-2xl w-full max-w-lg mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-200" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-(--color-border)">
           <h2 className="text-lg font-semibold text-(--color-text-primary)">Manage Livy Hosts</h2>
@@ -105,13 +116,15 @@ export default function ConnectionModal({ isOpen, onClose }) {
                     <button
                       onClick={(e) => { e.stopPropagation(); handleEdit(host); }}
                       className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary)"
+                      title="Edit host"
                     >
-                      <Save size={14} />
+                      <Pencil size={14} />
                     </button>
                     {host.id !== "default" && (
                       <button
-                        onClick={(e) => { e.stopPropagation(); removeHost(host.id); }}
+                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(host.id); }}
                         className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-error)"
+                        title="Remove host"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -131,12 +144,14 @@ export default function ConnectionModal({ isOpen, onClose }) {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Name"
+              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
               className="flex-1 bg-(--color-bg-primary) border border-(--color-border) rounded-lg px-3 py-2 text-sm text-(--color-text-primary) outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted)"
             />
             <input
               value={newUrl}
               onChange={(e) => setNewUrl(e.target.value)}
               placeholder="http://host:8998"
+              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
               className="flex-1 bg-(--color-bg-primary) border border-(--color-border) rounded-lg px-3 py-2 text-sm text-(--color-text-primary) outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted)"
             />
             <button
@@ -237,6 +252,40 @@ export default function ConnectionModal({ isOpen, onClose }) {
           </div>
         </div>
       </div>
+
+      {/* Custom Confirm Delete Dialog */}
+      {confirmDeleteId && (() => {
+        const host = hosts.find((h) => h.id === confirmDeleteId);
+        return (
+          <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50" onClick={() => setConfirmDeleteId(null)}>
+            <div className="bg-(--color-bg-secondary) border border-(--color-border) rounded-xl shadow-2xl w-full max-w-sm mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-200" onClick={(e) => e.stopPropagation()}>
+              <div className="flex flex-col items-center px-6 py-5 text-center">
+                <div className="w-10 h-10 rounded-full bg-(--color-error)/15 flex items-center justify-center mb-3">
+                  <AlertTriangle size={20} className="text-(--color-error)" />
+                </div>
+                <h3 className="text-sm font-semibold text-(--color-text-primary) mb-1">Remove Host</h3>
+                <p className="text-xs text-(--color-text-muted)">
+                  Are you sure you want to remove <span className="text-(--color-text-primary) font-medium">"{host?.name}"</span>? This action cannot be undone.
+                </p>
+              </div>
+              <div className="flex gap-2 px-6 pb-5">
+                <button
+                  onClick={() => setConfirmDeleteId(null)}
+                  className="flex-1 px-3 py-2 text-xs font-medium text-(--color-text-secondary) bg-(--color-bg-tertiary) hover:bg-(--color-bg-primary) rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => { removeHost(confirmDeleteId); setConfirmDeleteId(null); }}
+                  className="flex-1 px-3 py-2 text-xs font-medium text-white bg-(--color-error) hover:bg-(--color-error)/80 rounded-lg transition-colors"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
