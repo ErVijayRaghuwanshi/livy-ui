@@ -11,7 +11,7 @@ export async function listSessions() {
   return data;
 }
 
-export async function createSession(conf = {}, name = "") {
+export async function createSession(conf = {}, name = "", jars = []) {
   const client = getClient();
   const body = { kind: SESSION_KIND };
   if (name.trim()) {
@@ -22,6 +22,10 @@ export async function createSession(conf = {}, name = "") {
   );
   if (Object.keys(cleanConf).length > 0) {
     body.conf = cleanConf;
+  }
+  const cleanJars = jars.filter((jar) => jar.trim());
+  if (cleanJars.length > 0) {
+    body.jars = cleanJars;
   }
   const { data } = await client.post("/sessions", body);
   return data;

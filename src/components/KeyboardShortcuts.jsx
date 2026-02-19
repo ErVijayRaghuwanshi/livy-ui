@@ -9,6 +9,8 @@ const SHORTCUTS = [
   { keys: [`${mod}+Shift+F`], description: "Format SQL" },
   { keys: [`${mod}+Shift+M`], description: "Minify SQL to one line" },
   { keys: [`${mod}+B`], description: "Toggle Schema Explorer sidebar" },
+  { keys: [`${mod}+K`], description: "Focus schema search" },
+  { keys: [`${mod}+.`], description: "Manage Livy hosts" },
   { keys: [`${mod}+\``], description: "Toggle result panel" },
   { keys: [`${mod}+Shift+N`], description: "New SQL tab" },
   { keys: [`${mod}+Shift+W`], description: "Close active tab" },

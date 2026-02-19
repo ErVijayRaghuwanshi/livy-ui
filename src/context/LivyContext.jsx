@@ -11,6 +11,7 @@ const initialState = {
   sessionId: getItem(STORAGE_KEYS.SESSION_ID, null),
   sessionState: SESSION_STATES.NOT_STARTED,
   sessionConf: getItem(STORAGE_KEYS.SESSION_CONF, {}),
+  sessionJars: getItem(STORAGE_KEYS.SESSION_JARS, []),
   sessions: [],
   sessionsLoading: false,
   appId: null,
@@ -26,6 +27,8 @@ function reducer(state, action) {
       return { ...state, activeHostId: action.payload, sessionId: null, sessionState: SESSION_STATES.NOT_STARTED, appId: null, error: null };
     case "SET_SESSION_CONF":
       return { ...state, sessionConf: action.payload };
+    case "SET_SESSION_JARS":
+      return { ...state, sessionJars: action.payload };
     case "SET_SESSION":
       return { ...state, sessionId: action.payload.id, sessionState: action.payload.state, appId: action.payload.appId || null, sessionName: action.payload.name || null, error: null };
     case "SET_SESSION_STATE":
@@ -116,8 +119,17 @@ export function LivyProvider({ children }) {
     setItem(STORAGE_KEYS.SESSION_CONF, state.sessionConf);
   }, [state.sessionConf]);
 
+  // Persist session jars
+  useEffect(() => {
+    setItem(STORAGE_KEYS.SESSION_JARS, state.sessionJars);
+  }, [state.sessionJars]);
+
   const setSessionConf = useCallback((conf) => {
     dispatch({ type: "SET_SESSION_CONF", payload: conf });
+  }, []);
+
+  const setSessionJars = useCallback((jars) => {
+    dispatch({ type: "SET_SESSION_JARS", payload: jars });
   }, []);
 
   // Fetch all sessions for current host
@@ -156,14 +168,14 @@ export function LivyProvider({ children }) {
     dispatch({ type: "SET_LOADING", payload: true });
     dispatch({ type: "SET_ERROR", payload: null });
     try {
-      const session = await livyApi.createSession(state.sessionConf, name);
+      const session = await livyApi.createSession(state.sessionConf, name, state.sessionJars);
       dispatch({ type: "SET_SESSION", payload: session });
     } catch (err) {
       dispatch({ type: "SET_ERROR", payload: err.message });
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
-  }, [state.sessionConf]);
+  }, [state.sessionConf, state.sessionJars]);
 
   // Stop session
   const stopSession = useCallback(async () => {
@@ -216,6 +228,7 @@ export function LivyProvider({ children }) {
     fetchSessions,
     attachSession,
     setSessionConf,
+    setSessionJars,
     dispatch,
   };
 

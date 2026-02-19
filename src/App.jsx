@@ -27,8 +27,10 @@ export default function App() {
   const [isDragging, setIsDragging] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showConnectionModal, setShowConnectionModal] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(null);
   const editorRef = useRef(null);
+  const schemaExplorerRef = useRef(null);
   const prevResultHeight = useRef(DEFAULT_RESULT_HEIGHT);
 
   const handleInsertAtCursor = useCallback((text) => {
@@ -130,6 +132,25 @@ export default function App() {
         return;
       }
 
+      // Ctrl+K — focus schema search
+      if (ctrl && !e.shiftKey && e.key === "k") {
+        e.preventDefault();
+        if (sidebarCollapsed) {
+          setSidebarCollapsed(false);
+        }
+        setTimeout(() => {
+          schemaExplorerRef.current?.focusSearch();
+        }, 100);
+        return;
+      }
+
+      // Ctrl+. — manage Livy hosts
+      if (ctrl && !e.shiftKey && e.key === ".") {
+        e.preventDefault();
+        setShowConnectionModal(true);
+        return;
+      }
+
       // Ctrl+PageDown / Ctrl+PageUp — next/prev tab
       if (ctrl && !e.shiftKey && (e.key === "PageDown" || e.key === "PageUp")) {
         e.preventDefault();
@@ -147,7 +168,7 @@ export default function App() {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [files, activeTabId, setActiveTab, addFile, removeFile]);
+  }, [files, activeTabId, setActiveTab, addFile, removeFile, sidebarCollapsed]);
 
   // Resizable result panel
   const handleMouseDown = (e) => {
@@ -184,11 +205,16 @@ export default function App() {
           editorRef.current?.runSql(sql);
         }}
       />
-      <Navbar theme={theme} toggleTheme={toggleTheme} />
+      <Navbar 
+        theme={theme} 
+        toggleTheme={toggleTheme}
+        showConnectionModal={showConnectionModal}
+        setShowConnectionModal={setShowConnectionModal}
+      />
 
       <div className="flex flex-1 min-h-0">
         {/* Schema Explorer Sidebar */}
-        <SchemaExplorer collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} onInsertAtCursor={handleInsertAtCursor} />
+        <SchemaExplorer ref={schemaExplorerRef} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} onInsertAtCursor={handleInsertAtCursor} />
 
         {/* Main Editor + Results Area */}
         <div className="flex flex-col flex-1 min-h-0 min-w-0">
@@ -216,7 +242,7 @@ export default function App() {
           </div>
         </div>
       </div>
-      <StatusBar cursorPosition={cursorPosition} onShowShortcuts={() => setShowShortcuts(true)} />
+      <StatusBar cursorPosition={cursorPosition} onShowShortcuts={() => setShowShortcuts(true)} onShowHistory={() => setShowHistory(true)} />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Plus, Trash2, Save, Pencil, Settings2, AlertTriangle } from "lucide-react";
+import { X, Plus, Trash2, Save, Pencil, Settings2, AlertTriangle, Package } from "lucide-react";
 import { useLivy } from "../context/LivyContext";
 import { v4 as uuidv4 } from "uuid";
 
@@ -16,11 +16,12 @@ const COMMON_CONF_KEYS = [
 ];
 
 export default function ConnectionModal({ isOpen, onClose }) {
-  const { hosts, activeHostId, addHost, removeHost, updateHost, selectHost, sessionConf, setSessionConf } = useLivy();
+  const { hosts, activeHostId, addHost, removeHost, updateHost, selectHost, sessionConf, setSessionConf, sessionJars, setSessionJars } = useLivy();
   const [newName, setNewName] = useState("");
   const [newUrl, setNewUrl] = useState("");
   const [confKey, setConfKey] = useState("");
   const [confValue, setConfValue] = useState("");
+  const [jarUrl, setJarUrl] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
   const [editUrl, setEditUrl] = useState("");
@@ -244,6 +245,72 @@ export default function ConnectionModal({ isOpen, onClose }) {
                 setConfValue("");
               }}
               disabled={!confKey.trim() || !confValue.trim()}
+              className="flex items-center gap-1 px-3 py-2 bg-(--color-accent) hover:bg-(--color-accent-hover) disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg transition-colors"
+            >
+              <Plus size={12} />
+              Add
+            </button>
+          </div>
+        </div>
+
+        {/* JAR Files */}
+        <div className="px-5 py-4 border-t border-(--color-border)">
+          <div className="flex items-center gap-1.5 mb-3">
+            <Package size={13} className="text-(--color-text-muted)" />
+            <p className="text-xs text-(--color-text-muted) font-medium uppercase tracking-wide">
+              JAR Files
+            </p>
+          </div>
+          <p className="text-[10px] text-(--color-text-muted) mb-3">
+            URLs of JAR files to be used in this session (e.g., hdfs://, s3://, http://, file://).
+          </p>
+
+          {/* Existing JAR entries */}
+          {sessionJars.length > 0 && (
+            <div className="space-y-1.5 mb-3 max-h-32 overflow-y-auto">
+              {sessionJars.map((jar, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2 px-2.5 py-1.5 bg-(--color-bg-primary) rounded-md border border-(--color-border) group"
+                >
+                  <span className="text-xs text-(--color-text-primary) font-mono truncate min-w-0 flex-1">
+                    {jar}
+                  </span>
+                  <button
+                    onClick={() => {
+                      const next = sessionJars.filter((_, i) => i !== index);
+                      setSessionJars(next);
+                    }}
+                    className="p-0.5 rounded opacity-0 group-hover:opacity-100 text-(--color-text-muted) hover:text-(--color-error) transition-opacity"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add JAR entry */}
+          <div className="flex gap-2">
+            <input
+              value={jarUrl}
+              onChange={(e) => setJarUrl(e.target.value)}
+              placeholder="hdfs://namenode/path/to/jar"
+              className="flex-1 bg-(--color-bg-primary) border border-(--color-border) rounded-lg px-3 py-2 text-xs text-(--color-text-primary) font-mono outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted)"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && jarUrl.trim()) {
+                  setSessionJars([...sessionJars, jarUrl.trim()]);
+                  setJarUrl("");
+                }
+              }}
+            />
+            <button
+              onClick={() => {
+                if (!jarUrl.trim()) return;
+                setSessionJars([...sessionJars, jarUrl.trim()]);
+                setJarUrl("");
+              }}
+              disabled={!jarUrl.trim()}
               className="flex items-center gap-1 px-3 py-2 bg-(--color-accent) hover:bg-(--color-accent-hover) disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg transition-colors"
             >
               <Plus size={12} />
