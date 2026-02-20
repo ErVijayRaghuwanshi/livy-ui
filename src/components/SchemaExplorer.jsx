@@ -20,10 +20,13 @@ import { useLivy } from "../context/LivyContext";
 import { useSchema } from "../context/SchemaContext";
 import { SESSION_STATES } from "../utils/constants";
 import * as livyApi from "../services/livyApi";
+const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+const mod = isMac ? "⌘" : "Ctrl";
 
 function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy, onInsert, onDelete, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
   const prevDefaultOpen = useRef(defaultOpen);
+  
 
   useEffect(() => {
     if (defaultOpen !== prevDefaultOpen.current) {
@@ -350,7 +353,7 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ collapsed, setCollap
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Filter schema..."
+              placeholder={`Filter schema...               ${mod}+K`}
               className="w-full pl-7 pr-7 py-1 text-xs bg-(--color-bg-primary) text-(--color-text-primary) border border-(--color-border) rounded focus:outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted)"
             />
             {searchTerm && (
