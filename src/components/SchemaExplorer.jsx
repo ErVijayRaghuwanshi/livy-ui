@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from "react";
 import {
   Database,
   Table2,
@@ -17,12 +17,16 @@ import {
   TextCursorInput,
 } from "lucide-react";
 import { useLivy } from "../context/LivyContext";
+import { useSchema } from "../context/SchemaContext";
 import { SESSION_STATES } from "../utils/constants";
 import * as livyApi from "../services/livyApi";
+const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+const mod = isMac ? "⌘" : "Ctrl";
 
 function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy, onInsert, onDelete, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
   const prevDefaultOpen = useRef(defaultOpen);
+  
 
   useEffect(() => {
     if (defaultOpen !== prevDefaultOpen.current) {
@@ -117,8 +121,9 @@ function LoadingNode() {
   );
 }
 
-export default function SchemaExplorer({ collapsed, setCollapsed, onInsertAtCursor }) {
+const SchemaExplorer = forwardRef(function SchemaExplorer({ collapsed, setCollapsed, onInsertAtCursor }, ref) {
   const { sessionId, sessionState } = useLivy();
+  const { updateDatabases, updateTables, updateColumns, clearSchema } = useSchema();
 
   const [databases, setDatabases] = useState([]);
   const [tables, setTables] = useState({});
@@ -126,12 +131,19 @@ export default function SchemaExplorer({ collapsed, setCollapsed, onInsertAtCurs
   const [loading, setLoading] = useState({});
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const searchInputRef = useRef(null);
 
   const isReady = sessionState === SESSION_STATES.IDLE && sessionId !== null;
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).catch(() => {});
   };
+
+  useImperativeHandle(ref, () => ({
+    focusSearch: () => {
+      searchInputRef.current?.focus();
+    },
+  }));
 
   const loadDatabases = useCallback(async () => {
     if (!isReady) return;
@@ -143,6 +155,7 @@ export default function SchemaExplorer({ collapsed, setCollapsed, onInsertAtCurs
         (r) => r.databaseName || r.namespace || Object.values(r)[0]
       );
       setDatabases(dbNames);
+      updateDatabases(dbNames);
       setTables({});
       setColumns({});
     } catch (err) {
@@ -175,6 +188,7 @@ export default function SchemaExplorer({ collapsed, setCollapsed, onInsertAtCurs
           )
           .filter((name) => name && name.trim() !== "");
         setTables((p) => ({ ...p, [db]: tableNames }));
+        updateTables(db, tableNames);
       } catch (err) {
         console.error(`[SchemaExplorer] Error loading tables for ${db}:`, err);
         setTables((p) => ({ ...p, [db]: [] }));
@@ -207,6 +221,7 @@ export default function SchemaExplorer({ collapsed, setCollapsed, onInsertAtCurs
             type: r.data_type || Object.values(r)[1] || "",
           }));
         setColumns((p) => ({ ...p, [key]: cols }));
+        updateColumns(db, table, cols);
       } catch (err) {
         console.error(`[SchemaExplorer] Error loading columns for ${key}:`, err);
         setColumns((p) => ({ ...p, [key]: [] }));
@@ -277,7 +292,8 @@ export default function SchemaExplorer({ collapsed, setCollapsed, onInsertAtCurs
     setTables({});
     setColumns({});
     setError(null);
-  }, [sessionId]);
+    clearSchema();
+  }, [sessionId, clearSchema]);
 
   if (collapsed) {
     return (
@@ -333,10 +349,11 @@ export default function SchemaExplorer({ collapsed, setCollapsed, onInsertAtCurs
           <div className="relative">
             <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-(--color-text-muted)" />
             <input
+              ref={searchInputRef}
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Filter schema..."
+              placeholder={`Filter schema...               ${mod}+K`}
               className="w-full pl-7 pr-7 py-1 text-xs bg-(--color-bg-primary) text-(--color-text-primary) border border-(--color-border) rounded focus:outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted)"
             />
             {searchTerm && (
@@ -471,4 +488,6 @@ export default function SchemaExplorer({ collapsed, setCollapsed, onInsertAtCurs
       </div>
     </div>
   );
-}
+});
+
+export default SchemaExplorer;

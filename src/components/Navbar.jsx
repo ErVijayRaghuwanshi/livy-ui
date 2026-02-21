@@ -31,7 +31,7 @@ const stateColors = {
   [SESSION_STATES.SUCCESS]: "bg-green-500",
 };
 
-export default function Navbar({ theme, toggleTheme }) {
+export default function Navbar({ theme, toggleTheme, showConnectionModal, setShowConnectionModal }) {
   const {
     activeHost,
     sessionId,
@@ -49,7 +49,6 @@ export default function Navbar({ theme, toggleTheme }) {
     attachSession,
   } = useLivy();
 
-  const [showModal, setShowModal] = useState(false);
   const [showSessionDropdown, setShowSessionDropdown] = useState(false);
   const [newSessionName, setNewSessionName] = useState("");
   const dropdownRef = useRef(null);
@@ -199,8 +198,9 @@ export default function Navbar({ theme, toggleTheme }) {
 
           {/* Host selector */}
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => setShowConnectionModal(true)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-(--color-bg-primary) rounded-md border border-(--color-border) hover:border-(--color-text-muted) transition-colors"
+            title="Manage Livy Hosts (Cmd+.)"
           >
             <Server size={13} className="text-(--color-text-muted)" />
             <span className="text-xs text-(--color-text-secondary) max-w-28 truncate">
@@ -366,7 +366,7 @@ export default function Navbar({ theme, toggleTheme }) {
         </div>
       </nav>
 
-      <ConnectionModal isOpen={showModal} onClose={() => setShowModal(false)} />
+      <ConnectionModal isOpen={showConnectionModal} onClose={() => setShowConnectionModal(false)} />
     </>
   );
 }

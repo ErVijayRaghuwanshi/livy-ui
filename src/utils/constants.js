@@ -13,6 +13,7 @@ export const STORAGE_KEYS = {
   ACTIVE_TAB: "livy-active-tab",
   SESSION_ID: "livy-session-id",
   SESSION_CONF: "livy-session-conf",
+  SESSION_JARS: "livy-session-jars",
 };
 
 export const SESSION_STATES = {

@@ -4,6 +4,7 @@ import { Play, Loader2, Ban, AlignLeft, WrapText } from "lucide-react";
 import { format } from "sql-formatter";
 import { useSqlFiles } from "../context/SqlFilesContext";
 import { useLivy } from "../context/LivyContext";
+import { useSchema } from "../context/SchemaContext";
 import { SESSION_STATES, STATEMENT_STATES, POLL_INTERVAL_MS } from "../utils/constants";
 import * as livyApi from "../services/livyApi";
 import { SPARK_FUNCTIONS_DATA } from "../utils/spark-functions-data";
@@ -14,7 +15,32 @@ import { addHistoryEntry } from "./QueryHistory";
 
 let providersRegistered = false;
 
-function registerSparkProviders(monaco) {
+// Helper to detect SQL context for intelligent suggestions
+function getSqlContext(model, position) {
+  const lineContent = model.getLineContent(position.lineNumber);
+  const textBeforeCursor = lineContent.substring(0, position.column - 1).toUpperCase();
+  const allTextBefore = model.getValueInRange({
+    startLineNumber: 1,
+    startColumn: 1,
+    endLineNumber: position.lineNumber,
+    endColumn: position.column,
+  }).toUpperCase();
+
+  // Check if we're after SELECT, WHERE, GROUP BY, ORDER BY, HAVING, etc.
+  const columnContextKeywords = /\b(SELECT|WHERE|GROUP\s+BY|ORDER\s+BY|HAVING|ON|AND|OR|SET|VALUES)\s*$/;
+  const tableContextKeywords = /\b(FROM|JOIN|LEFT\s+JOIN|RIGHT\s+JOIN|INNER\s+JOIN|OUTER\s+JOIN|FULL\s+JOIN|INTO|UPDATE|TABLE)\s*$/;
+  
+  if (tableContextKeywords.test(textBeforeCursor)) {
+    return 'table';
+  }
+  if (columnContextKeywords.test(textBeforeCursor)) {
+    return 'column';
+  }
+  
+  return 'any';
+}
+
+function registerSparkProviders(monaco, schemaData) {
   if (providersRegistered) return;
   providersRegistered = true;
 
@@ -23,7 +49,7 @@ function registerSparkProviders(monaco) {
     /^[a-z_]/i.test(f.name)
   );
 
-  // Completion provider for functions
+  // Completion provider for functions, keywords, snippets, and schema
   monaco.languages.registerCompletionItemProvider("sql", {
     triggerCharacters: [" ", "(", ",", "."],
     provideCompletionItems: (model, position) => {
@@ -34,6 +60,8 @@ function registerSparkProviders(monaco) {
         startColumn: word.startColumn,
         endColumn: word.endColumn,
       };
+
+      const context = getSqlContext(model, position);
 
       const functionSuggestions = namedFunctions.map((fn) => ({
         label: fn.name,
@@ -56,17 +84,74 @@ function registerSparkProviders(monaco) {
         range,
       }));
 
-            // 3. Generate Predefined Code Snippets (NEW!)
       const snippetSuggestions = SPARK_SQL_SNIPPETS.map((snippet) => ({
         label: snippet.label,
-        kind: monaco.languages.CompletionItemKind.Snippet, // Marks it as a Snippet icon in the UI
+        kind: monaco.languages.CompletionItemKind.Snippet,
         insertText: snippet.insertText,
         insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
         detail: "Spark SQL Template",
         documentation: snippet.description,
         range,
       }));
-      return { suggestions: [...keywordSuggestions, ...functionSuggestions, ...snippetSuggestions] };
+
+      // Schema-based suggestions
+      const schemaSuggestions = [];
+      
+      if (schemaData && schemaData.current) {
+        const { databases, tables, columns } = schemaData.current;
+
+        // Database suggestions
+        if (databases && databases.length > 0) {
+          databases.forEach((db) => {
+            schemaSuggestions.push({
+              label: db,
+              kind: monaco.languages.CompletionItemKind.Module,
+              insertText: `\`${db}\``,
+              detail: "Database",
+              documentation: `Database: ${db}`,
+              range,
+              sortText: "0_" + db,
+            });
+          });
+        }
+
+        // Table suggestions (show in table context or any context)
+        if (tables && Object.keys(tables).length > 0 && (context === 'table' || context === 'any')) {
+          Object.entries(tables).forEach(([db, tableList]) => {
+            tableList.forEach((tbl) => {
+              schemaSuggestions.push({
+                label: `${db}.${tbl}`,
+                kind: monaco.languages.CompletionItemKind.Class,
+                insertText: `\`${db}\`.\`${tbl}\``,
+                detail: `Table in ${db}`,
+                documentation: `Table: ${tbl}\nDatabase: ${db}`,
+                range,
+                sortText: "1_" + tbl,
+              });
+            });
+          });
+        }
+
+        // Column suggestions (show in column context)
+        if (columns && Object.keys(columns).length > 0 && (context === 'column' || context === 'any')) {
+          Object.entries(columns).forEach(([key, columnList]) => {
+            const [db, tbl] = key.split('.');
+            columnList.forEach((col) => {
+              schemaSuggestions.push({
+                label: col.name,
+                kind: monaco.languages.CompletionItemKind.Field,
+                insertText: col.name,
+                detail: `${col.type} (${db}.${tbl})`,
+                documentation: `Column: ${col.name}\nType: ${col.type}\nTable: ${db}.${tbl}`,
+                range,
+                sortText: "2_" + col.name,
+              });
+            });
+          });
+        }
+      }
+
+      return { suggestions: [...keywordSuggestions, ...functionSuggestions, ...snippetSuggestions, ...schemaSuggestions] };
     },
   });
 
@@ -144,9 +229,11 @@ function formatElapsedShort(ms) {
   return `${mins}m ${(secs % 60).toFixed(0)}s`;
 }
 
-const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme }, ref) {
+const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme, onFocusSchemaSearch }, ref) {
   const { activeFile, updateContent, setResult } = useSqlFiles();
   const { sessionId, sessionState } = useLivy();
+  const schemaContext = useSchema();
+  const schemaDataRef = useRef({ databases: [], tables: {}, columns: {} });
   const { addToast } = useToast();
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
@@ -171,8 +258,19 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme 
   const canRun =
     sessionState === SESSION_STATES.IDLE && sessionId !== null && !running;
 
+  // Keep schema data ref updated
+  useEffect(() => {
+    if (schemaContext) {
+      schemaDataRef.current = {
+        databases: schemaContext.databases,
+        tables: schemaContext.tables,
+        columns: schemaContext.columns,
+      };
+    }
+  }, [schemaContext]);
+
   const handleBeforeMount = (monaco) => {
-    registerSparkProviders(monaco);
+    registerSparkProviders(monaco, schemaDataRef);
   };
 
   const updateDecorations = useCallback((editor) => {
@@ -227,6 +325,16 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme 
       contextMenuGroupId: "1_sql",
       contextMenuOrder: 2,
       run: () => handleMinifyRef.current?.(),
+    });
+
+    // Override Monaco's Cmd+K chord to focus schema search
+    editor.addAction({
+      id: "focus-schema-search",
+      label: "Focus Schema Search",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK],
+      run: () => {
+        onFocusSchemaSearch?.();
+      },
     });
 
     editor.onMouseDown((e) => {
