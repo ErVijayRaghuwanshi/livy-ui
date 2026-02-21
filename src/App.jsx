@@ -37,6 +37,15 @@ export default function App() {
     editorRef.current?.insertText(text);
   }, []);
 
+  const handleFocusSchemaSearch = useCallback(() => {
+    if (sidebarCollapsed) {
+      setSidebarCollapsed(false);
+    }
+    setTimeout(() => {
+      schemaExplorerRef.current?.focusSearch();
+    }, 100);
+  }, [sidebarCollapsed]);
+
   // Persist sidebar collapsed state
   useEffect(() => {
     localStorage.setItem(SIDEBAR_CACHE_KEY, JSON.stringify(sidebarCollapsed));
@@ -122,6 +131,10 @@ export default function App() {
       if (ctrl && !e.shiftKey && e.key === "h") {
         e.preventDefault();
         setShowHistory((p) => !p);
+
+        // hide other two, 
+        setShowShortcuts(false);
+        setShowConnectionModal(false);
         return;
       }
 
@@ -129,11 +142,16 @@ export default function App() {
       if (ctrl && !e.shiftKey && e.key === "/") {
         e.preventDefault();
         setShowShortcuts((p) => !p);
+
+        // hide other two, 
+        setShowHistory(false);
+        setShowConnectionModal(false);
         return;
       }
 
       // Ctrl+K — focus schema search
-      if (ctrl && !e.shiftKey && e.key === "k") {
+      // if (ctrl && !e.shiftKey && e.key === "k") {
+      if (ctrl && e.key === "k") {
         e.preventDefault();
         if (sidebarCollapsed) {
           setSidebarCollapsed(false);
@@ -147,7 +165,11 @@ export default function App() {
       // Ctrl+. — manage Livy hosts
       if (ctrl && !e.shiftKey && e.key === ".") {
         e.preventDefault();
-        setShowConnectionModal(true);
+        setShowConnectionModal((p) => !p);
+
+        // hide other two, 
+        setShowShortcuts(false);
+        setShowHistory(false);
         return;
       }
 
@@ -219,7 +241,7 @@ export default function App() {
         {/* Main Editor + Results Area */}
         <div className="flex flex-col flex-1 min-h-0 min-w-0">
           <TabBar />
-          <SqlEditor ref={editorRef} onCursorPositionChange={setCursorPosition} theme={theme} />
+          <SqlEditor ref={editorRef} onCursorPositionChange={setCursorPosition} theme={theme} onFocusSchemaSearch={handleFocusSchemaSearch} />
 
           {/* Resize Handle */}
           <div

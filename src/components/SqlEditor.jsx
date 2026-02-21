@@ -229,7 +229,7 @@ function formatElapsedShort(ms) {
   return `${mins}m ${(secs % 60).toFixed(0)}s`;
 }
 
-const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme }, ref) {
+const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme, onFocusSchemaSearch }, ref) {
   const { activeFile, updateContent, setResult } = useSqlFiles();
   const { sessionId, sessionState } = useLivy();
   const schemaContext = useSchema();
@@ -325,6 +325,16 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme 
       contextMenuGroupId: "1_sql",
       contextMenuOrder: 2,
       run: () => handleMinifyRef.current?.(),
+    });
+
+    // Override Monaco's Cmd+K chord to focus schema search
+    editor.addAction({
+      id: "focus-schema-search",
+      label: "Focus Schema Search",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK],
+      run: () => {
+        onFocusSchemaSearch?.();
+      },
     });
 
     editor.onMouseDown((e) => {
