@@ -10,7 +10,8 @@ A modern web-based SQL editor for [Apache Livy](https://livy.incubator.apache.or
 
 ## Demo
 
-[![Livy UI Demo](assets/livy-ui-demo.mp4)](assets/livy-ui-demo.mp4)
+<!-- [![Livy UI Demo](assets/livy-ui-demo.mp4)](assets/livy-ui-demo.mp4) -->
+<video src="assets/livy-ui-demo.mp4" controls width="600"></video>
 
 *Click to play the product demo showcasing Livy UI's key features*
 
