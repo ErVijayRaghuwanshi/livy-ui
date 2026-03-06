@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  
+  <!-- Main page -->
+  <url>
+    <loc>https://ervijayraghuwanshi.github.io/livy-ui/</loc>
+    <lastmod>2026-03-01</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  
+  <!-- GitHub Repository -->
+  <url>
+    <loc>https://github.com/ErVijayRaghuwanshi/livy-ui</loc>
+    <lastmod>2026-03-01</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  
+  <!-- Demo video -->
+  <url>
+    <loc>https://ervijayraghuwanshi.github.io/livy-ui/docs/livy-ui-demo.mp4</loc>
+    <lastmod>2026-03-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://ervijayraghuwanshi.github.io/livy-ui/docs/livy-ui-demo.mp4</image:loc>
+      <image:title>Livy UI Demo - Web-based Spark SQL Editor</image:title>
+      <image:caption>Demonstration of Livy UI features including SQL editor, schema explorer, and query execution</image:caption>
+    </image:image>
+  </url>
+  
+  <!-- README documentation -->
+  <url>
+    <loc>https://github.com/ErVijayRaghuwanshi/livy-ui/blob/main/README.md</loc>
+    <lastmod>2026-03-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  
+</urlset>
