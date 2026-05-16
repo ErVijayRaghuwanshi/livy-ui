@@ -1,40 +1,63 @@
-# Use the official Apache Spark image
 FROM apache/spark:3.5.4
 
-# Switch to root to install dependencies and Livy
+# Install dependencies as root
 USER root
 
-RUN apt-get update && apt-get install -y wget unzip procps
+# Update package lists and install necessary packages
+RUN apt-get update && apt-get install -y wget unzip procps python3 openjdk-11-jdk-headless
 
-# Download and extract Apache Livy
+
+# Install Livy
 RUN wget https://archive.apache.org/dist/incubator/livy/0.8.0-incubating/apache-livy-0.8.0-incubating_2.12-bin.zip -O /tmp/livy.zip && \
     unzip /tmp/livy.zip -d /opt/ && \
     mv /opt/apache-livy-0.8.0-incubating_2.12-bin /opt/livy && \
     rm /tmp/livy.zip
 
-# --- FIX START: Remove duplicate JARs to prevent Spark 3.5 conflicts ---
-# Livy 0.8 adds both rsc-jars and repl-jars to the classpath. 
-# We remove duplicates from repl-jars to stop the "already registered" error.
+# Remove duplicate jars
 RUN cd /opt/livy/repl_2.12-jars && \
     for jar in *.jar; do \
         if [ -f "/opt/livy/rsc-jars/$jar" ]; then \
-            echo "Removing duplicate jar: $jar"; \
             rm "$jar"; \
         fi; \
     done
-# --- FIX END ---
 
-# Create log directory and hand ownership to the official spark user
-RUN mkdir -p /opt/livy/logs && chown -R 185:185 /opt/livy
+# Install Kafka connector for Spark 3.5
+RUN wget -P /opt/spark/jars/ \
+https://repo1.maven.org/maven2/org/apache/spark/spark-sql-kafka-0-10_2.12/3.5.4/spark-sql-kafka-0-10_2.12-3.5.4.jar && \
+wget -P /opt/spark/jars/ \
+https://repo1.maven.org/maven2/org/apache/spark/spark-token-provider-kafka-0-10_2.12/3.5.4/spark-token-provider-kafka-0-10_2.12-3.5.4.jar && \
+wget -P /opt/spark/jars/ \
+https://repo1.maven.org/maven2/org/apache/kafka/kafka-clients/3.5.1/kafka-clients-3.5.1.jar
+RUN wget -P /opt/spark/jars/ \
+https://repo1.maven.org/maven2/org/apache/commons/commons-pool2/2.12.0/commons-pool2-2.12.0.jar
 
-# Switch back to the official Spark user (UID 185) for security
+# Add PostgreSQL driver
+RUN wget -P /opt/spark/jars/ https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.4/postgresql-42.7.4.jar
+
+# Add Delta Lake jars
+RUN wget -P /opt/spark/jars/ \
+https://repo1.maven.org/maven2/io/delta/delta-spark_2.12/3.2.0/delta-spark_2.12-3.2.0.jar && \
+wget -P /opt/spark/jars/ \
+https://repo1.maven.org/maven2/io/delta/delta-storage/3.2.0/delta-storage-3.2.0.jar
+
+# Add sedona jars
+RUN wget -P /opt/spark/jars/ \
+https://repo1.maven.org/maven2/org/apache/sedona/sedona-spark-shaded-3.5_2.12/1.5.1/sedona-spark-shaded-3.5_2.12-1.5.1.jar && \
+wget -P /opt/spark/jars/ \
+https://repo1.maven.org/maven2/org/datasyslab/geotools-wrapper/1.5.1-28.2/geotools-wrapper-1.5.1-28.2.jar
+
+
+# Create logs
+RUN mkdir -p /opt/livy/logs && chown -R 185:185 /opt/livy 
+
+# Switch to spark user, which is the default user in the base image and has UID 185, this ensures that the Livy server runs with the same permissions as Spark and can access the necessary files and directories. It also avoids potential permission issues when running the container in environments with strict security policies.
 USER 185
 
-# Set environment variables
 ENV SPARK_HOME=/opt/spark
 ENV LIVY_HOME=/opt/livy
+ENV PYSPARK_PYTHON=python3
+ENV PYSPARK_DRIVER_PYTHON=python3
 
 EXPOSE 8998 4040-4050
 
-# Start Livy
-CMD /opt/livy/bin/livy-server start && tail -f /opt/livy/logs/*
+CMD ["/opt/livy/bin/livy-server"]

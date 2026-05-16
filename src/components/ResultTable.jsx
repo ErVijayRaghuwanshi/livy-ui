@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { AlertCircle, Loader2, Table, CheckCircle2, Ban, Clock, FileText, Copy, Check, Download } from "lucide-react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { AlertCircle, Loader2, Table, CheckCircle2, Ban, Clock, FileText, Copy, Check, Download, Search, X, FilterX } from "lucide-react";
 
 function formatElapsed(ms) {
   if (ms == null) return null;
@@ -276,12 +276,30 @@ function isExplainResult(data) {
 const ROW_HEIGHT = 28;
 const OVERSCAN = 10;
 
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 function JsonTable({ data, elapsed }) {
   const scrollRef = useRef(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewHeight, setViewHeight] = useState(400);
   const [colWidths, setColWidths] = useState({});
   const resizingRef = useRef(null);
+  const [columnFilters, setColumnFilters] = useState({});
+  const debouncedFilters = useDebounce(columnFilters, 300);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -320,19 +338,67 @@ function JsonTable({ data, elapsed }) {
 
   const fields = data.schema.fields || [];
   const rows = data.data || [];
+  
+  const filteredRows = useMemo(() => {
+    const activeFilters = Object.entries(debouncedFilters).filter(([_, value]) => value.trim() !== '');
+    if (activeFilters.length === 0) return rows;
+    
+    return rows.filter(row => {
+      return activeFilters.every(([colIndex, filterValue]) => {
+        const field = fields[parseInt(colIndex)];
+        const cellValue = row[field.name || field] !== undefined 
+          ? String(row[field.name || field]) 
+          : Array.isArray(row) ? String(row[parseInt(colIndex)] ?? '') : '';
+        return cellValue.toLowerCase().includes(filterValue.toLowerCase());
+      });
+    });
+  }, [rows, debouncedFilters, fields]);
+  
   const totalRows = rows.length;
+  const filteredCount = filteredRows.length;
+  const hasActiveFilters = Object.values(columnFilters).some(v => v.trim() !== '');
 
   const startIdx = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
   const visibleCount = Math.ceil(viewHeight / ROW_HEIGHT) + OVERSCAN * 2;
-  const endIdx = Math.min(totalRows, startIdx + visibleCount);
+  const endIdx = Math.min(filteredCount, startIdx + visibleCount);
   const topPad = startIdx * ROW_HEIGHT;
-  const bottomPad = (totalRows - endIdx) * ROW_HEIGHT;
+  const bottomPad = (filteredCount - endIdx) * ROW_HEIGHT;
+  
+  const handleFilterChange = (colIndex, value) => {
+    setColumnFilters(prev => ({ ...prev, [colIndex]: value }));
+  };
+  
+  const clearAllFilters = () => {
+    setColumnFilters({});
+  };
+  
+  const clearFilter = (colIndex) => {
+    setColumnFilters(prev => {
+      const newFilters = { ...prev };
+      delete newFilters[colIndex];
+      return newFilters;
+    });
+  };
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 py-2 text-(--color-success) text-xs font-medium border-b border-(--color-border) shrink-0">
         <CheckCircle2 size={14} />
-        {totalRows} row{totalRows !== 1 ? "s" : ""} returned
+        {hasActiveFilters ? (
+          <>
+            {filteredCount} of {totalRows} row{totalRows !== 1 ? "s" : ""}
+            <button
+              onClick={clearAllFilters}
+              className="flex items-center gap-1 px-2 py-0.5 ml-2 rounded text-[10px] bg-(--color-bg-tertiary) hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-colors"
+              title="Clear all filters"
+            >
+              <FilterX size={10} />
+              Clear filters
+            </button>
+          </>
+        ) : (
+          <>{totalRows} row{totalRows !== 1 ? "s" : ""} returned</>
+        )}
         <ElapsedBadge elapsed={elapsed} />
         {(() => {
           const buildCsv = () => {
@@ -343,7 +409,7 @@ function JsonTable({ data, elapsed }) {
                 : s;
             };
             const header = fields.map((f) => csvEscape(f.name || f)).join(",");
-            const body = rows.map((row) =>
+            const body = filteredRows.map((row) =>
               fields.map((f, ci) => {
                 const val = row[f.name || f] !== undefined ? row[f.name || f] : Array.isArray(row) ? (row[ci] ?? "") : "";
                 return csvEscape(val);
@@ -352,7 +418,7 @@ function JsonTable({ data, elapsed }) {
             return header + "\n" + body;
           };
           const buildJson = () => {
-            return JSON.stringify(rows.map((row) => {
+            return JSON.stringify(filteredRows.map((row) => {
               const obj = {};
               fields.forEach((f, ci) => {
                 const name = f.name || f;
@@ -379,7 +445,7 @@ function JsonTable({ data, elapsed }) {
             </colgroup>
           )}
           <thead>
-            <tr className="bg-(--color-bg-tertiary) sticky top-0 z-10">
+            <tr className="bg-(--color-bg-tertiary) sticky top-0 z-20">
               {fields.map((field, i) => {
                 const name = field.name || field;
                 const type = field.type
@@ -424,12 +490,43 @@ function JsonTable({ data, elapsed }) {
                 );
               })}
             </tr>
+            <tr className="bg-(--color-bg-secondary) sticky z-10" style={{ top: fields.some(f => f.type) ? '44px' : '28px' }}>
+              {fields.map((field, i) => (
+                <th key={i} className="px-2 py-1 border-b border-(--color-border)">
+                  <div className="relative flex items-center">
+                    <Search size={10} className="absolute left-1.5 text-(--color-text-muted) pointer-events-none" />
+                    <input
+                      type="text"
+                      value={columnFilters[i] || ''}
+                      onChange={(e) => handleFilterChange(i, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          clearFilter(i);
+                          e.target.blur();
+                        }
+                      }}
+                      placeholder="Filter..."
+                      className="w-full pl-5 pr-5 py-1 text-[11px] bg-(--color-bg-primary) text-(--color-text-primary) border border-(--color-border) rounded focus:outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted)"
+                    />
+                    {columnFilters[i] && (
+                      <button
+                        onClick={() => clearFilter(i)}
+                        className="absolute right-1 p-0.5 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary)"
+                        title="Clear filter"
+                      >
+                        <X size={10} />
+                      </button>
+                    )}
+                  </div>
+                </th>
+              ))}
+            </tr>
           </thead>
           <tbody>
             {topPad > 0 && (
               <tr><td colSpan={fields.length} style={{ height: topPad, padding: 0, border: "none" }} /></tr>
             )}
-            {rows.slice(startIdx, endIdx).map((row, i) => (
+            {filteredRows.slice(startIdx, endIdx).map((row, i) => (
               <tr
                 key={startIdx + i}
                 className="border-b border-(--color-border)/50 hover:bg-(--color-bg-tertiary)/30"
