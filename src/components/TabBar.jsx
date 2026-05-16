@@ -12,9 +12,13 @@ function ensureExtension(name) {
 }
 
 export default function TabBar() {
-  const { files, activeTabId, setActiveTab, addFile, removeFile, renameFile } = useSqlFiles();
+  const { files, openFiles, activeTabId, setActiveTab, addFile, closeFile, renameFile, reorderFiles } = useSqlFiles();
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
+
+  const openFilesData = openFiles.map(id => files.find(f => f.id === id)).filter(Boolean);
 
   const handleStartRename = (file) => {
     setRenamingId(file.id);
@@ -31,18 +35,66 @@ export default function TabBar() {
 
   const handleClose = (e, id) => {
     e.stopPropagation();
-    if (files.length === 1) return;
-    removeFile(id);
+    if (openFiles.length === 1) return;
+    closeFile(id);
+  };
+
+  const handleDragStart = (e, index) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/html", e.currentTarget);
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDragEnter = (e, index) => {
+    e.preventDefault();
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e, toIndex) => {
+    e.preventDefault();
+    if (draggedIndex !== null && draggedIndex !== toIndex) {
+      reorderFiles(draggedIndex, toIndex);
+    }
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
   };
 
   return (
     <div className="flex items-center bg-(--color-bg-secondary) border-b border-(--color-border) shrink-0 overflow-x-auto">
       <div className="flex items-center min-w-0">
-        {files.map((file) => (
+        {openFilesData.map((file, index) => (
           <div
             key={file.id}
+            draggable={renamingId !== file.id}
+            onDragStart={(e) => handleDragStart(e, index)}
+            onDragOver={(e) => handleDragOver(e, index)}
+            onDragEnter={(e) => handleDragEnter(e, index)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, index)}
+            onDragEnd={handleDragEnd}
             onClick={() => setActiveTab(file.id)}
-            className={`group flex items-center gap-1.5 px-3 py-2 text-xs cursor-pointer border-r border-(--color-border) min-w-0 max-w-48 transition-colors ${
+            className={`group flex items-center gap-1.5 px-3 py-2 text-xs cursor-pointer border-r border-(--color-border) min-w-0 max-w-48 transition-colors ${draggedIndex === index ? "opacity-50" : ""} ${
+              dragOverIndex === index ? "border-l-2 border-l-(--color-accent)" : ""
+            } ${
               file.id === activeTabId
                 ? "bg-(--color-bg-primary) text-(--color-text-primary) border-b-2 border-b-(--color-accent)"
                 : "text-(--color-text-muted) hover:text-(--color-text-secondary) hover:bg-(--color-bg-primary)/50"
@@ -77,7 +129,7 @@ export default function TabBar() {
               </span>
             )}
 
-            {files.length > 1 && (
+            {openFiles.length > 1 && (
               <button
                 onClick={(e) => handleClose(e, file.id)}
                 className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-(--color-bg-tertiary) hover:text-(--color-error) transition-opacity ml-auto"

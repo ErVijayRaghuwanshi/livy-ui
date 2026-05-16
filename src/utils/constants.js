@@ -10,6 +10,7 @@ export const STORAGE_KEYS = {
   HOSTS: "livy-hosts",
   ACTIVE_HOST: "livy-active-host",
   SQL_FILES: "livy-sql-files",
+  OPEN_FILES: "livy-open-files",
   ACTIVE_TAB: "livy-active-tab",
   SESSION_ID: "livy-session-id",
   SESSION_CONF: "livy-session-conf",

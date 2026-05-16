@@ -7,8 +7,6 @@ import {
   ChevronDown,
   RefreshCw,
   Loader2,
-  PanelLeftClose,
-  PanelLeft,
   Copy,
   Check,
   Trash2,
@@ -121,7 +119,7 @@ function LoadingNode() {
   );
 }
 
-const SchemaExplorer = forwardRef(function SchemaExplorer({ collapsed, setCollapsed, onInsertAtCursor }, ref) {
+const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor }, ref) {
   const { sessionId, sessionState } = useLivy();
   const { updateDatabases, updateTables, updateColumns, clearSchema } = useSchema();
 
@@ -295,52 +293,29 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ collapsed, setCollap
     clearSchema();
   }, [sessionId, clearSchema]);
 
-  if (collapsed) {
-    return (
-      <div className="flex flex-col items-center py-2 w-10 shrink-0 bg-(--color-bg-secondary) border-r border-(--color-border)">
-        <button
-          onClick={() => setCollapsed(false)}
-          className="p-1.5 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary)"
-          title="Show Schema Explorer"
-        >
-          <PanelLeft size={16} />
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col w-60 shrink-0 bg-(--color-bg-secondary) border-r border-(--color-border) overflow-hidden">
+    <div className="flex flex-col h-full bg-(--color-bg-secondary) overflow-hidden)">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border)">
-        <span className="text-xs font-semibold text-(--color-text-secondary) uppercase tracking-wider">
-          Schema Explorer
+        <span className="text-xs font-semibold text-(--color-text-secondary) uppercase tracking-wide">
+          Schema
         </span>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => {
-              setTables({});
-              setColumns({});
-              loadDatabases();
-            }}
-            disabled={!isReady || loading._dbs}
-            className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) disabled:opacity-30"
-            title="Refresh"
-          >
-            {loading._dbs ? (
-              <Loader2 size={13} className="animate-spin" />
-            ) : (
-              <RefreshCw size={13} />
-            )}
-          </button>
-          <button
-            onClick={() => setCollapsed(true)}
-            className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary)"
-            title="Collapse"
-          >
-            <PanelLeftClose size={13} />
-          </button>
-        </div>
+        <button
+          onClick={() => {
+            setTables({});
+            setColumns({});
+            loadDatabases();
+          }}
+          disabled={!isReady || loading._dbs}
+          className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) disabled:opacity-30"
+          title="Refresh"
+        >
+          {loading._dbs ? (
+            <Loader2 size={13} className="animate-spin" />
+          ) : (
+            <RefreshCw size={13} />
+          )}
+        </button>
       </div>
 
       {/* Search */}

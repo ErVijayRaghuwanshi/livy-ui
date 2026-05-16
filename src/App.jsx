@@ -3,7 +3,7 @@ import Navbar from "./components/Navbar";
 import TabBar from "./components/TabBar";
 import SqlEditor from "./components/SqlEditor";
 import ResultTable from "./components/ResultTable";
-import SchemaExplorer from "./components/SchemaExplorer";
+import SidebarTabs from "./components/SidebarTabs";
 import KeyboardShortcuts from "./components/KeyboardShortcuts";
 import QueryHistory from "./components/QueryHistory";
 import StatusBar from "./components/StatusBar";
@@ -30,7 +30,7 @@ export default function App() {
   const [showConnectionModal, setShowConnectionModal] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(null);
   const editorRef = useRef(null);
-  const schemaExplorerRef = useRef(null);
+  const sidebarTabsRef = useRef(null);
   const prevResultHeight = useRef(DEFAULT_RESULT_HEIGHT);
 
   const handleInsertAtCursor = useCallback((text) => {
@@ -38,13 +38,12 @@ export default function App() {
   }, []);
 
   const handleFocusSchemaSearch = useCallback(() => {
-    if (sidebarCollapsed) {
-      setSidebarCollapsed(false);
-    }
-    setTimeout(() => {
-      schemaExplorerRef.current?.focusSearch();
-    }, 100);
-  }, [sidebarCollapsed]);
+    sidebarTabsRef.current?.focusSchemaSearch();
+  }, []);
+
+  const handleFocusFileSearch = useCallback(() => {
+    sidebarTabsRef.current?.focusFileSearch();
+  }, []);
 
   // Persist sidebar collapsed state
   useEffect(() => {
@@ -149,16 +148,17 @@ export default function App() {
         return;
       }
 
-      // Ctrl+K — focus schema search
-      // if (ctrl && !e.shiftKey && e.key === "k") {
-      if (ctrl && e.key === "k") {
+      // Ctrl+Shift+E — focus file explorer
+      if (ctrl && e.shiftKey && e.key === "E") {
         e.preventDefault();
-        if (sidebarCollapsed) {
-          setSidebarCollapsed(false);
-        }
-        setTimeout(() => {
-          schemaExplorerRef.current?.focusSearch();
-        }, 100);
+        handleFocusFileSearch();
+        return;
+      }
+
+      // Ctrl+Shift+S — focus schema explorer
+      if (ctrl && e.shiftKey && e.key === "S") {
+        e.preventDefault();
+        handleFocusSchemaSearch();
         return;
       }
 
@@ -190,7 +190,7 @@ export default function App() {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [files, activeTabId, setActiveTab, addFile, removeFile, sidebarCollapsed]);
+  }, [files, activeTabId, setActiveTab, addFile, removeFile, handleFocusFileSearch, handleFocusSchemaSearch]);
 
   // Resizable result panel
   const handleMouseDown = (e) => {
@@ -235,8 +235,8 @@ export default function App() {
       />
 
       <div className="flex flex-1 min-h-0">
-        {/* Schema Explorer Sidebar */}
-        <SchemaExplorer ref={schemaExplorerRef} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} onInsertAtCursor={handleInsertAtCursor} />
+        {/* Sidebar with Files and Schema tabs */}
+        <SidebarTabs ref={sidebarTabsRef} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} onInsertAtCursor={handleInsertAtCursor} />
 
         {/* Main Editor + Results Area */}
         <div className="flex flex-col flex-1 min-h-0 min-w-0">

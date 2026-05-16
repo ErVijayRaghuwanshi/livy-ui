@@ -145,6 +145,15 @@ body {
   to { transform: translateY(0) scale(1); }
 }
 
+/* Draggable tabs */
+[draggable="true"] {
+  cursor: grab;
+}
+
+[draggable="true"]:active {
+  cursor: grabbing;
+}
+
 /* Toast notifications */
 .toast-enter {
   animation: toast-slide-in 0.3s ease-out forwards;
