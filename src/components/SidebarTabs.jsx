@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "re
 import { FileCode, Database } from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import SchemaExplorer from "./SchemaExplorer";
+import { useSchema } from "../context/SchemaContext";
 
 const SIDEBAR_TAB_KEY = "livy-sidebar-tab";
 
@@ -11,6 +12,7 @@ const SidebarTabs = forwardRef(({ collapsed, setCollapsed, onInsertAtCursor }, r
   });
   const fileExplorerRef = useRef(null);
   const schemaExplorerRef = useRef(null);
+  const { refreshTrigger } = useSchema();
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_TAB_KEY, activeTab);
@@ -74,7 +76,7 @@ const SidebarTabs = forwardRef(({ collapsed, setCollapsed, onInsertAtCursor }, r
         {activeTab === "files" ? (
           <FileExplorer ref={fileExplorerRef} onInsertAtCursor={onInsertAtCursor} />
         ) : (
-          <SchemaExplorer ref={schemaExplorerRef} onInsertAtCursor={onInsertAtCursor} />
+          <SchemaExplorer ref={schemaExplorerRef} onInsertAtCursor={onInsertAtCursor} refreshTrigger={refreshTrigger} />
         )}
       </div>
     </div>

@@ -18,7 +18,13 @@ import { addHistoryEntry } from "./QueryHistory";
 // Configure Monaco to use local files instead of CDN
 loader.config({ monaco });
 
-let providersRegistered = false;
+let completionProvider = null;
+
+// Helper to detect DDL operations that should trigger schema refresh
+function isDDLOperation(sql) {
+  const ddlKeywords = /\b(CREATE\s+(TABLE|VIEW|DATABASE|SCHEMA|INDEX|FUNCTION)|DROP\s+(TABLE|VIEW|DATABASE|SCHEMA|INDEX|FUNCTION)|ALTER\s+TABLE|TRUNCATE\s+TABLE)\b/i;
+  return ddlKeywords.test(sql);
+}
 
 // Helper to detect SQL context for intelligent suggestions
 function getSqlContext(model, position) {
@@ -46,8 +52,11 @@ function getSqlContext(model, position) {
 }
 
 function registerSparkProviders(monaco, schemaData) {
-  if (providersRegistered) return;
-  providersRegistered = true;
+  // Dispose existing provider if it exists
+  if (completionProvider) {
+    completionProvider.dispose();
+    completionProvider = null;
+  }
 
   // Filter to only named functions (skip operators like !, !=, etc.)
   const namedFunctions = SPARK_FUNCTIONS_DATA.filter((f) =>
@@ -55,7 +64,7 @@ function registerSparkProviders(monaco, schemaData) {
   );
 
   // Completion provider for functions, keywords, snippets, and schema
-  monaco.languages.registerCompletionItemProvider("sql", {
+  completionProvider = monaco.languages.registerCompletionItemProvider("sql", {
     triggerCharacters: [" ", "(", ",", "."],
     provideCompletionItems: (model, position) => {
       const word = model.getWordUntilPosition(position);
@@ -243,6 +252,7 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
   const [running, setRunning] = useState(false);
+  const [wordWrap, setWordWrap] = useState(() => localStorage.getItem('livy-ui-word-wrap') !== 'off');
   const [glyphPopup, setGlyphPopup] = useState(null);
   const glyphPopupRef = useRef(null);
   const abortRef = useRef(false);
@@ -263,7 +273,12 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
   const canRun =
     sessionState === SESSION_STATES.IDLE && sessionId !== null && !running;
 
-  // Keep schema data ref updated
+  // Persist word wrap preference
+  useEffect(() => {
+    localStorage.setItem('livy-ui-word-wrap', wordWrap ? 'on' : 'off');
+  }, [wordWrap]);
+
+  // Keep schema data ref updated and re-register provider when schema changes
   useEffect(() => {
     if (schemaContext) {
       schemaDataRef.current = {
@@ -271,6 +286,10 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
         tables: schemaContext.tables,
         columns: schemaContext.columns,
       };
+      // Re-register completion provider when schema data changes
+      if (monacoRef.current) {
+        registerSparkProviders(monacoRef.current, schemaDataRef);
+      }
     }
   }, [schemaContext]);
 
@@ -330,6 +349,18 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
       contextMenuGroupId: "1_sql",
       contextMenuOrder: 2,
       run: () => handleMinifyRef.current?.(),
+    });
+
+    // Word wrap toggle action
+    editor.addAction({
+      id: "toggle-word-wrap",
+      label: "Toggle Word Wrap",
+      keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.KeyW],
+      contextMenuGroupId: "1_sql",
+      contextMenuOrder: 3,
+      run: () => {
+        setWordWrap(prev => !prev);
+      },
     });
 
     // Override Monaco's Cmd+K chord to focus schema search
@@ -512,6 +543,11 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
           if (output.status === "ok") {
             finalStatus = "ok";
             setResult(activeFile.id, { status: "ok", data: output.data, error: null, elapsed: performance.now() - startTime });
+            
+            // Trigger schema refresh if this was a DDL operation
+            if (isDDLOperation(sql)) {
+              schemaContext.refreshSchema();
+            }
           } else {
             finalStatus = "error";
             finalError = output.evalue || output.traceback?.join("\n") || "Unknown error";
@@ -717,7 +753,7 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
             minimap: { enabled: true },
             lineNumbers: "on",
             scrollBeyondLastLine: false,
-            wordWrap: "on",
+            wordWrap: wordWrap ? "on" : "off",
             automaticLayout: true,
             tabSize: 2,
             suggestOnTriggerCharacters: true,

@@ -8,6 +8,7 @@ const SHORTCUTS = [
   { keys: [`${mod}+Enter`], description: "Run SQL (selected text or all)" },
   { keys: [`${mod}+Shift+F`], description: "Format SQL" },
   { keys: [`${mod}+Shift+M`], description: "Minify SQL to one line" },
+  { keys: ["Alt+W"], description: "Toggle word wrap" },
   { keys: [`${mod}+B`], description: "Toggle sidebar" },
   { keys: [`${mod}+Shift+E`], description: "Focus File Explorer" },
   { keys: [`${mod}+Shift+S`], description: "Focus Schema Explorer" },

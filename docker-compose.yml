@@ -13,6 +13,7 @@ services:
         - '4040-4050:4040-4050'  # <--- Map a range for multiple sessions
       volumes:
         - ./data:/opt/spark/data
+        - ./work-dir:/opt/spark/work-dir
         - ./livy.conf:/opt/livy/conf/livy.conf
 
   livy-ui:

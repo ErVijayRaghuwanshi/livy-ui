@@ -119,9 +119,9 @@ function LoadingNode() {
   );
 }
 
-const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor }, ref) {
+const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, refreshTrigger: externalRefreshTrigger }, ref) {
   const { sessionId, sessionState } = useLivy();
-  const { updateDatabases, updateTables, updateColumns, clearSchema } = useSchema();
+  const { databases: contextDatabases, tables: contextTables, columns: contextColumns, updateDatabases, updateTables, updateColumns, refreshTrigger: contextRefreshTrigger, clearSchema } = useSchema();
 
   const [databases, setDatabases] = useState([]);
   const [tables, setTables] = useState({});
@@ -263,6 +263,15 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor }, 
       loadDatabases();
     }
   }, [isReady, sessionId, loadDatabases]);
+
+  // Reload schema when refreshTrigger changes (triggered by DDL operations)
+  useEffect(() => {
+    if (isReady && externalRefreshTrigger > 0) {
+      setTables({});
+      setColumns({});
+      loadDatabases();
+    }
+  }, [externalRefreshTrigger, isReady, loadDatabases]);
 
   // Auto-load all tables and columns when user starts searching
   useEffect(() => {

@@ -6,6 +6,7 @@ export function SchemaProvider({ children }) {
   const [databases, setDatabases] = useState([]);
   const [tables, setTables] = useState({});
   const [columns, setColumns] = useState({});
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const updateDatabases = useCallback((dbs) => {
     setDatabases(dbs);
@@ -26,6 +27,10 @@ export function SchemaProvider({ children }) {
     setColumns({});
   }, []);
 
+  const refreshSchema = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
+
   const value = {
     databases,
     tables,
@@ -34,6 +39,8 @@ export function SchemaProvider({ children }) {
     updateTables,
     updateColumns,
     clearSchema,
+    refreshSchema,
+    refreshTrigger,
   };
 
   return <SchemaContext.Provider value={value}>{children}</SchemaContext.Provider>;
