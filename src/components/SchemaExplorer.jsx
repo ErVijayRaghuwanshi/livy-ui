@@ -161,7 +161,7 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor }, 
     } finally {
       setLoading((p) => ({ ...p, _dbs: false }));
     }
-  }, [sessionId, isReady]);
+  }, [sessionId, isReady, updateDatabases]);
 
   const tablesRef = useRef(tables);
   tablesRef.current = tables;
@@ -194,7 +194,7 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor }, 
         setLoading((p) => ({ ...p, [db]: false }));
       }
     },
-    [sessionId, isReady]
+    [sessionId, isReady, updateTables]
   );
 
   const loadColumns = useCallback(
@@ -227,7 +227,7 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor }, 
         setLoading((p) => ({ ...p, [key]: false }));
       }
     },
-    [sessionId, isReady]
+    [sessionId, isReady, updateColumns]
   );
 
   const dropTable = useCallback(
@@ -257,11 +257,12 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor }, 
     [sessionId, isReady]
   );
 
+  // Auto-load databases when session becomes ready
   useEffect(() => {
-    if (isReady && databases.length === 0) {
+    if (isReady) {
       loadDatabases();
     }
-  }, [isReady, sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isReady, sessionId, loadDatabases]);
 
   // Auto-load all tables and columns when user starts searching
   useEffect(() => {
