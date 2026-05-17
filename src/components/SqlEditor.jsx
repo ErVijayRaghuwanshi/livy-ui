@@ -704,12 +704,18 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
             style={{ top: glyphPopup.top, left: glyphPopup.left + 20 }}
           >
             <button
-              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-(--color-text-secondary) hover:bg-(--color-bg-tertiary) hover:text-(--color-success) transition-colors"
+              className={`flex items-center gap-2 w-full px-3 py-1.5 text-xs transition-colors ${
+                canRun
+                  ? 'text-(--color-text-secondary) hover:bg-(--color-bg-tertiary) hover:text-(--color-success) cursor-pointer'
+                  : 'text-(--color-text-muted) cursor-not-allowed opacity-50'
+              }`}
               onClick={() => {
+                if (!canRun) return;
                 const { stmt } = glyphPopup;
                 setGlyphPopup(null);
                 handleRunSqlRef.current?.(stmt.sql, stmt.startLine, stmt.endLine);
               }}
+              disabled={!canRun}
             >
               <Play size={12} /> Run
             </button>
