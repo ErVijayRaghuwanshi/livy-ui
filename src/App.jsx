@@ -20,7 +20,9 @@ export default function App() {
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem(SIDEBAR_CACHE_KEY);
-    return saved !== null ? JSON.parse(saved) : true;
+    if (saved !== null) return JSON.parse(saved);
+    // Default to collapsed on mobile (< 768px)
+    return typeof window !== 'undefined' && window.innerWidth < 768 ? true : false;
   });
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_CACHE_KEY) || "dark");
   const [resultHeight, setResultHeight] = useState(DEFAULT_RESULT_HEIGHT);

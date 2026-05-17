@@ -42,7 +42,7 @@ const SidebarTabs = forwardRef(({ collapsed, setCollapsed, onInsertAtCursor }, r
   }
 
   return (
-    <div className="flex flex-col w-64 bg-(--color-bg-secondary) border-r border-(--color-border) shrink-0">
+    <div className="flex flex-col w-full sm:w-56 md:w-64 bg-(--color-bg-secondary) border-r border-(--color-border) shrink-0 max-w-full sm:max-w-56 md:max-w-64">
       {/* Tab Switcher */}
       <div className="flex border-b border-(--color-border)">
         <button

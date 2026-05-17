@@ -148,13 +148,14 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
 
   return (
     <>
-      <nav className="flex items-center justify-between px-4 py-2.5 bg-(--color-bg-secondary) border-b border-(--color-border) shrink-0">
+      <nav className="flex items-center justify-between px-2 sm:px-4 py-2 sm:py-2.5 bg-(--color-bg-secondary) border-b border-(--color-border) shrink-0">
         {/* Left Section */}
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2.5">
-            <Zap size={22} className="text-(--color-accent)" />
-            <span className="text-base font-bold tracking-tight text-(--color-text-primary)">
-              Livy SQL
+        <div className="flex items-center gap-2 sm:gap-6">
+          <div className="flex items-center gap-1.5 sm:gap-2.5">
+            <Zap size={18} className="sm:w-5 sm:h-5 text-(--color-accent)" />
+            <span className="text-sm sm:text-base font-bold tracking-tight text-(--color-text-primary)">
+              <span className="hidden sm:inline">Livy SQL</span>
+              <span className="sm:hidden">Livy</span>
             </span>
           </div>
 
@@ -186,11 +187,11 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
         </div>
 
         {/* Right Section (Controls) */}
-        <div className="flex items-center gap-3">
-          {error && <span className="text-xs text-(--color-error) max-w-48 truncate" title={error}>{error}</span>}
+        <div className="flex items-center gap-1.5 sm:gap-3">
+          {error && <span className="hidden md:block text-xs text-(--color-error) max-w-48 truncate" title={error}>{error}</span>}
           
           {appId && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-(--color-bg-primary) rounded-md border border-(--color-border)">
+            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-(--color-bg-primary) rounded-md border border-(--color-border)">
               <span className="text-[10px] text-(--color-text-muted) uppercase tracking-wide">App</span>
               <span className="text-xs text-(--color-text-primary) font-mono">{appId}</span>
             </div>
@@ -199,21 +200,21 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
           {/* Host selector */}
           <button
             onClick={() => setShowConnectionModal(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-(--color-bg-primary) rounded-md border border-(--color-border) hover:border-(--color-text-muted) transition-colors"
+            className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2.5 py-1.5 bg-(--color-bg-primary) rounded-md border border-(--color-border) hover:border-(--color-text-muted) transition-colors"
             title="Manage Livy Hosts (Cmd+.)"
           >
             <Server size={13} className="text-(--color-text-muted)" />
-            <span className="text-xs text-(--color-text-secondary) max-w-28 truncate">
+            <span className="hidden sm:inline text-xs text-(--color-text-secondary) max-w-28 truncate">
               {activeHost.name}
             </span>
-            <ChevronDown size={12} className="text-(--color-text-muted)" />
+            <ChevronDown size={12} className="hidden sm:inline text-(--color-text-muted)" />
           </button>
 
           {/* Session picker dropdown */}
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setShowSessionDropdown((v) => !v)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-colors ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2.5 py-1.5 rounded-md border transition-colors ${
                 isActive
                   ? "bg-(--color-success)/10 border-(--color-success)/30 hover:border-(--color-success)/50"
                   : isStarting
@@ -222,10 +223,10 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
               }`}
             >
               <span className={`w-2 h-2 rounded-full shrink-0 ${stateColors[sessionState] || "bg-gray-500"}`} />
-              <span className="text-xs text-(--color-text-secondary) max-w-36 truncate">
+              <span className="hidden sm:inline text-xs text-(--color-text-secondary) max-w-32 truncate">
                 {sessionLabel}
               </span>
-              <ChevronDown size={12} className="text-(--color-text-muted)" />
+              <ChevronDown size={12} className="hidden sm:inline text-(--color-text-muted)" />
             </button>
 
             {showSessionDropdown && (
@@ -315,13 +316,13 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
             )}
           </div>
 
-          {/* Theme toggle */}
+          {/* Theme Toggle */}
           <button
             onClick={toggleTheme}
-            className="p-1.5 text-(--color-text-muted) hover:text-(--color-text-primary) rounded-md transition-colors"
-            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            className="p-1 sm:p-1.5 rounded-md hover:bg-(--color-bg-tertiary) transition-colors"
+            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
           >
-            {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+            {theme === 'dark' ? <Sun size={14} className="sm:w-4 sm:h-4" /> : <Moon size={14} className="sm:w-4 sm:h-4" />}
           </button>
 
           {/* Quick actions */}

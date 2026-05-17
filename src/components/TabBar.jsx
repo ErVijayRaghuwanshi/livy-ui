@@ -102,7 +102,7 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
     <div className="flex items-center bg-(--color-bg-secondary) border-b border-(--color-border) shrink-0 overflow-x-auto">
       <button
         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-        className="flex items-center gap-1 px-3 py-2 text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-primary)/50 transition-colors shrink-0 border-r border-(--color-border)"
+        className="flex items-center gap-1 px-2 sm:px-3 py-2 text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-primary)/50 transition-colors shrink-0 border-r border-(--color-border)"
         title={sidebarCollapsed ? "Show Sidebar (Ctrl+B)" : "Hide Sidebar (Ctrl+B)"}
       >
         {sidebarCollapsed ? <PanelLeft size={14} /> : <PanelLeftClose size={14} />}
@@ -119,7 +119,7 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
             onDrop={(e) => handleDrop(e, index)}
             onDragEnd={handleDragEnd}
             onClick={() => setActiveTab(file.id)}
-            className={`group flex items-center gap-1.5 px-3 py-2 text-xs cursor-pointer border-r border-(--color-border) min-w-0 max-w-48 transition-colors ${draggedIndex === index ? "opacity-50" : ""} ${
+            className={`group flex items-center gap-1.5 px-2 sm:px-3 py-2 text-xs cursor-pointer border-r border-(--color-border) min-w-0 max-w-32 sm:max-w-48 transition-colors ${draggedIndex === index ? "opacity-50" : ""} ${
               dragOverIndex === index ? "border-l-2 border-l-(--color-accent)" : ""
             } ${
               file.id === activeTabId
@@ -146,7 +146,7 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
               </div>
             ) : (
               <span
-                className="truncate"
+                className="truncate hidden sm:inline"
                 onDoubleClick={(e) => {
                   e.stopPropagation();
                   handleStartRename(file);
@@ -170,37 +170,38 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
 
       <button
         onClick={() => addFile()}
-        className="flex items-center gap-1 px-3 py-2 text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-primary)/50 transition-colors shrink-0"
+        className="flex items-center gap-1 px-2 sm:px-3 py-2 text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-primary)/50 transition-colors shrink-0"
         title="New SQL File (Ctrl+Shift+N)"
       >
         <Plus size={14} />
       </button>
       
-      <div className="ml-auto flex items-center gap-2 border-l border-(--color-border) pl-3">
+      <div className="ml-auto flex items-center gap-1 sm:gap-2 border-l border-(--color-border) pl-2 sm:pl-3">
         {running ? (
           <>
-            <div className="flex items-center gap-1.5 text-(--color-warning)">
+            <div className="hidden sm:flex items-center gap-1.5 text-(--color-warning)">
               <Loader2 size={13} className="animate-spin" />
               <span className="text-xs">Executing...</span>
             </div>
+            <Loader2 size={13} className="sm:hidden animate-spin text-(--color-warning)" />
             <button
               onClick={handleCancel}
-              className="flex items-center gap-1.5 px-3 py-1 bg-(--color-error)/20 text-(--color-error) hover:bg-(--color-error)/30 text-xs font-medium rounded-md transition-colors"
+              className="flex items-center gap-1.5 px-2 sm:px-3 py-1 bg-(--color-error)/20 text-(--color-error) hover:bg-(--color-error)/30 text-xs font-medium rounded-md transition-colors"
               title="Cancel Query"
             >
               <Ban size={13} />
-              Cancel
+              <span className="hidden sm:inline">Cancel</span>
             </button>
           </>
         ) : (
           <button
             onClick={handleRun}
             disabled={!canRun}
-            className="flex items-center gap-1.5 px-3 py-1 bg-(--color-success)/20 text-(--color-success) hover:bg-(--color-success)/30 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium rounded-md transition-colors"
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-1 bg-(--color-success)/20 text-(--color-success) hover:bg-(--color-success)/30 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium rounded-md transition-colors"
             title="Run SQL (Ctrl+Enter)"
           >
             <Play size={13} />
-            Run
+            <span className="hidden sm:inline">Run</span>
           </button>
         )}
       </div>

@@ -397,11 +397,12 @@ function JsonTable({ data, elapsed }) {
             {filteredCount} of {totalRows} row{totalRows !== 1 ? "s" : ""}
             <button
               onClick={clearAllFilters}
-              className="flex items-center gap-1 px-2 py-0.5 ml-2 rounded text-[10px] bg-(--color-bg-tertiary) hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-colors"
+              className="flex items-center gap-1 px-2 py-1 sm:py-0.5 ml-2 rounded text-[10px] bg-(--color-bg-tertiary) hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-colors touch-manipulation"
               title="Clear all filters"
             >
               <FilterX size={10} />
-              Clear filters
+              <span className="hidden sm:inline">Clear filters</span>
+              <span className="sm:hidden">Clear</span>
             </button>
           </>
         ) : (
@@ -487,12 +488,12 @@ function JsonTable({ data, elapsed }) {
                           }
                         }}
                         placeholder="Filter..."
-                        className="w-full pl-5 pr-5 py-0.5 text-[10px] bg-(--color-bg-primary) text-(--color-text-primary) border border-(--color-border) rounded focus:outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted)"
+                        className="w-full pl-5 pr-5 py-1 sm:py-0.5 text-[10px] sm:text-[10px] bg-(--color-bg-primary) text-(--color-text-primary) border border-(--color-border) rounded focus:outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted) touch-manipulation"
                       />
                       {columnFilters[i] && (
                         <button
                           onClick={() => clearFilter(i)}
-                          className="absolute right-1 p-0.5 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary)"
+                          className="absolute right-1 p-1 sm:p-0.5 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) touch-manipulation"
                           title="Clear filter"
                         >
                           <X size={9} />
