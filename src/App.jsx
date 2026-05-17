@@ -240,7 +240,7 @@ export default function App() {
 
         {/* Main Editor + Results Area */}
         <div className="flex flex-col flex-1 min-h-0 min-w-0">
-          <TabBar />
+          <TabBar sidebarCollapsed={sidebarCollapsed} setSidebarCollapsed={setSidebarCollapsed} editorRef={editorRef} />
           <SqlEditor ref={editorRef} onCursorPositionChange={setCursorPosition} theme={theme} onFocusSchemaSearch={handleFocusSchemaSearch} />
 
           {/* Resize Handle */}

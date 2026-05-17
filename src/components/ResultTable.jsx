@@ -349,7 +349,15 @@ function JsonTable({ data, elapsed }) {
         const cellValue = row[field.name || field] !== undefined 
           ? String(row[field.name || field]) 
           : Array.isArray(row) ? String(row[parseInt(colIndex)] ?? '') : '';
-        return cellValue.toLowerCase().includes(filterValue.toLowerCase());
+        
+        // Try regex first, fall back to case-insensitive string match if invalid regex
+        try {
+          const regex = new RegExp(filterValue, 'i');
+          return regex.test(cellValue);
+        } catch (e) {
+          // Invalid regex, fall back to simple string match
+          return cellValue.toLowerCase().includes(filterValue.toLowerCase());
+        }
       });
     });
   }, [rows, debouncedFilters, fields]);
@@ -456,14 +464,41 @@ function JsonTable({ data, elapsed }) {
                 return (
                   <th
                     key={i}
-                    className="px-3 py-1.5 text-left border-b border-(--color-border) whitespace-nowrap relative group/th"
+                    className="px-2 py-1.5 text-left border-b border-(--color-border) relative group/th"
                   >
-                    <span className="text-(--color-text-secondary) font-semibold text-xs">{name}</span>
-                    {type && (
-                      <span className="block text-[10px] font-normal text-(--color-accent) opacity-70 mt-0.5">
-                        {type}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-(--color-text-secondary) font-semibold text-xs whitespace-nowrap">{name}</span>
+                      {type && (
+                        <span className="inline-flex items-center px-1 py-0.5 text-[9px] font-mono bg-(--color-accent)/10 text-(--color-accent) rounded border border-(--color-accent)/20">
+                          {type}
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative flex items-center">
+                      <Search size={9} className="absolute left-1.5 text-(--color-text-muted) pointer-events-none" />
+                      <input
+                        type="text"
+                        value={columnFilters[i] || ''}
+                        onChange={(e) => handleFilterChange(i, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') {
+                            clearFilter(i);
+                            e.target.blur();
+                          }
+                        }}
+                        placeholder="Filter..."
+                        className="w-full pl-5 pr-5 py-0.5 text-[10px] bg-(--color-bg-primary) text-(--color-text-primary) border border-(--color-border) rounded focus:outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted)"
+                      />
+                      {columnFilters[i] && (
+                        <button
+                          onClick={() => clearFilter(i)}
+                          className="absolute right-1 p-0.5 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary)"
+                          title="Clear filter"
+                        >
+                          <X size={9} />
+                        </button>
+                      )}
+                    </div>
                     <div
                       className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize opacity-0 group-hover/th:opacity-100 hover:bg-(--color-accent)/40 transition-opacity"
                       onMouseDown={(e) => {
@@ -489,37 +524,6 @@ function JsonTable({ data, elapsed }) {
                   </th>
                 );
               })}
-            </tr>
-            <tr className="bg-(--color-bg-secondary) sticky z-10" style={{ top: fields.some(f => f.type) ? '44px' : '28px' }}>
-              {fields.map((field, i) => (
-                <th key={i} className="px-2 py-1 border-b border-(--color-border)">
-                  <div className="relative flex items-center">
-                    <Search size={10} className="absolute left-1.5 text-(--color-text-muted) pointer-events-none" />
-                    <input
-                      type="text"
-                      value={columnFilters[i] || ''}
-                      onChange={(e) => handleFilterChange(i, e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Escape') {
-                          clearFilter(i);
-                          e.target.blur();
-                        }
-                      }}
-                      placeholder="Filter..."
-                      className="w-full pl-5 pr-5 py-1 text-[11px] bg-(--color-bg-primary) text-(--color-text-primary) border border-(--color-border) rounded focus:outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted)"
-                    />
-                    {columnFilters[i] && (
-                      <button
-                        onClick={() => clearFilter(i)}
-                        className="absolute right-1 p-0.5 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary)"
-                        title="Clear filter"
-                      >
-                        <X size={10} />
-                      </button>
-                    )}
-                  </div>
-                </th>
-              ))}
             </tr>
           </thead>
           <tbody>
