@@ -205,5 +205,267 @@ export const SPARK_SQL_SNIPPETS = [
       "GROUP BY MOBILENUMBER, VPN_TOR, DATE, target_name",
       "HAVING BehaviourMetricValue ${12:>= 1}",
     ].join("\n"),
+  },
+  // ==========================================
+  // APACHE SEDONA (GEOSPATIAL) SNIPPETS
+  // ==========================================
+  {
+    label: "sedona_create_geometry",
+    description: "Create geometry points from Longitude and Latitude",
+    insertText: [
+      "SELECT ",
+      "  ${1:id_column},",
+      "  ST_Point(CAST(${2:longitude_column} AS DECIMAL(24,20)), CAST(${3:latitude_column} AS DECIMAL(24,20))) AS geom",
+      "FROM ${4:table_name};"
+    ].join("\n"),
+  },
+  {
+    label: "sedona_spatial_join",
+    description: "Perform a spatial join (Points inside a Polygon)",
+    insertText: [
+      "SELECT",
+      "  p.${1:point_id},",
+      "  poly.${2:polygon_name}",
+      "FROM ${3:points_table} p",
+      "JOIN ${4:polygons_table} poly ",
+      "  ON ST_Contains(poly.${5:polygon_geom_column}, p.${6:point_geom_column});"
+    ].join("\n"),
+  },
+  {
+    label: "sedona_calculate_distance",
+    description: "Calculate planar distance between two geometries",
+    insertText: [
+      "SELECT ",
+      "  ${1:id_column},",
+      "  ST_Distance(ST_GeomFromWKT(${2:geom_string_1}), ST_GeomFromWKT(${3:geom_string_2})) AS distance",
+      "FROM ${4:table_name};"
+    ].join("\n"),
+  },
+  {
+    label: "sedona_bounding_box",
+    description: "Find the bounding box (envelope) containing all geometries",
+    insertText: "SELECT ST_AsText(ST_Envelope_Aggr(${1:geom_column})) AS bounding_box FROM ${2:table_name};",
+  },
+
+  // ==========================================
+  // DELTA LAKE MANAGEMENT SNIPPETS
+  // ==========================================
+  {
+    label: "delta_create_table",
+    description: "Create a Delta Lake table",
+    insertText: [
+      "CREATE TABLE IF NOT EXISTS default.${1:table_name} (",
+      "  ${2:id INT, name STRING, created_at TIMESTAMP}",
+      ")",
+      "USING delta",
+      "LOCATION '${3:hdfs://namenode/path/to/delta}';",
+    ].join("\n"),
+  },
+  {
+    label: "delta_merge_upsert",
+    description: "MERGE INTO (Upsert) data into a Delta table",
+    insertText: [
+      "MERGE INTO ${1:target_table} t",
+      "USING ${2:source_view} s",
+      "ON t.${3:id} = s.${3:id}",
+      "WHEN MATCHED THEN",
+      "  UPDATE SET *",
+      "WHEN NOT MATCHED THEN",
+      "  INSERT *;"
+    ].join("\n"),
+  },
+  {
+    label: "delta_optimize_zorder",
+    description: "Optimize Delta table file sizes and co-locate data via Z-ORDER",
+    insertText: "OPTIMIZE ${1:table_name} ZORDER BY (${2:column_name});",
+  },
+  {
+    label: "delta_vacuum",
+    description: "Vacuum old data files from a Delta table to save storage",
+    insertText: "VACUUM ${1:table_name} RETAIN ${2:168} HOURS;",
+  },
+  {
+    label: "delta_time_travel_version",
+    description: "Query an older version of a Delta table using Time Travel",
+    insertText: "SELECT * FROM ${1:table_name} VERSION AS OF ${2:version_number};",
+  },
+  {
+    label: "delta_time_travel_timestamp",
+    description: "Query a Delta table as it existed at a specific timestamp",
+    insertText: "SELECT * FROM ${1:table_name} TIMESTAMP AS OF '${2:2026-01-01 00:00:00}';",
+  },
+  {
+    label: "delta_history",
+    description: "View the transaction history and operations of a Delta table",
+    insertText: "DESCRIBE HISTORY ${1:table_name};",
+  },
+  {
+    label: "sample_data_cdr",
+    description: "Pre-filled Telecom Call Detail Records (CDR) sample data",
+    insertText: [
+      "CREATE OR REPLACE TEMPORARY VIEW ${1:sample_cdr} AS",
+      "SELECT * FROM VALUES",
+      "  ('TXN-1001', '+91-9820011223', '+91-9920044556', 'VOICE', 120, TIMESTAMP '2026-04-09 10:15:00'),",
+      "  ('TXN-1002', '+91-9820011223', 'N/A', 'DATA', 3600, TIMESTAMP '2026-04-09 11:00:00'),",
+      "  ('TXN-1003', '+91-9000011223', '+91-9820011223', 'SMS', 0, TIMESTAMP '2026-04-09 11:45:00'),",
+      "  ('TXN-1004', '+91-9111033445', '+91-9820011223', 'VOICE', 45, TIMESTAMP '2026-04-09 12:30:22')",
+      "AS tab(txn_id, caller_msisdn, callee_msisdn, service_type, duration_sec, start_time);",
+      "",
+      "SELECT * FROM ${1:sample_cdr};"
+    ].join("\n"),
+  },
+  {
+    label: "sample_data_customer",
+    description: "Pre-filled CRM Customer Profile sample data",
+    insertText: [
+      "CREATE OR REPLACE TEMPORARY VIEW ${1:sample_customer} AS",
+      "SELECT * FROM VALUES",
+      "  ('CUST-001', 'Aarav Sharma', 'aarav@example.com', 'Mumbai', 'Premium', DATE '2023-01-15'),",
+      "  ('CUST-002', 'Priya Patel', 'priya@example.com', 'Delhi', 'Standard', DATE '2024-06-22'),",
+      "  ('CUST-003', 'Rahul Verma', 'rahul@example.com', 'Bangalore', 'Premium', DATE '2025-03-10'),",
+      "  ('CUST-004', 'Sneha Rao', 'sneha@example.com', 'Hyderabad', 'Standard', DATE '2026-01-05')",
+      "AS tab(customer_id, full_name, email, city, subscription_tier, join_date);",
+      "",
+      "SELECT * FROM ${1:sample_customer};"
+    ].join("\n"),
+  },
+  {
+    label: "sample_data_ecommerce",
+    description: "Pre-filled E-commerce Order Transactions sample data",
+    insertText: [
+      "CREATE OR REPLACE TEMPORARY VIEW ${1:sample_ecommerce} AS",
+      "SELECT * FROM VALUES",
+      "  ('ORD-991', 'CUST-001', 'Laptop Pro 15', 1, 1250.50, 'DELIVERED', TIMESTAMP '2026-04-01 09:30:00'),",
+      "  ('ORD-992', 'CUST-002', 'Wireless Mouse', 2, 45.00, 'SHIPPED', TIMESTAMP '2026-04-05 14:15:00'),",
+      "  ('ORD-993', 'CUST-001', 'USB-C Cable', 3, 15.00, 'PENDING', TIMESTAMP '2026-04-08 18:45:00'),",
+      "  ('ORD-994', 'CUST-004', 'Mechanical Keyboard', 1, 120.00, 'PROCESSING', TIMESTAMP '2026-04-09 10:00:00')",
+      "AS tab(order_id, customer_id, product_name, quantity, total_amount, status, order_time);",
+      "",
+      "SELECT * FROM ${1:sample_ecommerce};"
+    ].join("\n"),
+  },
+  {
+    label: "sample_data_student",
+    description: "Pre-filled University Student Records sample data",
+    insertText: [
+      "CREATE OR REPLACE TEMPORARY VIEW ${1:sample_student} AS",
+      "SELECT * FROM VALUES",
+      "  ('STU-101', 'Neha Gupta', 'Computer Science', 3.8, 2024),",
+      "  ('STU-102', 'Vikram Singh', 'Mechanical Engineering', 3.2, 2023),",
+      "  ('STU-103', 'Ananya Iyer', 'Mathematics', 3.9, 2025),",
+      "  ('STU-104', 'Rohan Desai', 'Physics', 3.5, 2024)",
+      "AS tab(student_id, name, major, gpa, enrollment_year);",
+      "",
+      "SELECT * FROM ${1:sample_student};"
+    ].join("\n"),
+  },
+  {
+    label: "sample_data_spatial",
+    description: "Pre-filled Sedona Geospatial (WKT) sample data",
+    insertText: [
+      "CREATE OR REPLACE TEMPORARY VIEW ${1:sample_spatial_pois} AS",
+      "SELECT * FROM VALUES",
+      "  ('POI-1', 'Central Park', 'POLYGON ((-73.981 40.768, -73.958 40.800, -73.949 40.797, -73.973 40.764, -73.981 40.768))'),",
+      "  ('POI-2', 'Times Square', 'POINT (-73.985 40.758)'),",
+      "  ('POI-3', 'Empire State Building', 'POINT (-73.985 40.748)'),",
+      "  ('POI-4', '5th Ave Commute', 'LINESTRING (-73.990 40.730, -73.980 40.750, -73.970 40.770)')",
+      "AS tab(poi_id, poi_name, wkt_geom);",
+      "",
+      "-- Instantly cast to Sedona Geometries",
+      "SELECT poi_id, poi_name, ST_GeomFromWKT(wkt_geom) AS geometry FROM ${1:sample_spatial_pois};"
+    ].join("\n"),
+  },
+  // ==========================================
+  // DEBUGGING & METADATA SNIPPETS
+  // ==========================================
+  {
+    label: "debug_explain_plan",
+    description: "Generate the execution plan (logical and physical) for a query",
+    insertText: [
+      "EXPLAIN EXTENDED",
+      "SELECT * FROM ${1:table_name}",
+      "WHERE ${2:column_name} = '${3:value}';"
+    ].join("\n"),
+  },
+  {
+    label: "debug_describe_table",
+    description: "View detailed metadata, schema, and partitioning info for a table",
+    insertText: "DESCRIBE EXTENDED ${1:table_name};",
+  },
+  {
+    label: "debug_show_functions",
+    description: "Search for available built-in or custom User Defined Functions (UDFs)",
+    insertText: "SHOW FUNCTIONS LIKE '%${1:ST_}%';",
+  },
+  {
+    label: "debug_current_state",
+    description: "Check the current database, user, and Spark version",
+    insertText: "SELECT current_database(), current_user(), version();",
+  },
+
+  // ==========================================
+  // CLUSTER CONFIG & RESOURCE MANAGEMENT
+  // ==========================================
+  {
+    label: "config_set_property",
+    description: "Set or view a Spark session configuration property",
+    insertText: "SET ${1:spark.sql.shuffle.partitions} = ${2:200};",
+  },
+  {
+    label: "config_show_all",
+    description: "Show all current Spark SQL configuration properties",
+    insertText: "SET -v;",
+  },
+  {
+    label: "resource_add_jar",
+    description: "Add a custom JAR file to the Spark session at runtime",
+    insertText: "ADD JAR '${1:hdfs://namenode/path/to/custom-udfs.jar}';",
+  },
+  {
+    label: "resource_list_jars",
+    description: "List all JARs currently added to the Spark session",
+    insertText: "LIST JARS;",
+  },
+  {
+    label: "resource_add_file",
+    description: "Add a local/HDFS file to be distributed across the Spark cluster",
+    insertText: "ADD FILE '${1:/path/to/config.properties}';",
+  },
+
+  // ==========================================
+  // TABLE OPTIMIZATION SNIPPETS
+  // ==========================================
+  {
+    label: "optimize_analyze_table",
+    description: "Compute table and column statistics for the Cost-Based Optimizer (CBO)",
+    insertText: "ANALYZE TABLE ${1:table_name} COMPUTE STATISTICS FOR COLUMNS ${2:column1, column2};",
+  },
+  {
+    label: "optimize_cache_table",
+    description: "Force Spark to cache a table or view in memory for faster repeated access",
+    insertText: "CACHE TABLE ${1:table_name};",
+  },
+  {
+    label: "optimize_uncache_table",
+    description: "Remove a table from Spark's memory cache",
+    insertText: "UNCACHE TABLE ${1:table_name};",
+  },
+  {
+    label: "delta_alter_liquid_clustering",
+    description: "Enable or change Liquid Clustering (Delta Lake 3.0+) for a table",
+    insertText: "ALTER TABLE ${1:table_name} CLUSTER BY (${2:column1, column2});",
+  },
+  {
+    label: "delta_optimize_full",
+    description: "Run a full Delta Lake optimization (compact files & Z-Order)",
+    insertText: [
+      "OPTIMIZE ${1:table_name}",
+      "ZORDER BY (${2:frequently_filtered_column});"
+    ].join("\n"),
+  },
+  {
+    label: "delta_repair_table",
+    description: "Recover partitions in a directory-based table metadata",
+    insertText: "MSCK REPAIR TABLE ${1:table_name};",
   }
 ];
