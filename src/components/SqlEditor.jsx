@@ -1,4 +1,6 @@
 import { useRef, useCallback, useState, forwardRef, useImperativeHandle, useEffect } from "react";
+import { loader } from "@monaco-editor/react";
+import * as monaco from "monaco-editor";
 import Editor from "@monaco-editor/react";
 import { Play, Loader2, Ban, AlignLeft, WrapText } from "lucide-react";
 import { format } from "sql-formatter";
@@ -12,6 +14,9 @@ import { SPARK_SQL_KEYWORDS } from "../utils/spark-keywords-data";
 import { SPARK_SQL_SNIPPETS } from "../utils/spark_sql_snippets";
 import { useToast } from "./Toast";
 import { addHistoryEntry } from "./QueryHistory";
+
+// Configure Monaco to use local files instead of CDN
+loader.config({ monaco });
 
 let providersRegistered = false;
 

@@ -52,50 +52,7 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
   const [showSessionDropdown, setShowSessionDropdown] = useState(false);
   const [newSessionName, setNewSessionName] = useState("");
   const dropdownRef = useRef(null);
-  const [repoStats, setRepoStats] = useState({ stars: 0, forks: 0, version: "v1.0.0" });
-
-  // 2. FETCH GITHUB DATA WITH CACHING
-  useEffect(() => {
-    const fetchStats = async () => {
-      const cacheKey = 'github-stats-livy';
-      const cachedData = localStorage.getItem(cacheKey);
-      
-      // If we have data less than 1 hour old, use it
-      if (cachedData) {
-        const parsed = JSON.parse(cachedData);
-        if (Date.now() - parsed.timestamp < 3600000) {
-          setRepoStats(parsed.data);
-          return;
-        }
-      }
-
-      try {
-        const [repoRes, releaseRes] = await Promise.all([
-          fetch("https://api.github.com/repos/ErVijayRaghuwanshi/livy-ui"),
-          fetch("https://api.github.com/repos/ErVijayRaghuwanshi/livy-ui/releases/latest")
-        ]);
-
-        const repoData = await repoRes.json();
-        const releaseData = await releaseRes.json();
-
-        const newData = {
-          stars: repoData.stargazers_count || 0,
-          forks: repoData.forks_count || 0,
-          version: releaseData.tag_name || "v1.0.0"
-        };
-
-        setRepoStats(newData);
-        localStorage.setItem(cacheKey, JSON.stringify({ 
-          timestamp: Date.now(), 
-          data: newData 
-        }));
-      } catch (e) {
-        console.error("GitHub stats fetch failed", e);
-      }
-    };
-
-    fetchStats();
-  }, []);
+  const [repoStats, setRepoStats] = useState({ stars: 0, forks: 0, version: "v1.4.2" });
 
   // Close dropdown on outside click or Escape key
   useEffect(() => {
