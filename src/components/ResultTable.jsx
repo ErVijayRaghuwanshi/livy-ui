@@ -299,6 +299,7 @@ function JsonTable({ data, elapsed }) {
   const [colWidths, setColWidths] = useState({});
   const resizingRef = useRef(null);
   const [columnFilters, setColumnFilters] = useState({});
+  const [showFilters, setShowFilters] = useState(false);
   const debouncedFilters = useDebounce(columnFilters, 300);
 
   useEffect(() => {
@@ -394,7 +395,7 @@ function JsonTable({ data, elapsed }) {
         <CheckCircle2 size={14} />
         {hasActiveFilters ? (
           <>
-            {filteredCount} of {totalRows} row{totalRows !== 1 ? "s" : ""}
+            {filteredCount} of {totalRows} row{totalRows !== 1 ? "s" : ""}, {fields.length} column{fields.length !== 1 ? "s" : ""}
             <button
               onClick={clearAllFilters}
               className="flex items-center gap-1 px-2 py-1 sm:py-0.5 ml-2 rounded text-[10px] bg-(--color-bg-tertiary) hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-colors touch-manipulation"
@@ -406,8 +407,21 @@ function JsonTable({ data, elapsed }) {
             </button>
           </>
         ) : (
-          <>{totalRows} row{totalRows !== 1 ? "s" : ""} returned</>
+          <>{totalRows} row{totalRows !== 1 ? "s" : ""}, {fields.length} column{fields.length !== 1 ? "s" : ""} returned</>
         )}
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className={`flex items-center gap-1 px-2 py-1 sm:py-0.5 ml-2 rounded text-[10px] transition-colors touch-manipulation ${
+            showFilters
+              ? 'bg-(--color-accent) text-white'
+              : 'bg-(--color-bg-tertiary) hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-text-primary)'
+          }`}
+          title={showFilters ? "Hide filters" : "Show filters"}
+        >
+          <Search size={10} />
+          <span className="hidden sm:inline">{showFilters ? "Hide" : "Show"} filters</span>
+          <span className="sm:hidden">{showFilters ? "Hide" : "Show"}</span>
+        </button>
         <ElapsedBadge elapsed={elapsed} />
         {(() => {
           const buildCsv = () => {
@@ -475,31 +489,33 @@ function JsonTable({ data, elapsed }) {
                         </span>
                       )}
                     </div>
-                    <div className="relative flex items-center">
-                      <Search size={9} className="absolute left-1.5 text-(--color-text-muted) pointer-events-none" />
-                      <input
-                        type="text"
-                        value={columnFilters[i] || ''}
-                        onChange={(e) => handleFilterChange(i, e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Escape') {
-                            clearFilter(i);
-                            e.target.blur();
-                          }
-                        }}
-                        placeholder="Filter..."
-                        className="w-full pl-5 pr-5 py-1 sm:py-0.5 text-[10px] sm:text-[10px] bg-(--color-bg-primary) text-(--color-text-primary) border border-(--color-border) rounded focus:outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted) touch-manipulation"
-                      />
-                      {columnFilters[i] && (
-                        <button
-                          onClick={() => clearFilter(i)}
-                          className="absolute right-1 p-1 sm:p-0.5 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) touch-manipulation"
-                          title="Clear filter"
-                        >
-                          <X size={9} />
-                        </button>
-                      )}
-                    </div>
+                    {showFilters && (
+                      <div className="relative flex items-center">
+                        <Search size={9} className="absolute left-1.5 text-(--color-text-muted) pointer-events-none" />
+                        <input
+                          type="text"
+                          value={columnFilters[i] || ''}
+                          onChange={(e) => handleFilterChange(i, e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Escape') {
+                              clearFilter(i);
+                              e.target.blur();
+                            }
+                          }}
+                          placeholder="Filter..."
+                          className="w-full pl-5 pr-5 py-1 sm:py-0.5 text-[10px] sm:text-[10px] bg-(--color-bg-primary) text-(--color-text-primary) border border-(--color-border) rounded focus:outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted) touch-manipulation"
+                        />
+                        {columnFilters[i] && (
+                          <button
+                            onClick={() => clearFilter(i)}
+                            className="absolute right-1 p-1 sm:p-0.5 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) touch-manipulation"
+                            title="Clear filter"
+                          >
+                            <X size={9} />
+                          </button>
+                        )}
+                      </div>
+                    )}
                     <div
                       className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize opacity-0 group-hover/th:opacity-100 hover:bg-(--color-accent)/40 transition-opacity"
                       onMouseDown={(e) => {

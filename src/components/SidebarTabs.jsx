@@ -76,7 +76,7 @@ const SidebarTabs = forwardRef(({ collapsed, setCollapsed, onInsertAtCursor }, r
         {activeTab === "files" ? (
           <FileExplorer ref={fileExplorerRef} onInsertAtCursor={onInsertAtCursor} />
         ) : (
-          <SchemaExplorer ref={schemaExplorerRef} onInsertAtCursor={onInsertAtCursor} refreshTrigger={refreshTrigger} />
+          <SchemaExplorer ref={schemaExplorerRef} onInsertAtCursor={onInsertAtCursor} />
         )}
       </div>
     </div>

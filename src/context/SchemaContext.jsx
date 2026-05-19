@@ -28,7 +28,12 @@ export function SchemaProvider({ children }) {
   }, []);
 
   const refreshSchema = useCallback(() => {
-    setRefreshTrigger(prev => prev + 1);
+    console.log('[SchemaContext] refreshSchema called, incrementing trigger');
+    setRefreshTrigger(prev => {
+      const newTrigger = prev + 1;
+      console.log('[SchemaContext] refreshTrigger incremented to:', newTrigger);
+      return newTrigger;
+    });
   }, []);
 
   const value = {
