@@ -1,5 +1,106 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { AlertCircle, Loader2, Table, CheckCircle2, Ban, Clock, FileText, Copy, Check, Download, Search, X, FilterX } from "lucide-react";
+import { AlertCircle, Loader2, Table, CheckCircle2, Ban, Clock, FileText, Copy, Check, Download, Search, X, FilterX, Hash, Type, Calendar, ToggleLeft, Binary, List, Braces } from "lucide-react";
+
+function getDataTypeIcon(type) {
+  if (!type) return null;
+  const lowerType = type.toLowerCase();
+  
+  // String types
+  if (lowerType.includes('string') || lowerType.includes('char') || lowerType.includes('varchar') || 
+      lowerType.includes('text')) {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="none" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        <path fill="currentColor" fillRule="evenodd" d="M6.25 1h2.174a2.126 2.126 0 0 1 1.81 3.243 2.126 2.126 0 0 1-1.36 3.761H6.25a.75.75 0 0 1-.75-.75V1.75A.75.75 0 0 1 6.25 1M7 6.504V5.252h1.874a.626.626 0 1 1 0 1.252zm2.05-3.378c0 .345-.28.625-.625.626H7.001L7 2.5h1.424c.346 0 .626.28.626.626M3.307 6a.75.75 0 0 1 .697.473L6.596 13H4.982l-.238-.6H1.855l-.24.6H0l2.61-6.528A.75.75 0 0 1 3.307 6m-.003 2.776.844 2.124H2.455z" clipRule="evenodd"></path>
+        <path fill="currentColor" d="M12.5 15a2.5 2.5 0 0 0 2.5-2.5h-1.5a1 1 0 1 1-2 0v-1.947c0-.582.472-1.053 1.053-1.053.523 0 .947.424.947.947v.053H15v-.053A2.447 2.447 0 0 0 12.553 8 2.553 2.553 0 0 0 10 10.553V12.5a2.5 2.5 0 0 0 2.5 2.5"></path>
+      </svg>
+    );
+  }
+  
+  // BigInt/Long types
+  if (lowerType.includes('bigint') || lowerType.includes('long')) {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="none" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        <path fill="currentColor" d="M7.889 1A2.39 2.39 0 0 0 5.5 3.389H7c0-.491.398-.889.889-.889h.371a.74.74 0 0 1 .292 1.42l-1.43.613A2.68 2.68 0 0 0 5.5 6.992V8h5V6.5H7.108c.12-.26.331-.472.604-.588l1.43-.613A2.24 2.24 0 0 0 8.26 1zM2.75 6a1.5 1.5 0 0 1-1.5 1.5H1V9h.25c.546 0 1.059-.146 1.5-.401V11.5H1V13h5v-1.5H4.25V6zM10 12.85A2.15 2.15 0 0 0 12.15 15h.725a2.125 2.125 0 0 0 1.617-3.504 2.138 2.138 0 0 0-1.656-3.521l-.713.008A2.15 2.15 0 0 0 10 10.133v.284h1.5v-.284a.65.65 0 0 1 .642-.65l.712-.009a.638.638 0 1 1 .008 1.276H12v1.5h.875a.625.625 0 1 1 0 1.25h-.725a.65.65 0 0 1-.65-.65v-.267H10z"></path>
+      </svg>
+    );
+  }
+  
+  // Date/Time types
+  if (lowerType.includes('date') || lowerType.includes('time') || lowerType.includes('timestamp')) {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="none" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        <path fill="currentColor" d="M8.5 10.25a1.75 1.75 0 1 1 3.5 0 1.75 1.75 0 0 1-3.5 0"></path>
+        <path fill="currentColor" fillRule="evenodd" d="M10 2H6V0H4.5v2H1.75a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75h12.5a.75.75 0 0 0 .75-.75V2.75a.75.75 0 0 0-.75-.75H11.5V0H10zM2.5 3.5v2h11v-2zm0 10V7h11v6.5z" clipRule="evenodd"></path>
+      </svg>
+    );
+  }
+  
+  // Double/Float/Decimal types
+  if (lowerType.includes('double') || lowerType.includes('float') || lowerType.includes('decimal')) {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="none" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        <path fill="currentColor" d="M0 5.25A2.25 2.25 0 0 0 2.25 3h1.5v8.5H6V13H0v-1.5h2.25V6c-.627.471-1.406.75-2.25.75zM10 5.75A2.75 2.75 0 0 1 12.75 3h.39a2.86 2.86 0 0 1 1.57 5.252l-2.195 1.44a2.25 2.25 0 0 0-1.014 1.808H16V13h-6v-1.426a3.75 3.75 0 0 1 1.692-3.135l2.194-1.44A1.36 1.36 0 0 0 13.14 4.5h-.389c-.69 0-1.25.56-1.25 1.25V6H10zM8 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2"></path>
+      </svg>
+    );
+  }
+  
+  // Integer types (default numeric)
+  if (lowerType.includes('int') || lowerType.includes('short') || lowerType.includes('byte') || lowerType.includes('number')) {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="none" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        <path fill="currentColor" d="M7.889 1A2.39 2.39 0 0 0 5.5 3.389H7c0-.491.398-.889.889-.889h.371a.74.74 0 0 1 .292 1.42l-1.43.613A2.68 2.68 0 0 0 5.5 6.992V8h5V6.5H7.108c.12-.26.331-.472.604-.588l1.43-.613A2.24 2.24 0 0 0 8.26 1zM2.75 6a1.5 1.5 0 0 1-1.5 1.5H1V9h.25c.546 0 1.059-.146 1.5-.401V11.5H1V13h5v-1.5H4.25V6zM10 12.85A2.15 2.15 0 0 0 12.15 15h.725a2.125 2.125 0 0 0 1.617-3.504 2.138 2.138 0 0 0-1.656-3.521l-.713.008A2.15 2.15 0 0 0 10 10.133v.284h1.5v-.284a.65.65 0 0 1 .642-.65l.712-.009a.638.638 0 1 1 .008 1.276H12v1.5h.875a.625.625 0 1 1 0 1.25h-.725a.65.65 0 0 1-.65-.65v-.267H10z"></path>
+      </svg>
+    );
+  }
+  
+  // Boolean types
+  if (lowerType.includes('bool')) {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="none" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        <path fill="currentColor" fillRule="evenodd" d="M6.25 1h2.174a2.126 2.126 0 0 1 1.81 3.243 2.126 2.126 0 0 1-1.36 3.761H6.25a.75.75 0 0 1-.75-.75V1.75A.75.75 0 0 1 6.25 1M7 6.504V5.252h1.874a.626.626 0 1 1 0 1.252zm2.05-3.378c0 .345-.28.625-.625.626H7.001L7 2.5h1.424c.346 0 .626.28.626.626M3.307 6a.75.75 0 0 1 .697.473L6.596 13H4.982l-.238-.6H1.855l-.24.6H0l2.61-6.528A.75.75 0 0 1 3.307 6m-.003 2.776.844 2.124H2.455z" clipRule="evenodd"></path>
+        <path fill="currentColor" d="M12.5 15a2.5 2.5 0 0 0 2.5-2.5h-1.5a1 1 0 1 1-2 0v-1.947c0-.582.472-1.053 1.053-1.053.523 0 .947.424.947.947v.053H15v-.053A2.447 2.447 0 0 0 12.553 8 2.553 2.553 0 0 0 10 10.553V12.5a2.5 2.5 0 0 0 2.5 2.5"></path>
+      </svg>
+    );
+  }
+  
+  // Binary types
+  if (lowerType.includes('binary') || lowerType.includes('blob')) {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="none" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        <path fill="currentColor" fillRule="evenodd" d="M6.25 1h2.174a2.126 2.126 0 0 1 1.81 3.243 2.126 2.126 0 0 1-1.36 3.761H6.25a.75.75 0 0 1-.75-.75V1.75A.75.75 0 0 1 6.25 1M7 6.504V5.252h1.874a.626.626 0 1 1 0 1.252zm2.05-3.378c0 .345-.28.625-.625.626H7.001L7 2.5h1.424c.346 0 .626.28.626.626M3.307 6a.75.75 0 0 1 .697.473L6.596 13H4.982l-.238-.6H1.855l-.24.6H0l2.61-6.528A.75.75 0 0 1 3.307 6m-.003 2.776.844 2.124H2.455z" clipRule="evenodd"></path>
+        <path fill="currentColor" d="M12.5 15a2.5 2.5 0 0 0 2.5-2.5h-1.5a1 1 0 1 1-2 0v-1.947c0-.582.472-1.053 1.053-1.053.523 0 .947.424.947.947v.053H15v-.053A2.447 2.447 0 0 0 12.553 8 2.553 2.553 0 0 0 10 10.553V12.5a2.5 2.5 0 0 0 2.5 2.5"></path>
+      </svg>
+    );
+  }
+  
+  // Array types
+  if (lowerType.includes('array')) {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="none" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        <path fill="currentColor" fillRule="evenodd" d="M6.25 1h2.174a2.126 2.126 0 0 1 1.81 3.243 2.126 2.126 0 0 1-1.36 3.761H6.25a.75.75 0 0 1-.75-.75V1.75A.75.75 0 0 1 6.25 1M7 6.504V5.252h1.874a.626.626 0 1 1 0 1.252zm2.05-3.378c0 .345-.28.625-.625.626H7.001L7 2.5h1.424c.346 0 .626.28.626.626M3.307 6a.75.75 0 0 1 .697.473L6.596 13H4.982l-.238-.6H1.855l-.24.6H0l2.61-6.528A.75.75 0 0 1 3.307 6m-.003 2.776.844 2.124H2.455z" clipRule="evenodd"></path>
+        <path fill="currentColor" d="M12.5 15a2.5 2.5 0 0 0 2.5-2.5h-1.5a1 1 0 1 1-2 0v-1.947c0-.582.472-1.053 1.053-1.053.523 0 .947.424.947.947v.053H15v-.053A2.447 2.447 0 0 0 12.553 8 2.553 2.553 0 0 0 10 10.553V12.5a2.5 2.5 0 0 0 2.5 2.5"></path>
+      </svg>
+    );
+  }
+  
+  // Struct/Map/Complex types
+  if (lowerType.includes('struct') || lowerType.includes('map') || lowerType.includes('object')) {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="none" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        <path fill="currentColor" fillRule="evenodd" d="M6.25 1h2.174a2.126 2.126 0 0 1 1.81 3.243 2.126 2.126 0 0 1-1.36 3.761H6.25a.75.75 0 0 1-.75-.75V1.75A.75.75 0 0 1 6.25 1M7 6.504V5.252h1.874a.626.626 0 1 1 0 1.252zm2.05-3.378c0 .345-.28.625-.625.626H7.001L7 2.5h1.424c.346 0 .626.28.626.626M3.307 6a.75.75 0 0 1 .697.473L6.596 13H4.982l-.238-.6H1.855l-.24.6H0l2.61-6.528A.75.75 0 0 1 3.307 6m-.003 2.776.844 2.124H2.455z" clipRule="evenodd"></path>
+        <path fill="currentColor" d="M12.5 15a2.5 2.5 0 0 0 2.5-2.5h-1.5a1 1 0 1 1-2 0v-1.947c0-.582.472-1.053 1.053-1.053.523 0 .947.424.947.947v.053H15v-.053A2.447 2.447 0 0 0 12.553 8 2.553 2.553 0 0 0 10 10.553V12.5a2.5 2.5 0 0 0 2.5 2.5"></path>
+      </svg>
+    );
+  }
+  
+  // Default - use string icon
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="none" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path fill="currentColor" fillRule="evenodd" d="M6.25 1h2.174a2.126 2.126 0 0 1 1.81 3.243 2.126 2.126 0 0 1-1.36 3.761H6.25a.75.75 0 0 1-.75-.75V1.75A.75.75 0 0 1 6.25 1M7 6.504V5.252h1.874a.626.626 0 1 1 0 1.252zm2.05-3.378c0 .345-.28.625-.625.626H7.001L7 2.5h1.424c.346 0 .626.28.626.626M3.307 6a.75.75 0 0 1 .697.473L6.596 13H4.982l-.238-.6H1.855l-.24.6H0l2.61-6.528A.75.75 0 0 1 3.307 6m-.003 2.776.844 2.124H2.455z" clipRule="evenodd"></path>
+      <path fill="currentColor" d="M12.5 15a2.5 2.5 0 0 0 2.5-2.5h-1.5a1 1 0 1 1-2 0v-1.947c0-.582.472-1.053 1.053-1.053.523 0 .947.424.947.947v.053H15v-.053A2.447 2.447 0 0 0 12.553 8 2.553 2.553 0 0 0 10 10.553V12.5a2.5 2.5 0 0 0 2.5 2.5"></path>
+    </svg>
+  );
+}
 
 function formatElapsed(ms) {
   if (ms == null) return null;
@@ -476,6 +577,8 @@ function JsonTable({ data, elapsed }) {
                     ? field.type
                     : field.type.type || JSON.stringify(field.type)
                   : null;
+                const typeIcon = getDataTypeIcon(type);
+                
                 return (
                   <th
                     key={i}
@@ -483,9 +586,13 @@ function JsonTable({ data, elapsed }) {
                   >
                     <div className="flex items-center gap-1.5 mb-1">
                       <span className="text-(--color-text-secondary) font-semibold text-xs whitespace-nowrap">{name}</span>
-                      {type && (
-                        <span className="inline-flex items-center px-1 py-0.5 text-[9px] font-mono bg-(--color-accent)/10 text-(--color-accent) rounded border border-(--color-accent)/20">
-                          {type}
+                      {typeIcon && (
+                        <span 
+                          className="inline-flex items-center text-(--color-text-muted) hover:text-(--color-text-primary)"
+                          title={type}
+                          style={{ fontSize: '12px' }}
+                        >
+                          {typeIcon}
                         </span>
                       )}
                     </div>
@@ -553,18 +660,55 @@ function JsonTable({ data, elapsed }) {
                 className="border-b border-(--color-border)/50 hover:bg-(--color-bg-tertiary)/30"
                 style={{ height: ROW_HEIGHT }}
               >
-                {fields.map((field, ci) => (
-                  <td
-                    key={ci}
-                    className="px-3 py-1.5 text-(--color-text-primary) whitespace-nowrap font-mono"
-                  >
-                    {row[field.name || field] !== undefined
-                      ? String(row[field.name || field])
-                      : Array.isArray(row)
-                        ? String(row[ci] ?? "")
-                        : ""}
-                  </td>
-                ))}
+                {fields.map((field, ci) => {
+                  const cellValue = row[field.name || field] !== undefined
+                    ? String(row[field.name || field])
+                    : Array.isArray(row)
+                      ? String(row[ci] ?? "")
+                      : "";
+                  
+                  const filterValue = columnFilters[ci];
+                  let cellContent = cellValue;
+                  
+                  // Highlight matching text if filter is active
+                  if (filterValue && filterValue.trim() !== '') {
+                    try {
+                      const regex = new RegExp(`(${filterValue})`, 'gi');
+                      const parts = cellValue.split(regex);
+                      cellContent = parts.map((part, idx) => {
+                        if (regex.test(part)) {
+                          return <mark key={idx} className="bg-(--color-warning)/30 text-(--color-text-primary) rounded px-0.5">{part}</mark>;
+                        }
+                        return part;
+                      });
+                    } catch (e) {
+                      // Invalid regex, fall back to simple string highlighting
+                      const lowerCell = cellValue.toLowerCase();
+                      const lowerFilter = filterValue.toLowerCase();
+                      const idx = lowerCell.indexOf(lowerFilter);
+                      if (idx !== -1) {
+                        cellContent = (
+                          <>
+                            {cellValue.substring(0, idx)}
+                            <mark className="bg-(--color-warning)/30 text-(--color-text-primary) rounded px-0.5">
+                              {cellValue.substring(idx, idx + filterValue.length)}
+                            </mark>
+                            {cellValue.substring(idx + filterValue.length)}
+                          </>
+                        );
+                      }
+                    }
+                  }
+                  
+                  return (
+                    <td
+                      key={ci}
+                      className="px-3 py-1.5 text-(--color-text-primary) whitespace-nowrap font-mono"
+                    >
+                      {cellContent}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
             {bottomPad > 0 && (
