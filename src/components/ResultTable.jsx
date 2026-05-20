@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { AlertCircle, Loader2, Table, CheckCircle2, Ban, Clock, FileText, Copy, Check, Download, Search, X, FilterX, Hash, Type, Calendar, ToggleLeft, Binary, List, Braces } from "lucide-react";
+import { AlertCircle, Loader2, Table, CheckCircle2, Ban, Clock, FileText, Copy, Check, Download, Search, X, FilterX, Hash, Type, Calendar, ToggleLeft, Binary, List, Braces, ChevronDown } from "lucide-react";
 
 function getDataTypeIcon(type) {
   if (!type) return null;
@@ -226,11 +226,11 @@ function DownloadButtons({ getCsv, getJson, className = "" }) {
   );
 }
 
-export default function ResultTable({ result }) {
+export default function ResultTable({ result, onClose, onMaximizeToggle, isMaximized }) {
   if (!result) {
     return (
-      <div className="flex items-center justify-center h-full text-(--color-text-muted) text-sm">
-        <Table size={16} className="mr-2" />
+      <div className="flex items-center justify-center h-full text-(--color-text-muted) text-sm select-none">
+        <Table size={16} className="mr-2 animate-pulse" />
         Run a query to see results
       </div>
     );
@@ -239,10 +239,46 @@ export default function ResultTable({ result }) {
   // Running state
   if (result.status === "running") {
     return (
-      <div className="flex items-center justify-center h-full text-(--color-warning) text-sm">
-        <Loader2 size={16} className="animate-spin mr-2" />
-        Executing query...
-        {result.startTime && <LiveTimer startTime={result.startTime} />}
+      <div className="flex flex-col h-full bg-(--color-bg-secondary)">
+        <div className="flex items-center justify-between border-b border-(--color-border) shrink-0 h-9 px-3 bg-(--color-bg-secondary) select-none">
+          <div className="flex items-center h-full">
+            <div className="flex items-center gap-1.5 px-3 border-r border-(--color-border) h-full">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-(--color-warning)">
+                <Loader2 size={12} className="animate-spin" />
+                Executing...
+              </span>
+            </div>
+            {result.startTime && <LiveTimer startTime={result.startTime} />}
+          </div>
+          <div className="flex items-center gap-2 h-full">
+            {onMaximizeToggle && (
+              <button
+                onClick={onMaximizeToggle}
+                className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) transition-colors cursor-pointer"
+                title={isMaximized ? "Restore Height" : "Maximize Panel"}
+              >
+                {isMaximized ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/></svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                )}
+              </button>
+            )}
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) hover:text-red-500 transition-colors cursor-pointer"
+                title="Close Panel (Ctrl+`)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center text-(--color-warning) text-sm font-mono select-none">
+          <Loader2 size={16} className="animate-spin mr-2" />
+          Executing query...
+        </div>
       </div>
     );
   }
@@ -250,10 +286,46 @@ export default function ResultTable({ result }) {
   // Cancelled
   if (result.status === "cancelled") {
     return (
-      <div className="flex items-center justify-center h-full text-(--color-text-muted) text-sm">
-        <Ban size={16} className="mr-2" />
-        Query cancelled
-        <ElapsedBadge elapsed={result.elapsed} />
+      <div className="flex flex-col h-full bg-(--color-bg-secondary)">
+        <div className="flex items-center justify-between border-b border-(--color-border) shrink-0 h-9 px-3 bg-(--color-bg-secondary) select-none">
+          <div className="flex items-center h-full">
+            <div className="flex items-center gap-1.5 px-3 border-r border-(--color-border) h-full">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-(--color-text-muted)">
+                <Ban size={12} />
+                Cancelled
+              </span>
+            </div>
+            <ElapsedBadge elapsed={result.elapsed} />
+          </div>
+          <div className="flex items-center gap-2 h-full">
+            {onMaximizeToggle && (
+              <button
+                onClick={onMaximizeToggle}
+                className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) transition-colors cursor-pointer"
+                title={isMaximized ? "Restore Height" : "Maximize Panel"}
+              >
+                {isMaximized ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/></svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                )}
+              </button>
+            )}
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) hover:text-red-500 transition-colors cursor-pointer"
+                title="Close Panel (Ctrl+`)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center text-(--color-text-muted) text-sm select-none">
+          <Ban size={16} className="mr-2" />
+          Query cancelled
+        </div>
       </div>
     );
   }
@@ -261,46 +333,113 @@ export default function ResultTable({ result }) {
   // Error
   if (result.status === "error") {
     return (
-      <div className="flex flex-col items-start p-4 h-full overflow-auto">
-        <div className="flex items-center gap-2 text-(--color-error) text-sm font-medium mb-2 w-full">
-          <AlertCircle size={16} />
-          Error
-          <ElapsedBadge elapsed={result.elapsed} />
-          <CopyButton getText={() => result.error} className="ml-auto" />
+      <div className="flex flex-col h-full bg-(--color-bg-secondary)">
+        <div className="flex items-center justify-between border-b border-(--color-border) shrink-0 h-9 px-3 bg-(--color-bg-secondary) select-none">
+          <div className="flex items-center h-full">
+            <div className="flex items-center gap-1.5 px-3 border-r border-(--color-border) h-full">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-(--color-error)">
+                <AlertCircle size={12} />
+                Error
+              </span>
+            </div>
+            <ElapsedBadge elapsed={result.elapsed} />
+          </div>
+          <div className="flex items-center gap-2 h-full">
+            <CopyButton getText={() => result.error} className="hover:bg-(--color-bg-tertiary) h-7" />
+            {(onMaximizeToggle || onClose) && <div className="h-4 w-px bg-(--color-border) mx-1" />}
+            {onMaximizeToggle && (
+              <button
+                onClick={onMaximizeToggle}
+                className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) transition-colors cursor-pointer"
+                title={isMaximized ? "Restore Height" : "Maximize Panel"}
+              >
+                {isMaximized ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/></svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                )}
+              </button>
+            )}
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) hover:text-red-500 transition-colors cursor-pointer"
+                title="Close Panel (Ctrl+`)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            )}
+          </div>
         </div>
-        <pre className="text-xs text-(--color-error)/80 whitespace-pre-wrap font-mono bg-(--color-error)/5 rounded-lg p-3 w-full">
-          {result.error}
-        </pre>
+        <div className="flex-1 overflow-auto p-4">
+          <pre className="text-xs text-(--color-error)/85 whitespace-pre-wrap font-mono bg-(--color-error)/5 rounded-lg p-3 w-full">
+            {result.error}
+          </pre>
+        </div>
       </div>
     );
   }
 
   // Success - parse result data
   if (result.status === "ok" && result.data) {
-    // Livy returns data in different formats
-    // text/plain is the most common for SQL results
     const textData = result.data["text/plain"];
     const jsonData = result.data["application/json"];
 
     // Try to render as a table if we have structured JSON data
     if (jsonData) {
-      return <JsonTable data={jsonData} elapsed={result.elapsed} />;
+      return <JsonTable data={jsonData} elapsed={result.elapsed} onClose={onClose} onMaximizeToggle={onMaximizeToggle} isMaximized={isMaximized} />;
     }
 
     // Render text output
     if (textData) {
       return (
-        <div className="flex flex-col h-full overflow-auto p-4">
-          <div className="flex items-center gap-2 text-(--color-success) text-xs font-medium mb-2 w-full">
-            <CheckCircle2 size={14} />
-            Query completed
-            <ElapsedBadge elapsed={result.elapsed} />
-            <CopyButton getText={() => textData} className="ml-auto" />
-            <DownloadButtons getCsv={() => textData} />
+        <div className="flex flex-col h-full">
+          <div className="flex items-center justify-between border-b border-(--color-border) shrink-0 h-9 bg-(--color-bg-secondary) select-none">
+            <div className="flex items-center h-full">
+              <div className="flex items-center gap-1.5 px-3 border-r border-(--color-border) h-full">
+                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-(--color-text-primary) border-b-2 border-(--color-accent) bg-(--color-bg-primary)/40 transition-colors h-full">
+                  <FileText size={12} className="text-(--color-accent)" />
+                  <span>Text Output</span>
+                </button>
+              </div>
+              <div className="flex items-center gap-2 px-3 text-[11px] text-(--color-text-muted)">
+                <ElapsedBadge elapsed={result.elapsed} />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 px-3 h-full">
+              <CopyButton getText={() => textData} className="hover:bg-(--color-bg-tertiary) h-7" />
+              <DownloadButtons getCsv={() => textData} className="h-7" />
+              {(onMaximizeToggle || onClose) && <div className="h-4 w-px bg-(--color-border) mx-1" />}
+              {onMaximizeToggle && (
+                <button
+                  onClick={onMaximizeToggle}
+                  className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) transition-colors cursor-pointer"
+                  title={isMaximized ? "Restore Height" : "Maximize Panel"}
+                >
+                  {isMaximized ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/></svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                  )}
+                </button>
+              )}
+              {onClose && (
+                <button
+                  onClick={onClose}
+                  className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) hover:text-red-500 transition-colors cursor-pointer"
+                  title="Close Panel (Ctrl+`)"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+              )}
+            </div>
           </div>
-          <pre className="text-xs text-(--color-text-primary) whitespace-pre-wrap font-mono bg-(--color-bg-primary) rounded-lg p-3 flex-1 overflow-auto">
-            {textData}
-          </pre>
+          <div className="flex-grow overflow-auto p-4">
+            <pre className="text-xs text-(--color-text-primary) whitespace-pre-wrap font-mono bg-(--color-bg-primary) rounded-lg p-3">
+              {textData}
+            </pre>
+          </div>
         </div>
       );
     }
@@ -350,19 +489,55 @@ function highlightPlanLine(line) {
   return parts;
 }
 
-function ExplainPlan({ planText, elapsed }) {
+function ExplainPlan({ planText, elapsed, onClose, onMaximizeToggle, isMaximized }) {
   const lines = planText.split("\n");
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 px-4 py-2 text-(--color-accent) text-xs font-medium border-b border-(--color-border) shrink-0">
-        <FileText size={14} />
-        Execution Plan
-        <ElapsedBadge elapsed={elapsed} />
-        <CopyButton getText={() => planText} className="ml-auto" />
-        <DownloadButtons getCsv={() => planText} />
+    <div className="flex flex-col h-full bg-(--color-bg-secondary)">
+      <div className="flex items-center justify-between border-b border-(--color-border) shrink-0 h-9 bg-(--color-bg-secondary) select-none">
+        {/* Left cluster: Tabs and elapsed time */}
+        <div className="flex items-center h-full">
+          <div className="flex items-center gap-1.5 px-3 border-r border-(--color-border) h-full">
+            <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-(--color-text-primary) border-b-2 border-(--color-accent) bg-(--color-bg-primary)/40 transition-colors h-full">
+              <FileText size={12} className="text-(--color-accent)" />
+              <span>Plan</span>
+            </button>
+          </div>
+          <div className="flex items-center gap-2 px-3 text-[11px] text-(--color-text-muted)">
+            <ElapsedBadge elapsed={elapsed} />
+          </div>
+        </div>
+
+        {/* Right cluster: actions and resize controls */}
+        <div className="flex items-center gap-2 px-3 h-full">
+          <CopyButton getText={() => planText} className="hover:bg-(--color-bg-tertiary) h-7" />
+          <DownloadButtons getCsv={() => planText} className="h-7" />
+          {(onMaximizeToggle || onClose) && <div className="h-4 w-px bg-(--color-border) mx-1" />}
+          {onMaximizeToggle && (
+            <button
+              onClick={onMaximizeToggle}
+              className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) transition-colors cursor-pointer"
+              title={isMaximized ? "Restore Height" : "Maximize Panel"}
+            >
+              {isMaximized ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/></svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+              )}
+            </button>
+          )}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) hover:text-red-500 transition-colors cursor-pointer"
+              title="Close Panel (Ctrl+`)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          )}
+        </div>
       </div>
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-grow overflow-auto p-4">
         <pre className="text-xs font-mono leading-5 text-(--color-text-secondary) whitespace-pre overflow-x-auto">
           {lines.map((line, i) => (
             <div key={i}>{highlightPlanLine(line)}</div>
@@ -400,7 +575,7 @@ function useDebounce(value, delay) {
   return debouncedValue;
 }
 
-function JsonTable({ data, elapsed }) {
+function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
   const scrollRef = useRef(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewHeight, setViewHeight] = useState(400);
@@ -409,6 +584,25 @@ function JsonTable({ data, elapsed }) {
   const [columnFilters, setColumnFilters] = useState({});
   const [showFilters, setShowFilters] = useState(false);
   const debouncedFilters = useDebounce(columnFilters, 300);
+
+  // Sorting state variables
+  const [sortColIndex, setSortColIndex] = useState(null);
+  const [sortDirection, setSortDirection] = useState(null); // 'asc' | 'desc' | null
+
+  // Dropdown visualization menu state variables
+  const [viewDropdownOpen, setViewDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setViewDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -426,7 +620,7 @@ function JsonTable({ data, elapsed }) {
 
   if (isExplainResult(data)) {
     const planText = Array.isArray(data.data[0]) ? data.data[0][0] : data.data[0].plan;
-    return <ExplainPlan planText={planText} elapsed={elapsed} />;
+    return <ExplainPlan planText={planText} elapsed={elapsed} onClose={onClose} onMaximizeToggle={onMaximizeToggle} isMaximized={isMaximized} />;
   }
 
   if (!(data && data.schema && data.data)) {
@@ -444,32 +638,59 @@ function JsonTable({ data, elapsed }) {
       </div>
     );
   }
-
   const fields = data.schema.fields || [];
   const rows = data.data || [];
   
+  // Custom sorting and filtering logic
   const filteredRows = useMemo(() => {
     const activeFilters = Object.entries(debouncedFilters).filter(([_, value]) => value.trim() !== '');
-    if (activeFilters.length === 0) return rows;
-    
-    return rows.filter(row => {
-      return activeFilters.every(([colIndex, filterValue]) => {
-        const field = fields[parseInt(colIndex)];
-        const cellValue = row[field.name || field] !== undefined 
-          ? String(row[field.name || field]) 
-          : Array.isArray(row) ? String(row[parseInt(colIndex)] ?? '') : '';
-        
-        // Try regex first, fall back to case-insensitive string match if invalid regex
-        try {
-          const regex = new RegExp(filterValue, 'i');
-          return regex.test(cellValue);
-        } catch (e) {
-          // Invalid regex, fall back to simple string match
-          return cellValue.toLowerCase().includes(filterValue.toLowerCase());
-        }
+    let result = rows;
+    if (activeFilters.length > 0) {
+      result = rows.filter(row => {
+        return activeFilters.every(([colIndex, filterValue]) => {
+          const field = fields[parseInt(colIndex)];
+          const cellValue = row[field.name || field] !== undefined 
+            ? String(row[field.name || field]) 
+            : Array.isArray(row) ? String(row[parseInt(colIndex)] ?? '') : '';
+          
+          try {
+            const regex = new RegExp(filterValue, 'i');
+            return regex.test(cellValue);
+          } catch (e) {
+            return cellValue.toLowerCase().includes(filterValue.toLowerCase());
+          }
+        });
       });
-    });
-  }, [rows, debouncedFilters, fields]);
+    }
+
+    if (sortColIndex !== null && sortDirection) {
+      const field = fields[sortColIndex];
+      const fieldName = field.name || field;
+      const isAsc = sortDirection === 'asc';
+
+      result = [...result].sort((a, b) => {
+        let valA = a[fieldName] !== undefined ? a[fieldName] : Array.isArray(a) ? a[sortColIndex] : undefined;
+        let valB = b[fieldName] !== undefined ? b[fieldName] : Array.isArray(b) ? b[sortColIndex] : undefined;
+
+        if (valA === undefined || valA === null) return isAsc ? 1 : -1;
+        if (valB === undefined || valB === null) return isAsc ? -1 : 1;
+
+        // Try numeric comparison
+        const numA = Number(valA);
+        const numB = Number(valB);
+        if (!isNaN(numA) && !isNaN(numB)) {
+          return isAsc ? numA - numB : numB - numA;
+        }
+
+        // String locale comparison
+        const strA = String(valA);
+        const strB = String(valB);
+        return isAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
+      });
+    }
+
+    return result;
+  }, [rows, debouncedFilters, fields, sortColIndex, sortDirection]);
   
   const totalRows = rows.length;
   const filteredCount = filteredRows.length;
@@ -497,86 +718,196 @@ function JsonTable({ data, elapsed }) {
     });
   };
 
+  const handleSort = (colIndex) => {
+    if (sortColIndex === colIndex) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else {
+        setSortColIndex(null);
+        setSortDirection(null);
+      }
+    } else {
+      setSortColIndex(colIndex);
+      setSortDirection('asc');
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 px-4 py-2 text-(--color-success) text-xs font-medium border-b border-(--color-border) shrink-0">
-        <CheckCircle2 size={14} />
-        {hasActiveFilters ? (
-          <>
-            {filteredCount} of {totalRows} row{totalRows !== 1 ? "s" : ""}, {fields.length} column{fields.length !== 1 ? "s" : ""}
-            <button
-              onClick={clearAllFilters}
-              className="flex items-center gap-1 px-2 py-1 sm:py-0.5 ml-2 rounded text-[10px] bg-(--color-bg-tertiary) hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-colors touch-manipulation"
-              title="Clear all filters"
+    <div className="flex flex-col h-full bg-(--color-bg-secondary)">
+      {/* Databricks Premium Tabs & Controls Bar */}
+      <div className="flex items-center justify-between border-b border-(--color-border) shrink-0 h-9 bg-(--color-bg-secondary) select-none">
+        {/* Left cluster: Tabs and row count */}
+        <div className="flex items-center h-full relative" ref={dropdownRef}>
+          <div className="flex items-center gap-1.5 px-3 border-r border-(--color-border) h-full">
+            <button 
+              onClick={() => setViewDropdownOpen(!viewDropdownOpen)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-(--color-text-primary) border-b-2 border-(--color-accent) bg-(--color-bg-primary)/40 hover:bg-(--color-bg-primary)/60 transition-colors h-full cursor-pointer"
             >
-              <FilterX size={10} />
-              <span className="hidden sm:inline">Clear filters</span>
-              <span className="sm:hidden">Clear</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 16 16" aria-hidden="true" focusable="false" className="text-(--color-accent)"><path fill="currentColor" fill-rule="evenodd" d="M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75zm1.5.75v2.5h11V2.5zm0 4v2.5h11V6.5zm0 4v3h11v-3z" clipRule="evenodd"></path></svg>
+              <span>Table</span>
+              <ChevronDown size={10} className={`text-(--color-text-muted) transition-transform duration-200 ${viewDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
-          </>
-        ) : (
-          <>{totalRows} row{totalRows !== 1 ? "s" : ""}, {fields.length} column{fields.length !== 1 ? "s" : ""} returned</>
-        )}
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className={`flex items-center gap-1 px-2 py-1 sm:py-0.5 ml-2 rounded text-[10px] transition-colors touch-manipulation ${
-            showFilters
-              ? 'bg-(--color-accent) text-white'
-              : 'bg-(--color-bg-tertiary) hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-text-primary)'
-          }`}
-          title={showFilters ? "Hide filters" : "Show filters"}
-        >
-          <Search size={10} />
-          <span className="hidden sm:inline">{showFilters ? "Hide" : "Show"} filters</span>
-          <span className="sm:hidden">{showFilters ? "Hide" : "Show"}</span>
-        </button>
-        <ElapsedBadge elapsed={elapsed} />
-        {(() => {
-          const buildCsv = () => {
-            const csvEscape = (v) => {
-              const s = String(v);
-              return s.includes(",") || s.includes('"') || s.includes("\n")
-                ? '"' + s.replace(/"/g, '""') + '"'
-                : s;
+          </div>
+
+          {viewDropdownOpen && (
+            <div className="absolute left-3 top-9 z-50 bg-(--color-bg-secondary) border border-(--color-border) rounded-lg shadow-xl py-1 min-w-[180px] animate-in fade-in zoom-in-95 duration-100">
+              <button 
+                onClick={() => setViewDropdownOpen(false)}
+                className="flex items-center justify-between w-full text-left px-3 py-2 text-xs text-(--color-text-primary) hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 16 16" aria-hidden="true" focusable="false" className="text-(--color-accent)"><path fill="currentColor" fill-rule="evenodd" d="M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75zm1.5.75v2.5h11V2.5zm0 4v2.5h11V6.5zm0 4v3h11v-3z" clipRule="evenodd"></path></svg>
+                  <span>Table View</span>
+                </div>
+                <Check size={12} className="text-(--color-accent)" />
+              </button>
+              
+              <div className="h-px bg-(--color-border) my-1" />
+              
+              <div className="px-3 py-1.5 text-[10px] font-semibold text-(--color-text-muted) uppercase tracking-wider">
+                Visualizations
+              </div>
+
+              <button 
+                disabled 
+                className="flex items-center justify-between w-full text-left px-3 py-2 text-xs text-(--color-text-muted) hover:bg-(--color-bg-tertiary)/30 transition-colors cursor-not-allowed opacity-60"
+              >
+                <div className="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-(--color-text-muted)"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                  <span>Bar Chart</span>
+                </div>
+                <span className="text-[9px] bg-(--color-bg-primary) border border-(--color-border) px-1 rounded-sm text-(--color-text-muted)">Soon</span>
+              </button>
+
+              <button 
+                disabled 
+                className="flex items-center justify-between w-full text-left px-3 py-2 text-xs text-(--color-text-muted) hover:bg-(--color-bg-tertiary)/30 transition-colors cursor-not-allowed opacity-60"
+              >
+                <div className="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-(--color-text-muted)"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                  <span>Line Chart</span>
+                </div>
+                <span className="text-[9px] bg-(--color-bg-primary) border border-(--color-border) px-1 rounded-sm text-(--color-text-muted)">Soon</span>
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 px-3 text-[11px] text-(--color-text-secondary) font-medium">
+            <CheckCircle2 size={12} className="text-(--color-success)" />
+            {hasActiveFilters ? (
+              <div className="flex items-center gap-1.5">
+                <span>{filteredCount} of {totalRows} rows</span>
+                <button
+                  onClick={clearAllFilters}
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-(--color-bg-tertiary) hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-colors cursor-pointer"
+                  title="Clear all filters"
+                >
+                  <FilterX size={9} />
+                  <span>Clear</span>
+                </button>
+              </div>
+            ) : (
+              <span>{totalRows} rows</span>
+            )}
+            <ElapsedBadge elapsed={elapsed} />
+          </div>
+        </div>
+
+        {/* Right cluster: Search/Filter and Download actions */}
+        <div className="flex items-center gap-2 px-3 h-full">
+          {/* Search filter button */}
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`p-1.5 rounded transition-colors cursor-pointer ${
+              showFilters
+                ? 'bg-(--color-accent) text-white'
+                : 'hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) hover:text-(--color-text-primary)'
+            }`}
+            title={showFilters ? "Hide column filters" : "Show column filters"}
+          >
+            <Search size={13} />
+          </button>
+
+          {(() => {
+            const buildCsv = () => {
+              const csvEscape = (v) => {
+                const s = String(v);
+                return s.includes(",") || s.includes('"') || s.includes("\n")
+                  ? '"' + s.replace(/"/g, '""') + '"'
+                  : s;
+              };
+              const header = fields.map((f) => csvEscape(f.name || f)).join(",");
+              const body = filteredRows.map((row) =>
+                fields.map((f, ci) => {
+                  const val = row[f.name || f] !== undefined ? row[f.name || f] : Array.isArray(row) ? (row[ci] ?? "") : "";
+                  return csvEscape(val);
+                }).join(",")
+              ).join("\n");
+              return header + "\n" + body;
             };
-            const header = fields.map((f) => csvEscape(f.name || f)).join(",");
-            const body = filteredRows.map((row) =>
-              fields.map((f, ci) => {
-                const val = row[f.name || f] !== undefined ? row[f.name || f] : Array.isArray(row) ? (row[ci] ?? "") : "";
-                return csvEscape(val);
-              }).join(",")
-            ).join("\n");
-            return header + "\n" + body;
-          };
-          const buildJson = () => {
-            return JSON.stringify(filteredRows.map((row) => {
-              const obj = {};
-              fields.forEach((f, ci) => {
-                const name = f.name || f;
-                obj[name] = row[name] !== undefined ? row[name] : Array.isArray(row) ? (row[ci] ?? "") : "";
-              });
-              return obj;
-            }), null, 2);
-          };
-          return (
-            <>
-              <CopyButton getText={buildCsv} className="ml-auto" />
-              <DownloadButtons getCsv={buildCsv} getJson={buildJson} />
-            </>
-          );
-        })()}
+            const buildJson = () => {
+              return JSON.stringify(filteredRows.map((row) => {
+                const obj = {};
+                fields.forEach((f, ci) => {
+                  const name = f.name || f;
+                  obj[name] = row[name] !== undefined ? row[name] : Array.isArray(row) ? (row[ci] ?? "") : "";
+                });
+                return obj;
+              }), null, 2);
+            };
+            return (
+              <>
+                <CopyButton getText={buildCsv} className="hover:bg-(--color-bg-tertiary) h-7" />
+                <DownloadButtons getCsv={buildCsv} getJson={buildJson} className="h-7" />
+              </>
+            );
+          })()}
+
+          {/* Panel Layout Controls */}
+          {(onMaximizeToggle || onClose) && <div className="h-4 w-px bg-(--color-border) mx-1" />}
+
+          {onMaximizeToggle && (
+            <button
+              onClick={onMaximizeToggle}
+              className="p-1.5 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors cursor-pointer"
+              title={isMaximized ? "Restore Height" : "Maximize Panel"}
+            >
+              {isMaximized ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/></svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+              )}
+            </button>
+          )}
+
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) hover:text-red-500 transition-colors cursor-pointer"
+              title="Close Panel (Ctrl+`)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          )}
+        </div>
       </div>
       <div className="flex-1 overflow-auto" ref={scrollRef} onScroll={handleScroll}>
         <table className="text-xs" style={{ tableLayout: Object.keys(colWidths).length > 0 ? "fixed" : "auto", width: Object.keys(colWidths).length > 0 ? undefined : "100%" }}>
-          {Object.keys(colWidths).length > 0 && (
-            <colgroup>
-              {fields.map((_, i) => (
+          <colgroup>
+            {/* Locked index column col width */}
+            <col style={{ width: 48 }} />
+            {Object.keys(colWidths).length > 0 && 
+              fields.map((_, i) => (
                 <col key={i} style={{ width: colWidths[i] || 150 }} />
-              ))}
-            </colgroup>
-          )}
+              ))
+            }
+          </colgroup>
           <thead>
-            <tr className="bg-(--color-bg-tertiary) sticky top-0 z-20">
+            <tr className="bg-(--color-bg-tertiary) sticky top-0 z-20 select-none">
+              {/* Sticky Row Index header column */}
+              <th className="px-2 py-1.5 text-center border-b border-(--color-border) sticky left-0 top-0 bg-(--color-bg-tertiary) z-30 w-12 min-w-12 border-r border-(--color-border) text-(--color-text-muted) font-semibold select-none">
+                #
+              </th>
               {fields.map((field, i) => {
                 const name = field.name || field;
                 const type = field.type
@@ -586,22 +917,39 @@ function JsonTable({ data, elapsed }) {
                   : null;
                 const typeIcon = getDataTypeIcon(type);
                 
+                const isSorted = sortColIndex === i;
+                const sortIcon = isSorted ? (
+                  sortDirection === 'asc' ? (
+                    <svg className="text-(--color-accent)" xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                  ) : (
+                    <svg className="text-(--color-accent)" xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+                  )
+                ) : (
+                  <svg className="text-(--color-text-muted) opacity-0 group-hover/th:opacity-60 transition-opacity" xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 9-3-3-3 3M9 15l3 3 3-3"/></svg>
+                );
+
                 return (
                   <th
                     key={i}
-                    className="px-2 py-1.5 text-left border-b border-(--color-border) relative group/th"
+                    className="px-2 py-1.5 text-left border-b border-(--color-border) relative group/th cursor-pointer hover:bg-(--color-bg-primary)/25"
+                    onClick={(e) => {
+                      if (e.target.closest('.dg--header-resizeHandle') || e.target.closest('input')) return;
+                      handleSort(i);
+                    }}
                   >
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="text-(--color-text-secondary) font-semibold text-xs whitespace-nowrap">{name}</span>
-                      {typeIcon && (
-                        <span 
-                          className="inline-flex items-center text-(--color-text-muted) hover:text-(--color-text-primary)"
-                          title={type}
-                          style={{ fontSize: '12px' }}
-                        >
-                          {typeIcon}
-                        </span>
-                      )}
+                    <div className="flex items-center gap-1.5 mb-1 justify-between">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="text-(--color-text-secondary) font-semibold text-xs whitespace-nowrap">{name}</span>
+                        {typeIcon && (
+                          <span 
+                            className="inline-flex items-center justify-center w-[18px] h-[18px] text-[11px] rounded bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-muted) shrink-0 select-none hover:bg-(--color-bg-secondary) hover:text-(--color-text-secondary) transition-colors"
+                            title={type}
+                          >
+                            {typeIcon}
+                          </span>
+                        )}
+                      </div>
+                      <span className="mr-1.5 shrink-0">{sortIcon}</span>
                     </div>
                     {showFilters && (
                       <div className="relative flex items-center">
@@ -622,7 +970,7 @@ function JsonTable({ data, elapsed }) {
                         {columnFilters[i] && (
                           <button
                             onClick={() => clearFilter(i)}
-                            className="absolute right-1 p-1 sm:p-0.5 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) touch-manipulation"
+                            className="absolute right-1 p-1 sm:p-0.5 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) touch-manipulation cursor-pointer"
                             title="Clear filter"
                           >
                             <X size={9} />
@@ -631,9 +979,10 @@ function JsonTable({ data, elapsed }) {
                       </div>
                     )}
                     <div
-                      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize opacity-0 group-hover/th:opacity-100 hover:bg-(--color-accent)/40 transition-opacity"
+                      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize opacity-0 group-hover/th:opacity-100 hover:bg-(--color-accent)/40 transition-opacity dg--header-resizeHandle"
                       onMouseDown={(e) => {
                         e.preventDefault();
+                        e.stopPropagation();
                         const startX = e.clientX;
                         const th = e.target.parentElement;
                         const startWidth = th.offsetWidth;
@@ -659,14 +1008,18 @@ function JsonTable({ data, elapsed }) {
           </thead>
           <tbody>
             {topPad > 0 && (
-              <tr><td colSpan={fields.length} style={{ height: topPad, padding: 0, border: "none" }} /></tr>
+              <tr><td colSpan={fields.length + 1} style={{ height: topPad, padding: 0, border: "none" }} /></tr>
             )}
             {filteredRows.slice(startIdx, endIdx).map((row, i) => (
               <tr
                 key={startIdx + i}
-                className="border-b border-(--color-border)/50 hover:bg-(--color-bg-tertiary)/30"
+                className="border-b border-(--color-border)/50 hover:bg-(--color-bg-tertiary)/30 group/tr"
                 style={{ height: ROW_HEIGHT }}
               >
+                {/* Sticky row index body cell */}
+                <td className="px-2 py-1.5 text-center border-r border-(--color-border)/50 text-(--color-text-muted) font-mono w-12 min-w-12 select-none shadow-[2px_0_5px_rgba(0,0,0,0.04)] transition-colors dg-sticky-index-cell">
+                  {startIdx + i + 1}
+                </td>
                 {fields.map((field, ci) => {
                   const cellValue = row[field.name || field] !== undefined
                     ? String(row[field.name || field])
@@ -719,7 +1072,7 @@ function JsonTable({ data, elapsed }) {
               </tr>
             ))}
             {bottomPad > 0 && (
-              <tr><td colSpan={fields.length} style={{ height: bottomPad, padding: 0, border: "none" }} /></tr>
+              <tr><td colSpan={fields.length + 1} style={{ height: bottomPad, padding: 0, border: "none" }} /></tr>
             )}
           </tbody>
         </table>

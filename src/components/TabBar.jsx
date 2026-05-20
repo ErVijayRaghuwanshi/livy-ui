@@ -12,7 +12,7 @@ function ensureExtension(name) {
 }
 
 export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRef }) {
-  const { files, openFiles, activeTabId, setActiveTab, addFile, closeFile, renameFile, reorderFiles } = useSqlFiles();
+  const { files, openFiles, activeTabId, setActiveTab, addFile, closeFile, renameFile, reorderFiles, dirtyFiles } = useSqlFiles();
   const [running, setRunning] = useState(false);
   const [canRun, setCanRun] = useState(false);
   
@@ -53,10 +53,17 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
     setRenamingId(null);
   };
 
+  const [tabToCloseWithUnsavedChanges, setTabToCloseWithUnsavedChanges] = useState(null);
+
   const handleClose = (e, id) => {
     e.stopPropagation();
     if (openFiles.length === 1) return;
-    closeFile(id);
+    
+    if (dirtyFiles[id]) {
+      setTabToCloseWithUnsavedChanges(id);
+    } else {
+      closeFile(id);
+    }
   };
 
   const handleDragStart = (e, index) => {
@@ -156,14 +163,24 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
               </span>
             )}
 
-            {openFiles.length > 1 && (
-              <button
-                onClick={(e) => handleClose(e, file.id)}
-                className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-(--color-bg-tertiary) hover:text-(--color-error) transition-opacity ml-auto"
-              >
-                <X size={11} />
-              </button>
-            )}
+            <div className="flex items-center ml-auto shrink-0 relative w-4 h-4 justify-center">
+              {dirtyFiles[file.id] && (
+                <span className="w-1.5 h-1.5 rounded-full bg-(--color-warning) dg-pulse-amber group-hover:hidden transition-all" />
+              )}
+              {openFiles.length > 1 && (
+                <button
+                  onClick={(e) => handleClose(e, file.id)}
+                  className={`p-0.5 rounded hover:bg-(--color-bg-tertiary) hover:text-(--color-error) transition-opacity absolute ${
+                    dirtyFiles[file.id]
+                      ? "opacity-0 group-hover:opacity-100 hidden group-hover:block"
+                      : "opacity-0 group-hover:opacity-100"
+                  }`}
+                  title="Close tab"
+                >
+                  <X size={11} />
+                </button>
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -205,6 +222,43 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
           </button>
         )}
       </div>
+
+      {/* Unsaved Changes Tab Close Warning Dialog */}
+      {tabToCloseWithUnsavedChanges && (() => {
+        const file = files.find((f) => f.id === tabToCloseWithUnsavedChanges);
+        return (
+          <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50" onClick={() => setTabToCloseWithUnsavedChanges(null)}>
+            <div className="bg-(--color-bg-secondary) border border-(--color-border) rounded-xl shadow-2xl w-full max-w-sm mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-200" onClick={(e) => e.stopPropagation()}>
+              <div className="flex flex-col items-center px-6 py-5 text-center">
+                <div className="w-10 h-10 rounded-full bg-(--color-warning)/15 flex items-center justify-center mb-3">
+                  <X size={20} className="text-(--color-warning)" />
+                </div>
+                <h3 className="text-sm font-semibold text-(--color-text-primary) mb-1">Unsaved Changes</h3>
+                <p className="text-xs text-(--color-text-muted) leading-relaxed">
+                  The file <span className="text-(--color-text-primary) font-semibold">"{file?.name}"</span> has unsaved changes. Closing this tab will lose unsaved modifications since your last save.
+                </p>
+              </div>
+              <div className="flex gap-2 px-6 pb-5">
+                <button
+                  onClick={() => setTabToCloseWithUnsavedChanges(null)}
+                  className="flex-1 px-3 py-2 text-xs font-medium text-(--color-text-secondary) bg-(--color-bg-tertiary) hover:bg-(--color-bg-primary) rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    closeFile(tabToCloseWithUnsavedChanges);
+                    setTabToCloseWithUnsavedChanges(null);
+                  }}
+                  className="flex-1 px-3 py-2 text-xs font-medium text-white bg-(--color-error) hover:bg-(--color-error)/85 rounded-lg transition-colors dg-spring-btn"
+                >
+                  Close Anyway
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

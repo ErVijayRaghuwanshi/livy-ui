@@ -18,8 +18,6 @@ import { addHistoryEntry } from "./QueryHistory";
 // Configure Monaco to use local files instead of CDN
 loader.config({ monaco });
 
-let completionProvider = null;
-
 // Helper to detect DDL operations that should trigger schema refresh
 function isDDLOperation(sql) {
   const ddlKeywords = /\b(CREATE\s+(TABLE|VIEW|DATABASE|SCHEMA|INDEX|FUNCTION)|DROP\s+(TABLE|VIEW|DATABASE|SCHEMA|INDEX|FUNCTION)|ALTER\s+TABLE|TRUNCATE\s+TABLE)\b/i;
@@ -51,20 +49,14 @@ function getSqlContext(model, position) {
   return 'any';
 }
 
-function registerSparkProviders(monaco, schemaData) {
-  // Dispose existing provider if it exists
-  if (completionProvider) {
-    completionProvider.dispose();
-    completionProvider = null;
-  }
-
+function registerSparkProviders(monaco, schemaDataRef) {
   // Filter to only named functions (skip operators like !, !=, etc.)
   const namedFunctions = SPARK_FUNCTIONS_DATA.filter((f) =>
     /^[a-z_]/i.test(f.name)
   );
 
   // Completion provider for functions, keywords, snippets, and schema
-  completionProvider = monaco.languages.registerCompletionItemProvider("sql", {
+  const completionProvider = monaco.languages.registerCompletionItemProvider("sql", {
     triggerCharacters: [" ", "(", ",", "."],
     provideCompletionItems: (model, position) => {
       const word = model.getWordUntilPosition(position);
@@ -90,7 +82,8 @@ function registerSparkProviders(monaco, schemaData) {
         range,
       }));
 
-      const keywordSuggestions = SPARK_SQL_KEYWORDS.map((kw) => ({
+      const uniqueKeywords = Array.from(new Set(SPARK_SQL_KEYWORDS));
+      const keywordSuggestions = uniqueKeywords.map((kw) => ({
         label: kw,
         kind: monaco.languages.CompletionItemKind.Keyword,
         insertText: kw,
@@ -111,8 +104,8 @@ function registerSparkProviders(monaco, schemaData) {
       // Schema-based suggestions
       const schemaSuggestions = [];
       
-      if (schemaData && schemaData.current) {
-        const { databases, tables, columns } = schemaData.current;
+      if (schemaDataRef && schemaDataRef.current) {
+        const { databases, tables, columns } = schemaDataRef.current;
 
         // Database suggestions
         if (databases && databases.length > 0) {
@@ -164,13 +157,57 @@ function registerSparkProviders(monaco, schemaData) {
           });
         }
       }
+      
+      // Extract unique words from the current document for autocomplete
+      const documentText = model.getValue();
+      const wordRegex = /\b[a-zA-Z_][a-zA-Z0-9_]*\b/g;
+      const docWords = new Set();
+      let wordMatch;
+      while ((wordMatch = wordRegex.exec(documentText)) !== null) {
+        const w = wordMatch[0];
+        if (
+          w.length > 2 && 
+          !uniqueKeywords.includes(w.toUpperCase()) && 
+          !namedFunctions.some((f) => f.name.toLowerCase() === w.toLowerCase())
+        ) {
+          docWords.add(w);
+        }
+      }
 
-      return { suggestions: [...keywordSuggestions, ...functionSuggestions, ...snippetSuggestions, ...schemaSuggestions] };
+      const wordSuggestions = Array.from(docWords).map((w) => ({
+        label: w,
+        kind: monaco.languages.CompletionItemKind.Text,
+        insertText: w,
+        detail: "Word in Document",
+        range,
+      }));
+
+      // Combine all suggestions
+      const allSuggestions = [
+        ...keywordSuggestions,
+        ...functionSuggestions,
+        ...snippetSuggestions,
+        ...schemaSuggestions,
+        ...wordSuggestions
+      ];
+
+      // Final strict deduplication by label and kind to guarantee zero duplicates
+      const seen = new Set();
+      const uniqueSuggestions = [];
+      for (const item of allSuggestions) {
+        const key = `${item.label}\n${item.kind}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniqueSuggestions.push(item);
+        }
+      }
+
+      return { suggestions: uniqueSuggestions };
     },
   });
 
   // Hover provider for functions
-  monaco.languages.registerHoverProvider("sql", {
+  const hoverProvider = monaco.languages.registerHoverProvider("sql", {
     provideHover: (model, position) => {
       const word = model.getWordAtPosition(position);
       if (!word) return null;
@@ -195,6 +232,8 @@ function registerSparkProviders(monaco, schemaData) {
       };
     },
   });
+
+  return [completionProvider, hoverProvider];
 }
 
 function parseStatements(content) {
@@ -244,13 +283,25 @@ function formatElapsedShort(ms) {
 }
 
 const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme, onFocusSchemaSearch }, ref) {
-  const { activeFile, updateContent, setResult } = useSqlFiles();
+  const { activeFile, updateContent, setResult, saveFile, toggleAutoSave } = useSqlFiles();
+  const activeFileRef = useRef(activeFile);
+  const toggleAutoSaveRef = useRef(toggleAutoSave);
+
+  useEffect(() => {
+    activeFileRef.current = activeFile;
+  }, [activeFile]);
+
+  useEffect(() => {
+    toggleAutoSaveRef.current = toggleAutoSave;
+  }, [toggleAutoSave]);
+
   const { sessionId, sessionState } = useLivy();
   const schemaContext = useSchema();
   const schemaDataRef = useRef({ databases: [], tables: {}, columns: {} });
   const { addToast } = useToast();
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
+  const [monacoInstance, setMonacoInstance] = useState(null);
   const [running, setRunning] = useState(false);
   const [wordWrap, setWordWrap] = useState(() => localStorage.getItem('livy-ui-word-wrap') !== 'off');
   const [glyphPopup, setGlyphPopup] = useState(null);
@@ -278,7 +329,7 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
     localStorage.setItem('livy-ui-word-wrap', wordWrap ? 'on' : 'off');
   }, [wordWrap]);
 
-  // Keep schema data ref updated and re-register provider when schema changes
+  // Keep schema data ref updated
   useEffect(() => {
     if (schemaContext) {
       schemaDataRef.current = {
@@ -286,16 +337,19 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
         tables: schemaContext.tables,
         columns: schemaContext.columns,
       };
-      // Re-register completion provider when schema data changes
-      if (monacoRef.current) {
-        registerSparkProviders(monacoRef.current, schemaDataRef);
-      }
     }
   }, [schemaContext]);
 
-  const handleBeforeMount = (monaco) => {
-    registerSparkProviders(monaco, schemaDataRef);
-  };
+  // Manage Monaco completion and hover providers in a React-friendly lifecycle
+  useEffect(() => {
+    if (!monacoInstance) return;
+
+    const providers = registerSparkProviders(monacoInstance, schemaDataRef);
+
+    return () => {
+      providers.forEach((p) => p.dispose());
+    };
+  }, [monacoInstance]);
 
   const updateDecorations = useCallback((editor) => {
     if (!editor) return;
@@ -320,6 +374,7 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
   const handleEditorMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+    setMonacoInstance(monaco);
 
     updateDecorations(editor);
 
@@ -334,6 +389,17 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
     const GLYPH_MARGIN_TYPE = 2;
 
     // Context menu actions
+    editor.addAction({
+      id: "save-sql",
+      label: "Save SQL",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
+      run: () => {
+        if (activeFileRef.current) {
+          saveFile(activeFileRef.current.id);
+        }
+      },
+    });
+
     editor.addAction({
       id: "format-sql",
       label: "Format SQL",
@@ -360,6 +426,18 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
       contextMenuOrder: 3,
       run: () => {
         setWordWrap(prev => !prev);
+      },
+    });
+
+    // Auto-Save toggle action
+    editor.addAction({
+      id: "toggle-auto-save",
+      label: "Toggle Auto-Save",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyA],
+      contextMenuGroupId: "1_sql",
+      contextMenuOrder: 4,
+      run: () => {
+        toggleAutoSaveRef.current?.();
       },
     });
 
@@ -747,7 +825,6 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
           defaultLanguage="sql"
           defaultValue={activeFile?.content || ""}
           theme={theme === "light" ? "light" : "vs-dark"}
-          beforeMount={handleBeforeMount}
           onChange={handleChange}
           onMount={handleEditorMount}
           options={{
@@ -764,6 +841,7 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
             tabSize: 2,
             suggestOnTriggerCharacters: true,
             quickSuggestions: true,
+            wordBasedSuggestions: "off",
             padding: { top: 8 },
             renderLineHighlight: "all",
             bracketPairColorization: { enabled: true },

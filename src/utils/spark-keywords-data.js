@@ -1,4 +1,4 @@
-export const SPARK_SQL_KEYWORDS = [
+const RAW_KEYWORDS = [
   /* =====================
      QUERY STRUCTURE
      ===================== */
@@ -175,3 +175,5 @@ export const SPARK_SQL_KEYWORDS = [
   'LOAD',
   'UNLOAD',
 ];
+
+export const SPARK_SQL_KEYWORDS = Array.from(new Set(RAW_KEYWORDS));

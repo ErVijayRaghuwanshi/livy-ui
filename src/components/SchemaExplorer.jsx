@@ -244,17 +244,25 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, re
 
   const { sessionId, sessionState } = useLivy();
 
-  const { databases: contextDatabases, tables: contextTables, columns: contextColumns, updateDatabases, updateTables, updateColumns, refreshTrigger: contextRefreshTrigger, clearSchema } = useSchema();
+  const {
+
+    databases,
+
+    tables,
+
+    columns,
+
+    loading,
+
+    loadTables,
+
+    loadColumns,
+
+    refreshSchema,
+
+  } = useSchema();
 
 
-
-  const [databases, setDatabases] = useState([]);
-
-  const [tables, setTables] = useState({});
-
-  const [columns, setColumns] = useState({});
-
-  const [loading, setLoading] = useState({});
 
   const [error, setError] = useState(null);
 
@@ -288,180 +296,6 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, re
 
 
 
-  const loadDatabases = useCallback(async () => {
-
-    if (!isReady) return;
-
-    setLoading((p) => ({ ...p, _dbs: true }));
-
-    setError(null);
-
-    try {
-
-      const rows = await livyApi.runSql(sessionId, "SHOW DATABASES");
-
-      const dbNames = rows.map(
-
-        (r) => r.databaseName || r.namespace || Object.values(r)[0]
-
-      );
-
-      setDatabases(dbNames);
-
-      updateDatabases(dbNames);
-
-      setTables({});
-
-      setColumns({});
-
-    } catch (err) {
-
-      setError(err.message);
-
-    } finally {
-
-      setLoading((p) => ({ ...p, _dbs: false }));
-
-    }
-
-  }, [sessionId, isReady, updateDatabases]);
-
-
-
-  const tablesRef = useRef(tables);
-
-  tablesRef.current = tables;
-
-  const columnsRef = useRef(columns);
-
-  columnsRef.current = columns;
-
-
-
-  const loadTables = useCallback(
-
-    async (db) => {
-
-      if (!isReady) return;
-
-      if (tablesRef.current[db]) return;
-
-      setLoading((p) => ({ ...p, [db]: true }));
-
-      try {
-
-        const rows = await livyApi.runSql(
-
-          sessionId,
-
-          `SHOW TABLES IN \`${db}\``
-
-        );
-
-        console.log(`[SchemaExplorer] SHOW TABLES IN ${db}:`, rows);
-
-        const tableNames = rows
-
-          .map(
-
-            (r) =>
-
-              r.tableName || Object.values(r)[1] || Object.values(r)[0]
-
-          )
-
-          .filter((name) => name && name.trim() !== "");
-
-        setTables((p) => ({ ...p, [db]: tableNames }));
-
-        updateTables(db, tableNames);
-
-      } catch (err) {
-
-        console.error(`[SchemaExplorer] Error loading tables for ${db}:`, err);
-
-        setTables((p) => ({ ...p, [db]: [] }));
-
-      } finally {
-
-        setLoading((p) => ({ ...p, [db]: false }));
-
-      }
-
-    },
-
-    [sessionId, isReady, updateTables]
-
-  );
-
-
-
-  const loadColumns = useCallback(
-
-    async (db, table) => {
-
-      const key = `${db}.${table}`;
-
-      if (!isReady) return;
-
-      if (columnsRef.current[key]) return;
-
-      setLoading((p) => ({ ...p, [key]: true }));
-
-      try {
-
-        const rows = await livyApi.runSql(
-
-          sessionId,
-
-          `DESCRIBE \`${db}\`.\`${table}\``
-
-        );
-
-        console.log(`[SchemaExplorer] DESCRIBE ${db}.${table}:`, rows);
-
-        const cols = rows
-
-          .filter((r) => {
-
-            const name = r.col_name || Object.values(r)[0];
-
-            return name && !name.startsWith("#") && name.trim() !== "";
-
-          })
-
-          .map((r) => ({
-
-            name: r.col_name || Object.values(r)[0],
-
-            type: r.data_type || Object.values(r)[1] || "",
-
-          }));
-
-        setColumns((p) => ({ ...p, [key]: cols }));
-
-        updateColumns(db, table, cols);
-
-      } catch (err) {
-
-        console.error(`[SchemaExplorer] Error loading columns for ${key}:`, err);
-
-        setColumns((p) => ({ ...p, [key]: [] }));
-
-      } finally {
-
-        setLoading((p) => ({ ...p, [key]: false }));
-
-      }
-
-    },
-
-    [sessionId, isReady, updateColumns]
-
-  );
-
-
-
   const dropTable = useCallback(
 
     async (db, table) => {
@@ -470,143 +304,25 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, re
 
       if (!window.confirm(`Drop table \`${db}\`.\`${table}\`?\n\nThis will remove the table from the catalog. If it was created with LOCATION, the underlying data will NOT be deleted.`)) return;
 
-      const key = `${db}.${table}`;
-
-      setLoading((p) => ({ ...p, [key]: true }));
-
       try {
 
         await livyApi.runSql(sessionId, `DROP TABLE IF EXISTS \`${db}\`.\`${table}\``);
 
-        setTables((p) => ({
-
-          ...p,
-
-          [db]: (p[db] || []).filter((t) => t !== table),
-
-        }));
-
-        setColumns((p) => {
-
-          const next = { ...p };
-
-          delete next[key];
-
-          return next;
-
-        });
+        refreshSchema();
 
       } catch (err) {
 
-        console.error(`[SchemaExplorer] Error dropping ${key}:`, err);
+        console.error(`[SchemaExplorer] Error dropping ${db}.${table}:`, err);
 
         setError(`Failed to drop ${table}: ${err.message}`);
-
-      } finally {
-
-        setLoading((p) => ({ ...p, [key]: false }));
 
       }
 
     },
 
-    [sessionId, isReady]
+    [sessionId, isReady, refreshSchema]
 
   );
-
-
-
-  // Auto-load databases when session becomes ready
-
-  useEffect(() => {
-
-    if (isReady) {
-
-      loadDatabases();
-
-    }
-
-  }, [isReady, sessionId, loadDatabases]);
-
-
-
-  // Reload schema when refreshTrigger changes (triggered by DDL operations)
-
-  useEffect(() => {
-
-    if (isReady && externalRefreshTrigger > 0) {
-
-      console.log('[SchemaExplorer] Refresh trigger detected, reloading schema:', externalRefreshTrigger);
-
-      setTables({});
-
-      setColumns({});
-
-      loadDatabases();
-
-    }
-
-  }, [externalRefreshTrigger, isReady, loadDatabases]);
-
-
-
-  // Auto-load all tables and columns when user starts searching
-
-  useEffect(() => {
-
-    if (!searchTerm || !isReady || databases.length === 0) return;
-
-
-
-    // Load tables for all databases that haven't been loaded yet
-
-    databases.forEach((db) => {
-
-      if (!tablesRef.current[db] && !loading[db]) {
-
-        loadTables(db);
-
-      }
-
-    });
-
-
-
-    // Load columns for all loaded tables that haven't been loaded yet
-
-    Object.entries(tablesRef.current).forEach(([db, tbls]) => {
-
-      tbls.forEach((tbl) => {
-
-        const key = `${db}.${tbl}`;
-
-        if (!columnsRef.current[key] && !loading[key]) {
-
-          loadColumns(db, tbl);
-
-        }
-
-      });
-
-    });
-
-  }, [searchTerm, isReady, databases, tables, loading, loadTables, loadColumns]); // eslint-disable-line react-hooks/exhaustive-deps
-
-
-
-  useEffect(() => {
-
-    setDatabases([]);
-
-    setTables({});
-
-    setColumns({});
-
-    setError(null);
-
-    clearSchema();
-
-  }, [sessionId, clearSchema]);
 
 
 
@@ -625,16 +341,7 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, re
         </span>
 
         <button
-
-          onClick={() => {
-
-            setTables({});
-
-            setColumns({});
-
-            loadDatabases();
-
-          }}
+          onClick={refreshSchema}
 
           disabled={!isReady || loading._dbs}
 

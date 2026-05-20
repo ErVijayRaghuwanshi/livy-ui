@@ -27,6 +27,10 @@ export default function ConnectionModal({ isOpen, onClose }) {
   const [editUrl, setEditUrl] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
+  // Connectivity Test State
+  const [testStatus, setTestStatus] = useState({});
+  const [testErrorMessage, setTestErrorMessage] = useState({});
+
   // Close on Escape key
   useEffect(() => {
     if (!isOpen) return;
@@ -58,9 +62,51 @@ export default function ConnectionModal({ isOpen, onClose }) {
     setEditingId(null);
   };
 
+  const handleTestConnection = async (hostId, url) => {
+    setTestStatus((prev) => ({ ...prev, [hostId]: "loading" }));
+    setTestErrorMessage((prev) => ({ ...prev, [hostId]: "" }));
+
+    try {
+      const cleanUrl = url.replace(/\/+$/, "");
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+      const response = await fetch(`${cleanUrl}/sessions`, {
+        signal: controller.signal,
+        headers: {
+          "Accept": "application/json",
+        }
+      });
+      
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        setTestStatus((prev) => ({ ...prev, [hostId]: "success" }));
+      } else {
+        setTestStatus((prev) => ({ ...prev, [hostId]: "error" }));
+        setTestErrorMessage((prev) => ({ 
+          ...prev, 
+          [hostId]: `HTTP Error ${response.status}: ${response.statusText || "Unexpected response"}` 
+        }));
+      }
+    } catch (error) {
+      console.error("Livy connection test failed:", error);
+      if (error.name === "AbortError") {
+        setTestStatus((prev) => ({ ...prev, [hostId]: "error" }));
+        setTestErrorMessage((prev) => ({ ...prev, [hostId]: "Request timed out after 6 seconds." }));
+      } else {
+        setTestStatus((prev) => ({ ...prev, [hostId]: "cors_warning" }));
+        setTestErrorMessage((prev) => ({ 
+          ...prev, 
+          [hostId]: "Network error or CORS block. Ensure Livy is running and has CORS enabled." 
+        }));
+      }
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
-      <div className="bg-(--color-bg-secondary) border border-(--color-border) rounded-xl shadow-2xl w-full max-w-lg mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-200" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md animate-in fade-in duration-200" onClick={onClose}>
+      <div className="dg-glassmorphic border border-(--color-border)/50 rounded-xl shadow-2xl w-full max-w-lg mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-200" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-(--color-border)">
           <h2 className="text-lg font-semibold text-(--color-text-primary)">Manage Livy Hosts</h2>
@@ -110,10 +156,43 @@ export default function ConnectionModal({ isOpen, onClose }) {
                   </div>
                   <div className="flex items-center gap-1">
                     {host.id === activeHostId && (
-                      <span className="text-[10px] font-medium text-(--color-accent) bg-(--color-accent)/20 px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] font-medium text-(--color-accent) bg-(--color-accent)/20 px-2 py-0.5 rounded-full animate-pulse">
                         ACTIVE
                       </span>
                     )}
+
+                    {/* Connection Test Indicator / Button */}
+                    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      {testStatus[host.id] === "loading" && (
+                        <div className="w-3.5 h-3.5 border-2 border-(--color-accent) border-t-transparent rounded-full animate-spin shrink-0" />
+                      )}
+                      {testStatus[host.id] === "success" && (
+                        <span className="text-xs font-semibold text-(--color-success) flex items-center gap-0.5 shrink-0" title="Connected successfully">
+                          ✓
+                        </span>
+                      )}
+                      {testStatus[host.id] === "error" && (
+                        <span className="text-xs font-semibold text-(--color-error) flex items-center gap-0.5 shrink-0 cursor-help" title={testErrorMessage[host.id]}>
+                          ✗
+                        </span>
+                      )}
+                      {testStatus[host.id] === "cors_warning" && (
+                        <span className="text-xs font-semibold text-(--color-warning) flex items-center gap-0.5 shrink-0 cursor-help" title={testErrorMessage[host.id]}>
+                          ⚠ CORS
+                        </span>
+                      )}
+                      
+                      {(!testStatus[host.id] || testStatus[host.id] === "idle" || testStatus[host.id] === "error" || testStatus[host.id] === "cors_warning" || testStatus[host.id] === "success") && (
+                        <button
+                          onClick={() => handleTestConnection(host.id, host.url)}
+                          className="px-2 py-0.5 text-[10px] font-medium text-(--color-text-secondary) hover:text-white bg-(--color-bg-tertiary) hover:bg-(--color-accent) rounded transition-colors shrink-0 dg-spring-btn"
+                          title="Test host connection"
+                        >
+                          Test
+                        </button>
+                      )}
+                    </div>
+
                     <button
                       onClick={(e) => { e.stopPropagation(); handleEdit(host); }}
                       className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary)"
@@ -136,6 +215,23 @@ export default function ConnectionModal({ isOpen, onClose }) {
             </div>
           ))}
         </div>
+
+        {/* CORS Troubleshooting Alert */}
+        {Object.values(testStatus).some(status => status === "cors_warning") && (
+          <div className="mx-5 my-1.5 p-3 bg-(--color-warning)/10 border border-(--color-warning)/20 rounded-lg text-xs text-(--color-warning) flex flex-col gap-1.5 animate-in fade-in duration-200">
+            <div className="flex items-center gap-1.5 font-semibold">
+              <AlertTriangle size={14} />
+              <span>CORS Connectivity Warning</span>
+            </div>
+            <p className="text-(--color-text-secondary) text-[11px] leading-relaxed">
+              Browser security blocks requests when CORS is missing. Configure CORS filters in <code>livy.conf</code> on the Livy server:
+            </p>
+            <pre className="p-2 bg-black/30 rounded text-[10px] font-mono text-slate-300 select-all overflow-x-auto whitespace-pre">
+{`livy.server.access-control.allow-origin = *
+livy.server.access-control.allow-methods = GET, POST, OPTIONS, DELETE`}
+            </pre>
+          </div>
+        )}
 
         {/* Add New Host */}
         <div className="px-5 py-4 border-t border-(--color-border)">

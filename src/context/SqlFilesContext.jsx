@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useEffect, useCallback } from "react";
+import { createContext, useContext, useReducer, useEffect, useCallback, useState } from "react";
 import { getItem, setItem } from "../utils/localStorage";
 import { STORAGE_KEYS } from "../utils/constants";
 import { v4 as uuidv4 } from "uuid";
@@ -21,6 +21,7 @@ const initialState = {
   openFiles: storedOpenFiles || storedFiles.map(f => f.id),
   activeTabId: getItem(STORAGE_KEYS.ACTIVE_TAB, "default"),
   results: {},
+  dirtyFiles: {},
 };
 
 function reducer(state, action) {
@@ -39,6 +40,10 @@ function reducer(state, action) {
         files: [...state.files, newFile],
         openFiles: shouldOpen ? [...state.openFiles, newFile.id] : state.openFiles,
         activeTabId: shouldOpen ? newFile.id : state.activeTabId,
+        dirtyFiles: {
+          ...state.dirtyFiles,
+          [newFile.id]: false,
+        },
       };
     }
     case "REMOVE_FILE": {
@@ -46,14 +51,16 @@ function reducer(state, action) {
       const filteredOpen = state.openFiles.filter((id) => id !== action.payload);
       const nextResults = { ...state.results };
       delete nextResults[action.payload];
+      const nextDirty = { ...state.dirtyFiles };
+      delete nextDirty[action.payload];
       if (filtered.length === 0) {
-        return { files: [defaultFile], openFiles: [defaultFile.id], activeTabId: defaultFile.id, results: {} };
+        return { files: [defaultFile], openFiles: [defaultFile.id], activeTabId: defaultFile.id, results: {}, dirtyFiles: {} };
       }
       const newActiveId =
         state.activeTabId === action.payload
           ? (filteredOpen.length > 0 ? filteredOpen[filteredOpen.length - 1] : filtered[0].id)
           : state.activeTabId;
-      return { ...state, files: filtered, openFiles: filteredOpen, activeTabId: newActiveId, results: nextResults };
+      return { ...state, files: filtered, openFiles: filteredOpen, activeTabId: newActiveId, results: nextResults, dirtyFiles: nextDirty };
     }
     case "UPDATE_FILE_CONTENT": {
       const files = state.files.map((f) =>
@@ -61,7 +68,29 @@ function reducer(state, action) {
           ? { ...f, content: action.payload.content, updatedAt: new Date().toISOString() }
           : f
       );
-      return { ...state, files };
+      return {
+        ...state,
+        files,
+        dirtyFiles: {
+          ...state.dirtyFiles,
+          [action.payload.id]: action.payload.isDirty,
+        },
+      };
+    }
+    case "CLEAR_ALL_DIRTY": {
+      return {
+        ...state,
+        dirtyFiles: {},
+      };
+    }
+    case "SAVE_FILE": {
+      return {
+        ...state,
+        dirtyFiles: {
+          ...state.dirtyFiles,
+          [action.payload]: false,
+        },
+      };
     }
     case "RENAME_FILE": {
       const files = state.files.map((f) =>
@@ -111,6 +140,20 @@ function reducer(state, action) {
 export function SqlFilesProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
+  const [autoSave, setAutoSave] = useState(() => {
+    const saved = localStorage.getItem("livy-ui-auto-save");
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("livy-ui-auto-save", JSON.stringify(autoSave));
+    if (autoSave) {
+      dispatch({ type: "CLEAR_ALL_DIRTY" });
+    }
+  }, [autoSave]);
+
+  const toggleAutoSave = useCallback(() => setAutoSave((prev) => !prev), []);
+
   // Persist files
   useEffect(() => {
     setItem(STORAGE_KEYS.SQL_FILES, state.files);
@@ -130,13 +173,16 @@ export function SqlFilesProvider({ children }) {
 
   const addFile = useCallback((payload) => dispatch({ type: "ADD_FILE", payload }), []);
   const removeFile = useCallback((id) => dispatch({ type: "REMOVE_FILE", payload: id }), []);
-  const updateContent = useCallback((id, content) => dispatch({ type: "UPDATE_FILE_CONTENT", payload: { id, content } }), []);
+  const updateContent = useCallback((id, content) => {
+    dispatch({ type: "UPDATE_FILE_CONTENT", payload: { id, content, isDirty: !autoSave } });
+  }, [autoSave]);
   const renameFile = useCallback((id, name) => dispatch({ type: "RENAME_FILE", payload: { id, name } }), []);
   const setActiveTab = useCallback((id) => dispatch({ type: "SET_ACTIVE_TAB", payload: id }), []);
   const setResult = useCallback((id, result) => dispatch({ type: "SET_RESULT", payload: { id, result } }), []);
   const openFile = useCallback((id) => dispatch({ type: "OPEN_FILE", payload: id }), []);
   const closeFile = useCallback((id) => dispatch({ type: "CLOSE_FILE", payload: id }), []);
   const reorderFiles = useCallback((fromIndex, toIndex) => dispatch({ type: "REORDER_FILES", payload: { fromIndex, toIndex } }), []);
+  const saveFile = useCallback((id) => dispatch({ type: "SAVE_FILE", payload: id }), []);
 
   const activeResult = state.results[state.activeTabId] || null;
 
@@ -146,6 +192,8 @@ export function SqlFilesProvider({ children }) {
     activeTabId: state.activeTabId,
     activeFile,
     activeResult,
+    dirtyFiles: state.dirtyFiles,
+    autoSave,
     addFile,
     removeFile,
     updateContent,
@@ -155,6 +203,8 @@ export function SqlFilesProvider({ children }) {
     openFile,
     closeFile,
     reorderFiles,
+    saveFile,
+    toggleAutoSave,
   };
 
   return <SqlFilesContext.Provider value={value}>{children}</SqlFilesContext.Provider>;

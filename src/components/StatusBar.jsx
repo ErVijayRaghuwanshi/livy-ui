@@ -29,7 +29,7 @@ const stateColors = {
 
 export default function StatusBar({ cursorPosition, onShowShortcuts, onShowHistory }) {
   const { activeHost, sessionId, sessionState } = useLivy();
-  const { activeResult, activeFile } = useSqlFiles();
+  const { activeResult, activeFile, autoSave, toggleAutoSave } = useSqlFiles();
 
   const rowCount = activeResult?.status === "ok" && activeResult?.data?.["application/json"]
     ? activeResult.data["application/json"].data?.length ?? null
@@ -66,6 +66,16 @@ export default function StatusBar({ cursorPosition, onShowShortcuts, onShowHisto
             Ln {cursorPosition.lineNumber}, Col {cursorPosition.column}
           </span>
         )}
+
+        {/* Auto-Save Toggle */}
+        <button
+          onClick={toggleAutoSave}
+          className="flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary)/40 transition-all cursor-pointer"
+          title={`Auto-Save: ${autoSave ? "ON" : "OFF"} (Click to toggle)`}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${autoSave ? "bg-blue-400 shadow-[0_0_6px_rgba(96,165,250,0.6)] animate-pulse" : "bg-gray-500"}`} />
+          <span>Auto-Save: <span className={autoSave ? "text-blue-400 font-medium" : "text-(--color-text-muted)"}>{autoSave ? "ON" : "OFF"}</span></span>
+        </button>
 
         {/* Query history */}
         <button

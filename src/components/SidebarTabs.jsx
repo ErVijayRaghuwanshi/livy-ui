@@ -6,7 +6,7 @@ import { useSchema } from "../context/SchemaContext";
 
 const SIDEBAR_TAB_KEY = "livy-sidebar-tab";
 
-const SidebarTabs = forwardRef(({ collapsed, setCollapsed, onInsertAtCursor }, ref) => {
+const SidebarTabs = forwardRef(({ collapsed, setCollapsed, onInsertAtCursor, width }, ref) => {
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem(SIDEBAR_TAB_KEY) || "files";
   });
@@ -44,7 +44,10 @@ const SidebarTabs = forwardRef(({ collapsed, setCollapsed, onInsertAtCursor }, r
   }
 
   return (
-    <div className="flex flex-col w-full sm:w-56 md:w-64 bg-(--color-bg-secondary) border-r border-(--color-border) shrink-0 max-w-full sm:max-w-56 md:max-w-64">
+    <div
+      style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
+      className="flex flex-col bg-(--color-bg-secondary) shrink-0 overflow-hidden"
+    >
       {/* Tab Switcher */}
       <div className="flex border-b border-(--color-border)">
         <button

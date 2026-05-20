@@ -16,7 +16,7 @@ const THEME_CACHE_KEY = "livy-ui-theme";
 const DEFAULT_RESULT_HEIGHT = 250;
 
 export default function App() {
-  const { activeResult, files, activeTabId, setActiveTab, addFile, removeFile } = useSqlFiles();
+  const { activeResult, files, activeTabId, setActiveTab, addFile, removeFile, saveFile } = useSqlFiles();
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem(SIDEBAR_CACHE_KEY);
@@ -31,6 +31,18 @@ export default function App() {
   const [showHistory, setShowHistory] = useState(false);
   const [showConnectionModal, setShowConnectionModal] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(null);
+
+  // Sidebar resizing states
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = localStorage.getItem("livy-sidebar-width");
+    if (saved !== null) {
+      const val = parseInt(saved, 10);
+      if (!isNaN(val) && val >= 180 && val <= 600) return val;
+    }
+    return 240; // Default width
+  });
+  const [isSidebarDragging, setIsSidebarDragging] = useState(false);
+
   const editorRef = useRef(null);
   const sidebarTabsRef = useRef(null);
   const prevResultHeight = useRef(DEFAULT_RESULT_HEIGHT);
@@ -175,6 +187,13 @@ export default function App() {
         return;
       }
 
+      // Ctrl+S — save SQL (clear dirty state)
+      if (ctrl && !e.shiftKey && e.key === "s") {
+        e.preventDefault();
+        saveFile(activeTabId);
+        return;
+      }
+
       // Ctrl+PageDown / Ctrl+PageUp — next/prev tab
       if (ctrl && !e.shiftKey && (e.key === "PageDown" || e.key === "PageUp")) {
         e.preventDefault();
@@ -217,6 +236,59 @@ export default function App() {
     document.addEventListener("mouseup", onMouseUp);
   };
 
+  // Sidebar drag resizer handlers
+  const handleSidebarMouseDown = (e) => {
+    e.preventDefault();
+    setIsSidebarDragging(true);
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+
+    const onMouseMove = (moveEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      // Constraint to [180, 600] pixels
+      const newWidth = Math.min(Math.max(startWidth + deltaX, 180), 600);
+      setSidebarWidth(newWidth);
+      localStorage.setItem("livy-sidebar-width", newWidth.toString());
+    };
+
+    const onMouseUp = () => {
+      setIsSidebarDragging(false);
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  };
+
+  const handleSidebarDoubleClick = () => {
+    setSidebarWidth(240);
+    localStorage.setItem("livy-sidebar-width", "240");
+  };
+
+  const handleCloseResultPanel = useCallback(() => {
+    setResultHeight((h) => {
+      if (h > 0) {
+        prevResultHeight.current = h;
+      }
+      return 0;
+    });
+  }, []);
+
+  const handleToggleMaximizeResultPanel = useCallback(() => {
+    setResultHeight((h) => {
+      const maxHeight = window.innerHeight - 200;
+      if (h >= maxHeight - 10) {
+        return prevResultHeight.current || DEFAULT_RESULT_HEIGHT;
+      } else {
+        prevResultHeight.current = h;
+        return maxHeight;
+      }
+    });
+  }, []);
+
+  const isResultMaximized = resultHeight >= window.innerHeight - 210 && resultHeight > 0;
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <ToastContainer />
@@ -236,9 +308,24 @@ export default function App() {
         setShowConnectionModal={setShowConnectionModal}
       />
 
-      <div className="flex flex-1 min-h-0">
+      <div className={`flex flex-1 min-h-0 ${isSidebarDragging ? "select-none" : ""}`}>
         {/* Sidebar with Files and Schema tabs */}
-        <SidebarTabs ref={sidebarTabsRef} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} onInsertAtCursor={handleInsertAtCursor} />
+        <SidebarTabs
+          ref={sidebarTabsRef}
+          collapsed={sidebarCollapsed}
+          setCollapsed={setSidebarCollapsed}
+          onInsertAtCursor={handleInsertAtCursor}
+          width={sidebarWidth}
+        />
+
+        {!sidebarCollapsed && (
+          <div
+            onMouseDown={handleSidebarMouseDown}
+            onDoubleClick={handleSidebarDoubleClick}
+            className={`dg-sidebar-resize-handle ${isSidebarDragging ? "is-dragging" : ""}`}
+            title="Drag to resize, double-click to reset"
+          />
+        )}
 
         {/* Main Editor + Results Area */}
         <div className="flex flex-col flex-1 min-h-0 min-w-0">
@@ -262,7 +349,12 @@ export default function App() {
             className="shrink-0 bg-(--color-bg-secondary) border-t border-(--color-border)"
             style={{ height: resultHeight }}
           >
-            <ResultTable result={activeResult} />
+            <ResultTable 
+              result={activeResult} 
+              onClose={handleCloseResultPanel}
+              onMaximizeToggle={handleToggleMaximizeResultPanel}
+              isMaximized={isResultMaximized}
+            />
           </div>
         </div>
       </div>
