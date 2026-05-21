@@ -796,7 +796,7 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
             <CheckCircle2 size={12} className="text-(--color-success)" />
             {hasActiveFilters ? (
               <div className="flex items-center gap-1.5">
-                <span>{filteredCount} of {totalRows} rows</span>
+                <span>{filteredCount} of {totalRows} rows · {fields.length} columns</span>
                 <button
                   onClick={clearAllFilters}
                   className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-(--color-bg-tertiary) hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-colors cursor-pointer"
@@ -807,7 +807,7 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
                 </button>
               </div>
             ) : (
-              <span>{totalRows} rows</span>
+              <span>{totalRows} rows · {fields.length} columns</span>
             )}
             <ElapsedBadge elapsed={elapsed} />
           </div>
