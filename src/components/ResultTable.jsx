@@ -435,7 +435,7 @@ export default function ResultTable({ result, onClose, onMaximizeToggle, isMaxim
               )}
             </div>
           </div>
-          <div className="flex-grow overflow-auto p-4">
+          <div className="grow overflow-auto p-4">
             <pre className="text-xs text-(--color-text-primary) whitespace-pre-wrap font-mono bg-(--color-bg-primary) rounded-lg p-3">
               {textData}
             </pre>
@@ -537,7 +537,7 @@ function ExplainPlan({ planText, elapsed, onClose, onMaximizeToggle, isMaximized
           )}
         </div>
       </div>
-      <div className="flex-grow overflow-auto p-4">
+      <div className="grow overflow-auto p-4">
         <pre className="text-xs font-mono leading-5 text-(--color-text-secondary) whitespace-pre overflow-x-auto">
           {lines.map((line, i) => (
             <div key={i}>{highlightPlanLine(line)}</div>
@@ -750,7 +750,7 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
           </div>
 
           {viewDropdownOpen && (
-            <div className="absolute left-3 top-9 z-50 bg-(--color-bg-secondary) border border-(--color-border) rounded-lg shadow-xl py-1 min-w-[180px] animate-in fade-in zoom-in-95 duration-100">
+            <div className="absolute left-3 top-9 z-50 bg-(--color-bg-secondary) border border-(--color-border) rounded-lg shadow-xl py-1 min-w-45 animate-in fade-in zoom-in-95 duration-100">
               <button 
                 onClick={() => setViewDropdownOpen(false)}
                 className="flex items-center justify-between w-full text-left px-3 py-2 text-xs text-(--color-text-primary) hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer"
@@ -905,7 +905,7 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
           <thead>
             <tr className="bg-(--color-bg-tertiary) sticky top-0 z-20 select-none">
               {/* Sticky Row Index header column */}
-              <th className="px-2 py-1.5 text-center border-b border-(--color-border) sticky left-0 top-0 bg-(--color-bg-tertiary) z-30 w-12 min-w-12 border-r border-(--color-border) text-(--color-text-muted) font-semibold select-none">
+              <th className="px-2 py-1.5 text-center border-b border-(--color-border) sticky left-0 top-0 bg-(--color-bg-tertiary) z-30 w-12 min-w-12 border-r text-(--color-text-muted) font-semibold select-none">
                 #
               </th>
               {fields.map((field, i) => {
@@ -942,7 +942,7 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
                         <span className="text-(--color-text-secondary) font-semibold text-xs whitespace-nowrap">{name}</span>
                         {typeIcon && (
                           <span 
-                            className="inline-flex items-center justify-center w-[18px] h-[18px] text-[11px] rounded bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-muted) shrink-0 select-none hover:bg-(--color-bg-secondary) hover:text-(--color-text-secondary) transition-colors"
+                            className="inline-flex items-center justify-center w-4.5 h-4.5 text-[11px] rounded bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-muted) shrink-0 select-none hover:bg-(--color-bg-secondary) hover:text-(--color-text-secondary) transition-colors"
                             title={type}
                           >
                             {typeIcon}
