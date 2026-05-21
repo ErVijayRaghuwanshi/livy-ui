@@ -333,29 +333,33 @@ export default function App() {
           <SqlEditor ref={editorRef} onCursorPositionChange={setCursorPosition} theme={theme} onFocusSchemaSearch={handleFocusSchemaSearch} />
 
           {/* Resize Handle */}
-          <div
-            onMouseDown={handleMouseDown}
-            className={`flex items-center justify-center h-2 cursor-row-resize shrink-0 transition-colors ${
-              isDragging
-                ? "bg-(--color-accent)"
-                : "bg-(--color-border) hover:bg-(--color-accent)/50"
-            }`}
-          >
-            <GripHorizontal size={14} className="text-(--color-text-muted)" />
-          </div>
+          {resultHeight > 0 && (
+            <div
+              onMouseDown={handleMouseDown}
+              className={`flex items-center justify-center h-2 cursor-row-resize shrink-0 transition-colors ${
+                isDragging
+                  ? "bg-(--color-accent)"
+                  : "bg-(--color-border) hover:bg-(--color-accent)/50"
+              }`}
+            >
+              <GripHorizontal size={14} className="text-(--color-text-muted)" />
+            </div>
+          )}
 
           {/* Result Panel */}
-          <div
-            className="shrink-0 bg-(--color-bg-secondary) border-t border-(--color-border)"
-            style={{ height: resultHeight }}
-          >
-            <ResultTable 
-              result={activeResult} 
-              onClose={handleCloseResultPanel}
-              onMaximizeToggle={handleToggleMaximizeResultPanel}
-              isMaximized={isResultMaximized}
-            />
-          </div>
+          {resultHeight > 0 && (
+            <div
+              className="shrink-0 bg-(--color-bg-secondary) border-t border-(--color-border) overflow-hidden"
+              style={{ height: resultHeight }}
+            >
+              <ResultTable 
+                result={activeResult} 
+                onClose={handleCloseResultPanel}
+                onMaximizeToggle={handleToggleMaximizeResultPanel}
+                isMaximized={isResultMaximized}
+              />
+            </div>
+          )}
         </div>
       </div>
       <StatusBar cursorPosition={cursorPosition} onShowShortcuts={() => setShowShortcuts(true)} onShowHistory={() => setShowHistory(true)} />
