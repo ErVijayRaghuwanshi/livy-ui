@@ -1145,7 +1145,8 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
                   return (
                     <td
                       key={ci}
-                      className="px-3 py-1.5 text-(--color-text-primary) whitespace-nowrap font-mono border-r border-(--color-border)/35"
+                      className="px-3 py-1.5 text-(--color-text-primary) truncate font-mono border-r border-(--color-border)/35"
+                      title={cellValue}
                     >
                       {cellContent}
                     </td>
