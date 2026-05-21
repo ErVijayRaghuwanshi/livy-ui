@@ -105,7 +105,7 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
 
   return (
     <>
-      <nav className="flex items-center justify-between px-2 sm:px-4 py-2 sm:py-2.5 bg-(--color-bg-secondary) border-b border-(--color-border) shrink-0">
+      <nav className="flex items-center justify-between h-14 px-4 bg-(--color-bg-secondary) border-b border-(--color-border) shrink-0 select-none">
         {/* Left Section */}
         <div className="flex items-center gap-2 sm:gap-6">
           <div className="flex items-center gap-1.5 sm:gap-2.5">
@@ -144,64 +144,78 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
         </div>
 
         {/* Right Section (Controls) */}
-        <div className="flex items-center gap-1.5 sm:gap-3">
-          {error && <span className="hidden md:block text-xs text-(--color-error) max-w-48 truncate" title={error}>{error}</span>}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {error && (
+            <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-(--color-error)/10 border border-(--color-error)/20 rounded-lg text-xs text-(--color-error) max-w-48 select-none" title={error}>
+              <span className="w-1.5 h-1.5 rounded-full bg-(--color-error) animate-pulse shrink-0" />
+              <span className="truncate">{error}</span>
+            </div>
+          )}
           
           {appId && (
-            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-(--color-bg-primary) rounded-md border border-(--color-border)">
-              <span className="text-[10px] text-(--color-text-muted) uppercase tracking-wide">App</span>
-              <span className="text-xs text-(--color-text-primary) font-mono">{appId}</span>
+            <div className="hidden lg:flex items-center h-8 gap-1.5 px-3 bg-(--color-bg-primary) rounded-lg border border-(--color-border) select-none">
+              <span className="text-[10px] text-(--color-text-muted) uppercase tracking-wider font-semibold">App</span>
+              <span className="text-xs text-(--color-accent) font-mono font-medium">{appId}</span>
             </div>
           )}
 
           {/* Host selector */}
           <button
             onClick={() => setShowConnectionModal(true)}
-            className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2.5 py-1.5 bg-(--color-bg-primary) rounded-md border border-(--color-border) hover:border-(--color-text-muted) transition-colors"
+            className="flex items-center h-8 gap-1.5 px-2.5 bg-(--color-bg-primary) rounded-lg border border-(--color-border) hover:border-(--color-accent) hover:text-(--color-text-primary) active:scale-95 transition-all duration-200 cursor-pointer shadow-xs group"
             title="Manage Livy Hosts (Cmd+.)"
           >
-            <Server size={13} className="text-(--color-text-muted)" />
-            <span className="hidden sm:inline text-xs text-(--color-text-secondary) max-w-28 truncate">
+            <div className="relative flex items-center justify-center shrink-0">
+              <Server size={13} className="text-(--color-text-muted) group-hover:text-(--color-accent) transition-colors" />
+              {/* Connected pulse dot */}
+              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-(--color-success) border border-(--color-bg-primary)" />
+            </div>
+            <span className="hidden sm:inline text-xs text-(--color-text-secondary) font-medium max-w-28 truncate group-hover:text-(--color-text-primary) transition-colors">
               {activeHost.name}
             </span>
-            <ChevronDown size={12} className="hidden sm:inline text-(--color-text-muted)" />
+            <ChevronDown size={12} className="hidden sm:inline text-(--color-text-muted) group-hover:text-(--color-text-primary) transition-colors" />
           </button>
 
           {/* Session picker dropdown */}
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setShowSessionDropdown((v) => !v)}
-              className={`flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2.5 py-1.5 rounded-md border transition-colors ${
+              className={`flex items-center h-8 gap-1.5 px-2.5 rounded-lg border transition-all duration-200 cursor-pointer active:scale-95 shadow-xs ${
                 isActive
-                  ? "bg-(--color-success)/10 border-(--color-success)/30 hover:border-(--color-success)/50"
+                  ? "bg-(--color-success)/5 border-(--color-success)/20 hover:border-(--color-success)/40 hover:bg-(--color-success)/10 text-(--color-success)"
                   : isStarting
-                  ? "bg-(--color-warning)/10 border-(--color-warning)/30"
-                  : "bg-(--color-bg-primary) border-(--color-border) hover:border-(--color-text-muted)"
+                  ? "bg-(--color-warning)/5 border-(--color-warning)/20 hover:border-(--color-warning)/40 hover:bg-(--color-warning)/10 text-(--color-warning)"
+                  : "bg-(--color-bg-primary) border-(--color-border) hover:border-(--color-accent) hover:text-(--color-text-primary)"
               }`}
             >
-              <span className={`w-2 h-2 rounded-full shrink-0 ${stateColors[sessionState] || "bg-gray-500"}`} />
-              <span className="hidden sm:inline text-xs text-(--color-text-secondary) max-w-32 truncate">
+              <div className="relative flex h-2 w-2 shrink-0 items-center justify-center">
+                {(isActive || isStarting) && (
+                  <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping ${stateColors[sessionState] || "bg-gray-500"}`} />
+                )}
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${stateColors[sessionState] || "bg-gray-500"}`} />
+              </div>
+              <span className={`hidden sm:inline text-xs font-semibold max-w-32 truncate ${isActive ? "text-(--color-success)" : isStarting ? "text-(--color-warning)" : "text-(--color-text-secondary)"}`}>
                 {sessionLabel}
               </span>
-              <ChevronDown size={12} className="hidden sm:inline text-(--color-text-muted)" />
+              <ChevronDown size={12} className={`hidden sm:inline ${isActive ? "text-(--color-success)/60" : isStarting ? "text-(--color-warning)/60" : "text-(--color-text-muted)"}`} />
             </button>
 
             {showSessionDropdown && (
-              <div className="absolute right-0 top-full mt-1 w-80 bg-(--color-bg-secondary) border border-(--color-border) rounded-lg shadow-2xl z-50 overflow-hidden">
+              <div className="absolute right-0 top-full mt-1.5 w-80 backdrop-blur-md bg-(--color-bg-secondary)/85 border border-(--color-border) rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                 {/* Header */}
-                <div className="flex items-center px-3 py-2 border-b border-(--color-border)">
-                  <span className="text-xs font-semibold text-(--color-text-primary)">Sessions on {activeHost.name}</span>
+                <div className="flex items-center px-4 py-2.5 border-b border-(--color-border)/60 bg-transparent">
+                  <span className="text-[10px] font-bold text-(--color-text-primary) uppercase tracking-wider">Sessions on {activeHost.name}</span>
                 </div>
 
                 {/* Session list */}
                 <div className="max-h-52 overflow-y-auto">
                   {sessionsLoading && sessions.length === 0 ? (
-                    <div className="flex items-center justify-center gap-2 py-6 text-(--color-text-muted)">
+                    <div className="flex items-center justify-center gap-2 py-8 text-(--color-text-muted)">
                       <Loader2 size={14} className="animate-spin" />
-                      <span className="text-xs">Loading sessions...</span>
+                      <span className="text-xs font-medium">Loading active sessions...</span>
                     </div>
                   ) : sessions.length === 0 ? (
-                    <div className="py-6 text-center text-xs text-(--color-text-muted)">No active sessions</div>
+                    <div className="py-8 text-center text-xs text-(--color-text-muted) font-medium">No active sessions found</div>
                   ) : (
                     sessions.map((s) => {
                       const isCurrent = s.id === sessionId;
@@ -209,38 +223,44 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
                       return (
                         <div
                           key={s.id}
-                          className={`flex items-center gap-2 px-3 py-2 transition-colors ${
+                          className={`flex items-center gap-3 px-4 py-2.5 transition-all duration-200 border-l-2 ${
                             isCurrent
-                              ? "bg-(--color-accent)/10 border-l-2 border-(--color-accent)"
+                              ? "bg-(--color-accent)/5 border-(--color-accent)"
                               : sAlive
-                              ? "hover:bg-(--color-bg-tertiary) border-l-2 border-transparent cursor-pointer"
-                              : "border-l-2 border-transparent opacity-60 cursor-not-allowed"
+                              ? "hover:bg-(--color-bg-tertiary)/40 border-transparent cursor-pointer hover:border-(--color-accent)/30"
+                              : "border-transparent opacity-60 cursor-not-allowed"
                           }`}
                           onClick={() => !isCurrent && sAlive && handleAttach(s.id)}
                         >
-                          <span className={`w-2 h-2 rounded-full shrink-0 ${stateColors[s.state] || "bg-gray-500"}`} />
+                          <div className="relative flex h-2 w-2 shrink-0 items-center justify-center">
+                            {(s.state === "idle" || s.state === "busy" || s.state === "starting") && (
+                              <span className={`absolute inline-flex h-full w-full rounded-full opacity-50 animate-ping ${stateColors[s.state] || "bg-gray-500"}`} />
+                            )}
+                            <span className={`relative inline-flex rounded-full h-2 w-2 ${stateColors[s.state] || "bg-gray-500"}`} />
+                          </div>
+                          
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-medium text-(--color-text-primary) truncate">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-(--color-text-primary) truncate">
                                 {s.name || `Session ${s.id}`}
                               </span>
                               {isCurrent && (
-                                <span className="text-[9px] font-medium text-(--color-accent) bg-(--color-accent)/20 px-1.5 py-0 rounded-full shrink-0">
-                                  ATTACHED
+                                <span className="text-[9px] font-bold text-(--color-accent) bg-(--color-accent)/10 border border-(--color-accent)/20 px-2 py-0.5 rounded-full shrink-0 uppercase tracking-wide">
+                                  Attached
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 mt-0.5">
+                            <div className="flex items-center gap-2 mt-1">
                               <span className="text-[10px] text-(--color-text-muted) font-mono">#{s.id}</span>
-                              <span className="text-[10px] text-(--color-text-muted) capitalize">{s.state}</span>
-                              {s.appId && <span className="text-[10px] text-(--color-text-muted) font-mono truncate">{s.appId}</span>}
+                              <span className="text-[9px] text-(--color-text-muted) font-medium uppercase tracking-wider text-[8px] bg-(--color-bg-primary) border border-(--color-border) px-1 rounded-sm">{s.state}</span>
+                              {s.appId && <span className="text-[10px] text-(--color-text-muted) font-mono truncate max-w-[120px]">{s.appId}</span>}
                             </div>
                           </div>
                           {!isCurrent && sAlive && (
-                            <Link size={12} className="text-(--color-text-muted) shrink-0" />
+                            <Link size={12} className="text-(--color-text-muted) shrink-0 transition-colors" />
                           )}
                           {!sAlive && (
-                            <span className="text-[9px] text-(--color-error) shrink-0">dead</span>
+                            <span className="text-[9px] font-bold text-(--color-error) bg-(--color-error)/10 px-1.5 py-0.5 rounded uppercase shrink-0">dead</span>
                           )}
                         </div>
                       );
@@ -249,22 +269,22 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
                 </div>
 
                 {/* Create new session */}
-                <div className="border-t border-(--color-border) px-3 py-2.5">
-                  <p className="text-[10px] text-(--color-text-muted) mb-1.5 uppercase tracking-wide font-medium">New Session</p>
-                  <div className="flex gap-1.5">
+                <div className="border-t border-(--color-border)/60 px-4 py-3 bg-transparent">
+                  <p className="text-[10px] text-(--color-text-muted) mb-2 uppercase tracking-wider font-semibold">New Session</p>
+                  <div className="flex gap-2">
                     <input
                       value={newSessionName}
                       onChange={(e) => setNewSessionName(e.target.value)}
                       placeholder="Session name (optional)"
-                      className="flex-1 bg-(--color-bg-primary) border border-(--color-border) rounded px-2 py-1.5 text-xs text-(--color-text-primary) outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted)"
+                      className="flex-1 bg-(--color-bg-primary)/60 border border-(--color-border) rounded-lg px-2.5 py-1.5 text-xs text-(--color-text-primary) outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted) transition-all"
                       onKeyDown={(e) => e.key === "Enter" && handleCreateSession()}
                     />
                     <button
                       onClick={handleCreateSession}
                       disabled={loading}
-                      className="flex items-center gap-1 px-2.5 py-1.5 bg-(--color-success)/20 text-(--color-success) hover:bg-(--color-success)/30 rounded text-xs font-medium transition-colors disabled:opacity-40"
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-(--color-accent) hover:bg-(--color-accent-hover) text-white rounded-lg text-xs font-semibold transition-all shadow-sm shadow-(--color-accent)/20 hover:shadow-md hover:-translate-y-[1px] active:translate-y-0 active:scale-95 disabled:opacity-40 cursor-pointer"
                     >
-                      {loading ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                      {loading ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
                       Create
                     </button>
                   </div>
@@ -276,18 +296,22 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
           {/* Theme Toggle */}
           <button
             onClick={toggleTheme}
-            className="p-1 sm:p-1.5 rounded-md hover:bg-(--color-bg-tertiary) transition-colors"
+            className="flex items-center justify-center w-8 h-8 rounded-lg bg-(--color-bg-primary) border border-(--color-border) hover:border-(--color-accent) hover:text-(--color-text-primary) active:scale-95 transition-all duration-200 cursor-pointer group shadow-xs"
             title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
           >
-            {theme === 'dark' ? <Sun size={14} className="sm:w-4 sm:h-4" /> : <Moon size={14} className="sm:w-4 sm:h-4" />}
+            {theme === 'dark' ? (
+              <Sun size={14} className="transition-transform duration-500 group-hover:rotate-45" />
+            ) : (
+              <Moon size={14} className="transition-transform duration-500 group-hover:-rotate-12" />
+            )}
           </button>
 
-          {/* Quick actions */}
-          <div className="flex items-center gap-1 border-l border-(--color-border) pl-3">
+          {/* Quick actions group */}
+          <div className="flex items-center gap-1 border-l border-(--color-border) pl-3 select-none">
             {isStarting ? (
               <button
                 disabled
-                className="p-1.5 bg-(--color-warning)/10 text-(--color-warning) rounded-md"
+                className="flex items-center justify-center w-8 h-8 rounded-lg bg-(--color-warning)/10 border border-(--color-warning)/20 text-(--color-warning)"
                 title="Starting session..."
               >
                 <Loader2 size={15} className="animate-spin" />
@@ -296,29 +320,29 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
               <button
                 onClick={handleStop}
                 disabled={loading}
-                className="p-1.5 bg-(--color-error)/15 text-(--color-error) hover:bg-(--color-error)/25 rounded-md transition-colors disabled:opacity-40"
+                className="flex items-center justify-center w-8 h-8 rounded-lg bg-(--color-error)/10 border border-(--color-error)/30 text-(--color-error) hover:bg-(--color-error)/20 hover:border-(--color-error)/50 active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-40 shadow-xs"
                 title="Stop Session"
               >
-                {loading ? <Loader2 size={15} className="animate-spin" /> : <Square size={15} />}
+                {loading ? <Loader2 size={15} className="animate-spin" /> : <Square size={13} className="fill-current" />}
               </button>
             ) : (
               <button
                 onClick={() => startSession()}
                 disabled={loading}
-                className="p-1.5 bg-(--color-success)/15 text-(--color-success) hover:bg-(--color-success)/25 rounded-md transition-colors disabled:opacity-40"
+                className="flex items-center justify-center w-8 h-8 rounded-lg bg-(--color-success)/10 border border-(--color-success)/30 text-(--color-success) hover:bg-(--color-success)/20 hover:border-(--color-success)/50 active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-40 shadow-xs"
                 title="Start Session"
               >
-                {loading ? <Loader2 size={15} className="animate-spin" /> : <Play size={15} />}
+                {loading ? <Loader2 size={15} className="animate-spin" /> : <Play size={13} className="fill-current" />}
               </button>
             )}
 
             <button
               onClick={refreshSession}
               disabled={loading || sessionId === null}
-              className="p-1.5 text-(--color-text-muted) hover:text-(--color-text-primary) rounded-md disabled:opacity-40 transition-colors"
+              className="flex items-center justify-center w-8 h-8 rounded-lg bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-muted) hover:text-(--color-text-primary) hover:border-(--color-accent) active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-40 shadow-xs"
               title="Refresh Session"
             >
-              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+              <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
             </button>
           </div>
         </div>

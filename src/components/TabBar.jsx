@@ -193,20 +193,26 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
         <Plus size={14} />
       </button>
       
-      <div className="ml-auto flex items-center gap-1 sm:gap-2 border-l border-(--color-border) pl-2 sm:pl-3">
+      <div className="ml-auto flex items-center gap-1.5 sm:gap-2 border-l border-(--color-border) pl-2 pr-2 sm:pr-3">
         {running ? (
           <>
-            <div className="hidden sm:flex items-center gap-1.5 text-(--color-warning)">
-              <Loader2 size={13} className="animate-spin" />
-              <span className="text-xs">Executing...</span>
+            <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-(--color-warning)/10 border border-(--color-warning)/20 rounded-md text-(--color-warning) select-none">
+              <div className="relative flex items-center justify-center w-1.5 h-1.5">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-(--color-warning) opacity-75 animate-ping"></span>
+                <span className="relative inline-flex rounded-full h-1 w-1 bg-(--color-warning)"></span>
+              </div>
+              <Loader2 size={11} className="animate-spin text-(--color-warning)" />
+              <span className="text-[9px] font-bold tracking-wider uppercase">Executing</span>
             </div>
-            <Loader2 size={13} className="sm:hidden animate-spin text-(--color-warning)" />
+            <div className="sm:hidden flex items-center justify-center p-1 bg-(--color-warning)/10 border border-(--color-warning)/20 rounded-md text-(--color-warning)">
+              <Loader2 size={11} className="animate-spin text-(--color-warning)" />
+            </div>
             <button
               onClick={handleCancel}
-              className="flex items-center gap-1.5 px-2 sm:px-3 py-1 bg-(--color-error)/20 text-(--color-error) hover:bg-(--color-error)/30 text-xs font-medium rounded-md transition-colors"
+              className="group flex items-center gap-1 h-7 px-2.5 bg-(--color-error)/10 hover:bg-(--color-error)/20 text-(--color-error) border border-(--color-error)/30 hover:border-(--color-error)/50 text-[11px] font-semibold rounded-md transition-all dg-spring-btn shadow-sm shadow-(--color-error)/5 active:scale-95 cursor-pointer select-none"
               title="Cancel Query"
             >
-              <Ban size={13} />
+              <Ban size={11} className="transition-transform duration-200 group-hover:scale-110" />
               <span className="hidden sm:inline">Cancel</span>
             </button>
           </>
@@ -214,10 +220,14 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
           <button
             onClick={handleRun}
             disabled={!canRun}
-            className="flex items-center gap-1.5 px-2 sm:px-3 py-1 bg-(--color-success)/20 text-(--color-success) hover:bg-(--color-success)/30 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium rounded-md transition-colors"
+            className={`group flex items-center gap-1.5 h-7 px-2.5 text-[11px] font-semibold rounded-md transition-all dg-spring-btn border shadow-sm select-none active:scale-95 ${
+              canRun
+                ? "bg-gradient-to-r from-(--color-success)/15 to-(--color-success)/25 text-(--color-success) border-(--color-success)/30 hover:border-(--color-success)/55 hover:from-(--color-success)/20 hover:to-(--color-success)/30 shadow-(--color-success)/5 cursor-pointer"
+                : "bg-transparent text-(--color-text-muted) border-(--color-border) opacity-40 cursor-not-allowed pointer-events-none"
+            }`}
             title="Run SQL (Ctrl+Enter)"
           >
-            <Play size={13} />
+            <Play size={11} className={`transition-transform duration-200 group-hover:scale-115 ${canRun ? "fill-current" : ""}`} />
             <span className="hidden sm:inline">Run</span>
           </button>
         )}

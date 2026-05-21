@@ -575,11 +575,46 @@ function useDebounce(value, delay) {
   return debouncedValue;
 }
 
+function estimateInitialColumnWidths(data) {
+  if (!data || !data.schema || !data.schema.fields) return {};
+  const fields = data.schema.fields || [];
+  const rows = data.data || [];
+  
+  const initialWidths = {};
+  fields.forEach((field, i) => {
+    const name = String(field.name || field);
+    // Estimate width based on header text (approx 8px per char + padding for icons/borders)
+    let maxLen = name.length * 8 + 65;
+    
+    // Sample first 15 rows of data for this field
+    const sampleRows = rows.slice(0, 15);
+    sampleRows.forEach((row) => {
+      const val = row[field.name || field] !== undefined
+        ? String(row[field.name || field])
+        : Array.isArray(row)
+          ? String(row[i] ?? "")
+          : "";
+      const len = val.length * 7 + 28;
+      if (len > maxLen) {
+        maxLen = len;
+      }
+    });
+    
+    // Constrain width to reasonable pixel ranges
+    initialWidths[i] = Math.min(350, Math.max(120, maxLen));
+  });
+  return initialWidths;
+}
+
 function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
   const scrollRef = useRef(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewHeight, setViewHeight] = useState(400);
-  const [colWidths, setColWidths] = useState({});
+  const [colWidths, setColWidths] = useState(() => estimateInitialColumnWidths(data));
+
+  useEffect(() => {
+    setColWidths(estimateInitialColumnWidths(data));
+  }, [data]);
   const resizingRef = useRef(null);
   const [columnFilters, setColumnFilters] = useState({});
   const [showFilters, setShowFilters] = useState(false);
@@ -640,6 +675,14 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
   }
   const fields = data.schema.fields || [];
   const rows = data.data || [];
+
+  const totalTableWidth = useMemo(() => {
+    let sum = 48; // locked index column #
+    fields.forEach((_, i) => {
+      sum += colWidths[i] || 150;
+    });
+    return sum;
+  }, [fields, colWidths]);
   
   // Custom sorting and filtering logic
   const filteredRows = useMemo(() => {
@@ -731,6 +774,35 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
       setSortDirection('asc');
     }
   };
+
+  const autoFitColumn = useCallback((colIndex) => {
+    const field = fields[colIndex];
+    const fieldName = field.name || field;
+    const name = String(fieldName);
+    
+    // Estimate width based on header text (approx 8px per char + padding/icons/sort arrow)
+    let maxLen = name.length * 8 + 65;
+    
+    // Sample rows in filtered dataset to find max contents (cap at 1000 rows for instant performance)
+    const scanLimit = Math.min(filteredRows.length, 1000);
+    for (let ri = 0; ri < scanLimit; ri++) {
+      const row = filteredRows[ri];
+      const val = row[fieldName] !== undefined
+        ? String(row[fieldName])
+        : Array.isArray(row)
+          ? String(row[colIndex] ?? "")
+          : "";
+      // Approx 7px per character + 28px padding
+      const len = val.length * 7 + 28;
+      if (len > maxLen) {
+        maxLen = len;
+      }
+    }
+    
+    // Constrain width to reasonable pixel ranges: min 80, max 500
+    const finalWidth = Math.min(500, Math.max(80, maxLen));
+    setColWidths((prev) => ({ ...prev, [colIndex]: finalWidth }));
+  }, [fields, filteredRows]);
 
   return (
     <div className="flex flex-col h-full bg-(--color-bg-secondary)">
@@ -892,15 +964,13 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
         </div>
       </div>
       <div className="flex-1 overflow-auto" ref={scrollRef} onScroll={handleScroll}>
-        <table className="text-xs" style={{ tableLayout: Object.keys(colWidths).length > 0 ? "fixed" : "auto", width: Object.keys(colWidths).length > 0 ? undefined : "100%" }}>
+        <table className="text-xs" style={{ tableLayout: "fixed", width: totalTableWidth }}>
           <colgroup>
             {/* Locked index column col width */}
             <col style={{ width: 48 }} />
-            {Object.keys(colWidths).length > 0 && 
-              fields.map((_, i) => (
-                <col key={i} style={{ width: colWidths[i] || 150 }} />
-              ))
-            }
+            {fields.map((_, i) => (
+              <col key={i} style={{ width: colWidths[i] || 150 }} />
+            ))}
           </colgroup>
           <thead>
             <tr className="bg-(--color-bg-tertiary) sticky top-0 z-20 select-none">
@@ -931,7 +1001,7 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
                 return (
                   <th
                     key={i}
-                    className="px-2 py-1.5 text-left border-b border-(--color-border) relative group/th cursor-pointer hover:bg-(--color-bg-primary)/25"
+                    className="px-2 py-1.5 text-left border-b border-r border-(--color-border)/35 relative group/th cursor-pointer hover:bg-(--color-bg-primary)/25"
                     onClick={(e) => {
                       if (e.target.closest('.dg--header-resizeHandle') || e.target.closest('input')) return;
                       handleSort(i);
@@ -979,14 +1049,19 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
                       </div>
                     )}
                     <div
-                      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize opacity-0 group-hover/th:opacity-100 hover:bg-(--color-accent)/40 transition-opacity dg--header-resizeHandle"
+                      className="absolute -right-1.5 top-0 bottom-0 w-3 cursor-col-resize opacity-0 group-hover/th:opacity-100 hover:bg-(--color-accent)/40 transition-opacity dg--header-resizeHandle z-30"
                       onMouseDown={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
                         const startX = e.clientX;
-                        const th = e.target.parentElement;
+                        const th = e.currentTarget.parentElement;
                         const startWidth = th.offsetWidth;
                         resizingRef.current = i;
+                        
+                        // Prevent selection and set cursor globally during drag
+                        document.body.style.cursor = 'col-resize';
+                        document.body.style.userSelect = 'none';
+                        
                         const onMove = (me) => {
                           const delta = me.clientX - startX;
                           const newWidth = Math.max(60, startWidth + delta);
@@ -994,11 +1069,18 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
                         };
                         const onUp = () => {
                           resizingRef.current = null;
+                          document.body.style.cursor = '';
+                          document.body.style.userSelect = '';
                           document.removeEventListener("mousemove", onMove);
                           document.removeEventListener("mouseup", onUp);
                         };
                         document.addEventListener("mousemove", onMove);
                         document.addEventListener("mouseup", onUp);
+                      }}
+                      onDoubleClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        autoFitColumn(i);
                       }}
                     />
                   </th>
@@ -1063,7 +1145,7 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
                   return (
                     <td
                       key={ci}
-                      className="px-3 py-1.5 text-(--color-text-primary) whitespace-nowrap font-mono"
+                      className="px-3 py-1.5 text-(--color-text-primary) whitespace-nowrap font-mono border-r border-(--color-border)/35"
                     >
                       {cellContent}
                     </td>
