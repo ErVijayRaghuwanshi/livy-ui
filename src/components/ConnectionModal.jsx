@@ -13,6 +13,8 @@ const COMMON_CONF_KEYS = [
   "spark.dynamicAllocation.enabled",
   "spark.sql.shuffle.partitions",
   "livy.rsc.sql.num-rows",
+  "spark.eventLog.enabled",
+  "spark.eventLog.dir"
 ];
 
 export default function ConnectionModal({ isOpen, onClose }) {

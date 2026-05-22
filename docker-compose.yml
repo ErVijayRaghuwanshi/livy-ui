@@ -11,10 +11,12 @@ services:
       ports:
         - '8998:8998'
         - '4040-4050:4040-4050'  # <--- Map a range for multiple sessions
+        - '18080:18080'  # Spark History Server UI
       volumes:
         - ./data:/opt/spark/data
         - ./work-dir:/opt/spark/work-dir
         - ./livy.conf:/opt/livy/conf/livy.conf
+        - ./spark-events:/tmp/spark-events  # Persistent storage for Spark event logs
 
   livy-ui:
     build:
