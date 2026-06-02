@@ -17,6 +17,8 @@ services:
         - ./work-dir:/opt/spark/work-dir
         - ./livy.conf:/opt/livy/conf/livy.conf
         - ./spark-events:/tmp/spark-events  # Persistent storage for Spark event logs
+      networks:
+        - data-platform
 
   livy-ui:
     build:
@@ -30,3 +32,14 @@ services:
       - '4173:4173'
     depends_on:
       - livy
+    networks:
+      - data-platform
+
+
+# ==============================================================================
+# Network & Volume Bindings
+# ==============================================================================
+networks:
+  data-platform:
+    driver: bridge
+    name: data-platform
