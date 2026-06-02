@@ -162,6 +162,24 @@ function reducer(state, action) {
         closedTabsHistory: nextClosedHistory,
       };
     }
+    case "CLOSE_ALL_FILES": {
+      const cleanOpen = state.openFiles.filter(id => !state.dirtyFiles[id]);
+      const dirtyOpen = state.openFiles.filter(id => state.dirtyFiles[id]);
+
+      const nextClosedHistory = [
+        ...(state.closedTabsHistory || []).filter(id => !cleanOpen.includes(id)),
+        ...cleanOpen
+      ];
+
+      const newActiveId = dirtyOpen.length > 0 ? dirtyOpen[0] : null;
+
+      return {
+        ...state,
+        openFiles: dirtyOpen,
+        activeTabId: newActiveId,
+        closedTabsHistory: nextClosedHistory,
+      };
+    }
     case "REORDER_FILES": {
       const { fromIndex, toIndex } = action.payload;
       const newOpenFiles = [...state.openFiles];
@@ -258,6 +276,14 @@ export function SqlFilesProvider({ children }) {
 
   const restoreLastClosedTab = useCallback(() => dispatch({ type: "RESTORE_LAST_CLOSED_TAB" }), []);
 
+  const closeAllFiles = useCallback(() => {
+    const dirtyOpen = state.openFiles.filter(id => state.dirtyFiles[id]);
+    dispatch({ type: "CLOSE_ALL_FILES" });
+    if (dirtyOpen.length > 0) {
+      setPromptCloseFileId(dirtyOpen[0]);
+    }
+  }, [state.openFiles, state.dirtyFiles]);
+
   const activeResult = state.results[state.activeTabId] || null;
 
   const value = {
@@ -276,6 +302,7 @@ export function SqlFilesProvider({ children }) {
     setResult,
     openFile,
     closeFile,
+    closeAllFiles,
     reorderFiles,
     saveFile,
     toggleAutoSave,

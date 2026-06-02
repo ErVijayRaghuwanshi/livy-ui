@@ -24,12 +24,6 @@ export default function WelcomeScreen({ onCreateFile, onFocusFiles, onFocusSchem
       shortcut: [mod, "Shift", "K"],
       onClick: onFocusSchema,
     },
-    ...(hasClosedTabs ? [{
-      icon: RotateCcw,
-      label: "Restore Last Closed Tab",
-      shortcut: [mod, alt, "T"],
-      onClick: onRestoreTab,
-    }] : []),
     {
       icon: History,
       label: "Query History",

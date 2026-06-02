@@ -22,7 +22,7 @@ function ensureExtension(name) {
   return name + ".sql";
 }
 
-const FileExplorer = forwardRef(({ onInsertAtCursor }, ref) => {
+const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true }, ref) => {
   const { files, openFiles, activeTabId, openFile, removeFile, renameFile, addFile } = useSqlFiles();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFileId, setSelectedFileId] = useState(null);
@@ -156,18 +156,20 @@ const FileExplorer = forwardRef(({ onInsertAtCursor }, ref) => {
       tabIndex={0}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border)">
-        <span className="text-xs font-semibold text-(--color-text-secondary) uppercase tracking-wide">
-          Files
-        </span>
-        <button
-          onClick={handleCreateFile}
-          className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors"
-          title="New File (Ctrl+Shift+N)"
-        >
-          <FilePlus size={14} />
-        </button>
-      </div>
+      {showHeaderFooter && (
+        <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border)">
+          <span className="text-xs font-semibold text-(--color-text-secondary) uppercase tracking-wide">
+            Files
+          </span>
+          <button
+            onClick={handleCreateFile}
+            className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors"
+            title="New File (Ctrl+Shift+N)"
+          >
+            <FilePlus size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Search */}
       <div className="px-2 py-2 border-b border-(--color-border)">
@@ -279,10 +281,12 @@ const FileExplorer = forwardRef(({ onInsertAtCursor }, ref) => {
       </div>
 
       {/* Footer */}
-      <div className="px-3 py-1.5 border-t border-(--color-border) text-[10px] text-(--color-text-muted)">
-        {filteredFiles.length} {filteredFiles.length === 1 ? "file" : "files"}
-        {searchQuery && ` (filtered from ${files.length})`}
-      </div>
+      {showHeaderFooter && (
+        <div className="px-3 py-1.5 border-t border-(--color-border) text-[10px] text-(--color-text-muted)">
+          {filteredFiles.length} {filteredFiles.length === 1 ? "file" : "files"}
+          {searchQuery && ` (filtered from ${files.length})`}
+        </div>
+      )}
     </div>
   );
 });

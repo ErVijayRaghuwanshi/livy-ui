@@ -240,7 +240,7 @@ function LoadingNode() {
 
 
 
-const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, refreshTrigger: externalRefreshTrigger }, ref) {
+const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, refreshTrigger: externalRefreshTrigger, showHeader = true }, ref) {
 
   const { sessionId, sessionState } = useLivy();
 
@@ -337,39 +337,25 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, re
     >
 
       {/* Header */}
-
-      <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border)">
-
-        <span className="text-xs font-semibold text-(--color-text-secondary) uppercase tracking-wide">
-
-          Schema
-
-        </span>
-
-        <button
-          onClick={refreshSchema}
-
-          disabled={!isReady || loading._dbs}
-
-          className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) disabled:opacity-30"
-
-          title="Refresh"
-
-        >
-
-          {loading._dbs ? (
-
-            <Loader2 size={13} className="animate-spin" />
-
-          ) : (
-
-            <RefreshCw size={13} />
-
-          )}
-
-        </button>
-
-      </div>
+      {showHeader && (
+        <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border)">
+          <span className="text-xs font-semibold text-(--color-text-secondary) uppercase tracking-wide">
+            Schema
+          </span>
+          <button
+            onClick={refreshSchema}
+            disabled={!isReady || loading._dbs}
+            className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) disabled:opacity-30"
+            title="Refresh"
+          >
+            {loading._dbs ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <RefreshCw size={13} />
+            )}
+          </button>
+        </div>
+      )}
 
 
 
