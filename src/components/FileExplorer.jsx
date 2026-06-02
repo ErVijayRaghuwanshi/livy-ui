@@ -1,4 +1,4 @@
-import { useState, useRef, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import {
   FileCode,
   FilePlus,
@@ -47,6 +47,22 @@ const FileExplorer = forwardRef(({ onInsertAtCursor }, ref) => {
     containerRef.current?.focus();
   };
 
+  const handleSearchChange = (val) => {
+    setSearchQuery(val);
+    if (val.trim()) {
+      const filtered = files.filter((file) =>
+        file.name.toLowerCase().includes(val.toLowerCase())
+      );
+      if (filtered.length > 0) {
+        setSelectedFileId(filtered[0].id);
+      } else {
+        setSelectedFileId(null);
+      }
+    } else {
+      setSelectedFileId(activeTabId || (files.length > 0 ? files[0].id : null));
+    }
+  };
+
   const handleStartRename = (file, e) => {
     e?.stopPropagation();
     setRenamingId(file.id);
@@ -79,10 +95,19 @@ const FileExplorer = forwardRef(({ onInsertAtCursor }, ref) => {
     addFile();
   };
 
+  // Sync selection to active tab on mount or tab switch if search is empty
+  useEffect(() => {
+    if (!searchQuery && activeTabId) {
+      setSelectedFileId(activeTabId);
+    }
+  }, [activeTabId, searchQuery]);
+
   const handleKeyDown = (e) => {
     if (!selectedFileId) return;
+    const isInsideInput = document.activeElement === searchInputRef.current;
 
     if ((e.key === "Delete" || e.key === "Backspace") && renamingId === null) {
+      if (isInsideInput) return; // Keep input typing default
       e.preventDefault();
       const file = files.find((f) => f.id === selectedFileId);
       if (file) {
@@ -91,6 +116,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor }, ref) => {
     }
 
     if (e.key === "F2" && renamingId === null) {
+      if (isInsideInput) return; // Keep input typing default
       e.preventDefault();
       const file = files.find((f) => f.id === selectedFileId);
       if (file) {
@@ -102,6 +128,22 @@ const FileExplorer = forwardRef(({ onInsertAtCursor }, ref) => {
       e.preventDefault();
       handleFileClick(selectedFileId);
     }
+
+    if (e.key === "ArrowDown" && renamingId === null) {
+      e.preventDefault();
+      const idx = filteredFiles.findIndex((f) => f.id === selectedFileId);
+      if (idx < filteredFiles.length - 1) {
+        setSelectedFileId(filteredFiles[idx + 1].id);
+      }
+    }
+
+    if (e.key === "ArrowUp" && renamingId === null) {
+      e.preventDefault();
+      const idx = filteredFiles.findIndex((f) => f.id === selectedFileId);
+      if (idx > 0) {
+        setSelectedFileId(filteredFiles[idx - 1].id);
+      }
+    }
   };
 
   const isFileOpen = (fileId) => openFiles.includes(fileId);
@@ -109,7 +151,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor }, ref) => {
   return (
     <div
       ref={containerRef}
-      className="flex flex-col h-full bg-(--color-bg-secondary) focus:outline-none"
+      className="livy-file-explorer flex flex-col h-full bg-(--color-bg-secondary) focus:outline-none"
       onKeyDown={handleKeyDown}
       tabIndex={0}
     >
@@ -139,12 +181,12 @@ const FileExplorer = forwardRef(({ onInsertAtCursor }, ref) => {
             type="text"
             placeholder="Search files..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="w-full pl-7 pr-7 py-1 text-xs bg-(--color-bg-primary) border border-(--color-border) rounded text-(--color-text-primary) placeholder-text-(--color-text-muted) outline-none focus:border-(--color-accent)"
           />
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery("")}
+              onClick={() => handleSearchChange("")}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-(--color-text-muted) hover:text-(--color-text-primary)"
             >
               <X size={12} />

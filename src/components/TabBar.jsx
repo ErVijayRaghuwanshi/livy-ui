@@ -12,7 +12,7 @@ function ensureExtension(name) {
 }
 
 export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRef }) {
-  const { files, openFiles, activeTabId, setActiveTab, addFile, closeFile, renameFile, reorderFiles, dirtyFiles } = useSqlFiles();
+  const { files, openFiles, activeTabId, setActiveTab, addFile, closeFile, renameFile, reorderFiles, dirtyFiles, promptCloseFileId, setPromptCloseFileId, requestCloseFile } = useSqlFiles();
   const [running, setRunning] = useState(false);
   const [canRun, setCanRun] = useState(false);
   
@@ -53,17 +53,9 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
     setRenamingId(null);
   };
 
-  const [tabToCloseWithUnsavedChanges, setTabToCloseWithUnsavedChanges] = useState(null);
-
   const handleClose = (e, id) => {
     e.stopPropagation();
-    if (openFiles.length === 1) return;
-    
-    if (dirtyFiles[id]) {
-      setTabToCloseWithUnsavedChanges(id);
-    } else {
-      closeFile(id);
-    }
+    requestCloseFile(id);
   };
 
   const handleDragStart = (e, index) => {
@@ -167,19 +159,17 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
               {dirtyFiles[file.id] && (
                 <span className="w-1.5 h-1.5 rounded-full bg-(--color-warning) dg-pulse-amber group-hover:hidden transition-all" />
               )}
-              {openFiles.length > 1 && (
-                <button
-                  onClick={(e) => handleClose(e, file.id)}
-                  className={`p-0.5 rounded hover:bg-(--color-bg-tertiary) hover:text-(--color-error) transition-opacity absolute ${
-                    dirtyFiles[file.id]
-                      ? "opacity-0 group-hover:opacity-100 hidden group-hover:block"
-                      : "opacity-0 group-hover:opacity-100"
-                  }`}
-                  title="Close tab"
-                >
-                  <X size={11} />
-                </button>
-              )}
+              <button
+                onClick={(e) => handleClose(e, file.id)}
+                className={`p-0.5 rounded hover:bg-(--color-bg-tertiary) hover:text-(--color-error) transition-opacity absolute ${
+                  dirtyFiles[file.id]
+                    ? "opacity-0 group-hover:opacity-100 hidden group-hover:block"
+                    : "opacity-0 group-hover:opacity-100"
+                }`}
+                title="Close tab"
+              >
+                <X size={11} />
+              </button>
             </div>
           </div>
         ))}
@@ -234,10 +224,10 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
       </div>
 
       {/* Unsaved Changes Tab Close Warning Dialog */}
-      {tabToCloseWithUnsavedChanges && (() => {
-        const file = files.find((f) => f.id === tabToCloseWithUnsavedChanges);
+      {promptCloseFileId && (() => {
+        const file = files.find((f) => f.id === promptCloseFileId);
         return (
-          <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50" onClick={() => setTabToCloseWithUnsavedChanges(null)}>
+          <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50" onClick={() => setPromptCloseFileId(null)}>
             <div className="bg-(--color-bg-secondary) border border-(--color-border) rounded-xl shadow-2xl w-full max-w-sm mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-200" onClick={(e) => e.stopPropagation()}>
               <div className="flex flex-col items-center px-6 py-5 text-center">
                 <div className="w-10 h-10 rounded-full bg-(--color-warning)/15 flex items-center justify-center mb-3">
@@ -250,15 +240,15 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
               </div>
               <div className="flex gap-2 px-6 pb-5">
                 <button
-                  onClick={() => setTabToCloseWithUnsavedChanges(null)}
+                  onClick={() => setPromptCloseFileId(null)}
                   className="flex-1 px-3 py-2 text-xs font-medium text-(--color-text-secondary) bg-(--color-bg-tertiary) hover:bg-(--color-bg-primary) rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={() => {
-                    closeFile(tabToCloseWithUnsavedChanges);
-                    setTabToCloseWithUnsavedChanges(null);
+                    closeFile(promptCloseFileId);
+                    setPromptCloseFileId(null);
                   }}
                   className="flex-1 px-3 py-2 text-xs font-medium text-white bg-(--color-error) hover:bg-(--color-error)/85 rounded-lg transition-colors dg-spring-btn"
                 >

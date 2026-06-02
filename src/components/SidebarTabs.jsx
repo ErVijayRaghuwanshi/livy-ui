@@ -20,22 +20,28 @@ const SidebarTabs = forwardRef(({ collapsed, setCollapsed, onInsertAtCursor, wid
 
   useImperativeHandle(ref, () => ({
     focusFileSearch: () => {
-      if (collapsed) {
+      const isExplorerFocused = document.activeElement && document.activeElement.closest(".livy-file-explorer");
+      if (!collapsed && activeTab === "files" && isExplorerFocused) {
+        setCollapsed(true);
+      } else {
         setCollapsed(false);
+        setActiveTab("files");
+        setTimeout(() => {
+          fileExplorerRef.current?.focusSearch();
+        }, 100);
       }
-      setActiveTab("files");
-      setTimeout(() => {
-        fileExplorerRef.current?.focusSearch();
-      }, 100);
     },
     focusSchemaSearch: () => {
-      if (collapsed) {
+      const isExplorerFocused = document.activeElement && document.activeElement.closest(".livy-schema-explorer");
+      if (!collapsed && activeTab === "schema" && isExplorerFocused) {
+        setCollapsed(true);
+      } else {
         setCollapsed(false);
+        setActiveTab("schema");
+        setTimeout(() => {
+          schemaExplorerRef.current?.focusSearch();
+        }, 100);
       }
-      setActiveTab("schema");
-      setTimeout(() => {
-        schemaExplorerRef.current?.focusSearch();
-      }, 100);
     },
   }));
 

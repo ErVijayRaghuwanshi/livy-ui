@@ -373,6 +373,7 @@ const SqlEditor = forwardRef(function SqlEditor({
   onToggleConnectionModal,
   onPrevTab,
   onNextTab,
+  onRestoreTab,
 }, ref) {
   const { activeFile, updateContent, setResult, saveFile, toggleAutoSave } = useSqlFiles();
   const activeFileRef = useRef(activeFile);
@@ -541,11 +542,11 @@ const SqlEditor = forwardRef(function SqlEditor({
       },
     });
 
-    // Override Monaco's Cmd+K chord to focus schema search
+    // Override Monaco's Cmd+Shift+K to focus schema search
     editor.addAction({
       id: "focus-schema-search",
       label: "Focus Schema Search",
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK],
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyK],
       run: () => {
         onFocusSchemaSearch?.();
       },
@@ -598,6 +599,19 @@ const SqlEditor = forwardRef(function SqlEditor({
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyW],
       run: () => {
         onCloseTab?.();
+      },
+    });
+
+    // Restore Last Closed Tab (Ctrl+Shift+T / Cmd+Shift+T or Ctrl+Alt+T / Cmd+Option+T)
+    editor.addAction({
+      id: "restore-last-closed-tab-action",
+      label: "Restore Last Closed Tab",
+      keybindings: [
+        monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyT,
+        monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyT
+      ],
+      run: () => {
+        onRestoreTab?.();
       },
     });
 

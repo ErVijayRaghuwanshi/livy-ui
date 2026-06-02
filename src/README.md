@@ -179,10 +179,11 @@ SELECT * FROM parquet.`hdfs://namenode/path/to/data` LIMIT 100
 | `Alt+Z` | `⌥+Z` | **Toggle Word Wrap** (VS Code style) | Editor |
 | `Ctrl+B` | `⌘+B` | **Toggle sidebar** | Global / Editor |
 | `Ctrl+Shift+E` | `⌘+Shift+E` | **Focus File Explorer** | Global / Editor |
-| `Ctrl+K` | `⌘+K` | **Focus Schema Explorer** | Global / Editor |
+| `Ctrl+Shift+K` | `⌘+Shift+K` | **Focus Schema Explorer** | Global / Editor |
 | `` Ctrl+` `` | `` ⌘+` `` | **Toggle result panel** | Global / Editor |
 | `Ctrl+Alt+N` | `⌘+⌥+N` | **New SQL file** (VS Code-like browser override) | Global / Editor |
 | `Ctrl+Alt+W` | `⌘+⌥+W` | **Close active tab** (VS Code-like browser override) | Global / Editor |
+| `Ctrl+Shift+T` / `Ctrl+Alt+T` | `⌘+Shift+T` / `⌘+⌥+T` | **Restore last closed tab** | Global / Editor |
 | `Ctrl+PageUp` / `Ctrl+Alt+←` | `⌘+PageUp` / `⌘+⌥+←` | **Previous tab** | Global / Editor |
 | `Ctrl+PageDown` / `Ctrl+Alt+→` | `⌘+PageDown` / `⌘+⌥+→` | **Next tab** | Global / Editor |
 | `Ctrl+H` | `⌘+H` | **Query history** | Global / Editor |

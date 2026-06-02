@@ -10,13 +10,14 @@ import StatusBar from "./components/StatusBar";
 import { GripHorizontal } from "lucide-react";
 import { useSqlFiles } from "./context/SqlFilesContext";
 import { ToastContainer } from "./components/Toast";
+import WelcomeScreen from "./components/WelcomeScreen";
 
 const SIDEBAR_CACHE_KEY = "livy-ui-explorer-collapsed";
 const THEME_CACHE_KEY = "livy-ui-theme";
 const DEFAULT_RESULT_HEIGHT = 250;
 
 export default function App() {
-  const { activeResult, files, activeTabId, setActiveTab, addFile, removeFile, saveFile } = useSqlFiles();
+  const { activeFile, activeResult, files, activeTabId, setActiveTab, addFile, removeFile, saveFile, restoreLastClosedTab, closedTabsHistory, requestCloseFile } = useSqlFiles();
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem(SIDEBAR_CACHE_KEY);
@@ -84,7 +85,7 @@ export default function App() {
       const ctrl = e.ctrlKey || e.metaKey;
 
       // Ctrl+B / Cmd+B — toggle sidebar
-      if (ctrl && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "b") {
+      if (ctrl && !e.altKey && !e.shiftKey && (e.key.toLowerCase() === "b" || e.code === "KeyB")) {
         e.preventDefault();
         setSidebarCollapsed((p) => !p);
         return;
@@ -111,37 +112,35 @@ export default function App() {
       }
 
       // Ctrl+Shift+F / Cmd+Shift+F — format SQL
-      if (ctrl && !e.altKey && e.shiftKey && e.key === "F") {
+      if (ctrl && !e.altKey && e.shiftKey && (e.key.toLowerCase() === "f" || e.code === "KeyF")) {
         e.preventDefault();
         editorRef.current?.format();
         return;
       }
 
       // Ctrl+Shift+M / Cmd+Shift+M — minify SQL to one line
-      if (ctrl && !e.altKey && e.shiftKey && e.key === "M") {
+      if (ctrl && !e.altKey && e.shiftKey && (e.key.toLowerCase() === "m" || e.code === "KeyM")) {
         e.preventDefault();
         editorRef.current?.minify();
         return;
       }
 
       // Ctrl+Alt+N / Cmd+Option+N — new tab (VS Code-like browser override)
-      if (ctrl && e.altKey && !e.shiftKey && e.key.toLowerCase() === "n") {
+      if (ctrl && e.altKey && !e.shiftKey && (e.key.toLowerCase() === "n" || e.code === "KeyN")) {
         e.preventDefault();
         addFile();
         return;
       }
 
       // Ctrl+Alt+W / Cmd+Option+W — close active tab (VS Code-like browser override)
-      if (ctrl && e.altKey && !e.shiftKey && e.key.toLowerCase() === "w") {
+      if (ctrl && e.altKey && !e.shiftKey && (e.key.toLowerCase() === "w" || e.code === "KeyW")) {
         e.preventDefault();
-        if (files.length > 1) {
-          removeFile(activeTabId);
-        }
+        requestCloseFile(activeTabId);
         return;
       }
 
       // Ctrl+H / Cmd+H — toggle query history
-      if (ctrl && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "h") {
+      if (ctrl && !e.altKey && !e.shiftKey && (e.key.toLowerCase() === "h" || e.code === "KeyH")) {
         e.preventDefault();
         setShowHistory((p) => !p);
 
@@ -163,16 +162,26 @@ export default function App() {
       }
 
       // Ctrl+Shift+E / Cmd+Shift+E — focus file explorer
-      if (ctrl && !e.altKey && e.shiftKey && e.key === "E") {
+      if (ctrl && !e.altKey && e.shiftKey && (e.key.toLowerCase() === "e" || e.code === "KeyE")) {
         e.preventDefault();
         handleFocusFileSearch();
         return;
       }
 
-      // Ctrl+K / Cmd+K — focus schema explorer search
-      if (ctrl && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "k") {
+      // Ctrl+Shift+K / Cmd+Shift+K — focus schema explorer search
+      if (ctrl && !e.altKey && e.shiftKey && (e.key.toLowerCase() === "k" || e.code === "KeyK")) {
         e.preventDefault();
         handleFocusSchemaSearch();
+        return;
+      }
+
+      // Ctrl+Shift+T / Cmd+Shift+T or Ctrl+Alt+T / Cmd+Option+T — restore last closed tab
+      const isRestoreTab = 
+        (ctrl && !e.altKey && e.shiftKey && (e.key.toLowerCase() === "t" || e.code === "KeyT")) ||
+        (ctrl && e.altKey && !e.shiftKey && (e.key.toLowerCase() === "t" || e.code === "KeyT"));
+      if (isRestoreTab) {
+        e.preventDefault();
+        restoreLastClosedTab();
         return;
       }
 
@@ -188,7 +197,7 @@ export default function App() {
       }
 
       // Ctrl+S / Cmd+S — save SQL (clear dirty state)
-      if (ctrl && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "s") {
+      if (ctrl && !e.altKey && !e.shiftKey && (e.key.toLowerCase() === "s" || e.code === "KeyS")) {
         e.preventDefault();
         saveFile(activeTabId);
         return;
@@ -213,7 +222,7 @@ export default function App() {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [files, activeTabId, setActiveTab, addFile, removeFile, handleFocusFileSearch, handleFocusSchemaSearch, saveFile]);
+  }, [files, activeTabId, setActiveTab, addFile, removeFile, handleFocusFileSearch, handleFocusSchemaSearch, saveFile, restoreLastClosedTab, requestCloseFile]);
 
   // Resizable result panel
   const handleMouseDown = (e) => {
@@ -332,82 +341,96 @@ export default function App() {
         {/* Main Editor + Results Area */}
         <div className="flex flex-col flex-1 min-h-0 min-w-0">
           <TabBar sidebarCollapsed={sidebarCollapsed} setSidebarCollapsed={setSidebarCollapsed} editorRef={editorRef} />
-          <SqlEditor
-            ref={editorRef}
-            onCursorPositionChange={setCursorPosition}
-            theme={theme}
-            onFocusSchemaSearch={handleFocusSchemaSearch}
-            onFocusFileSearch={handleFocusFileSearch}
-            onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
-            onToggleResultPanel={() => {
-              setResultHeight((h) => {
-                if (h > 0) {
-                  prevResultHeight.current = h;
-                  return 0;
-                }
-                return prevResultHeight.current || DEFAULT_RESULT_HEIGHT;
-              });
-            }}
-            onNewTab={addFile}
-            onCloseTab={() => {
-              if (files.length > 1) {
-                removeFile(activeTabId);
-              }
-            }}
-            onToggleQueryHistory={() => {
-              setShowHistory((p) => !p);
-              setShowShortcuts(false);
-              setShowConnectionModal(false);
-            }}
-            onToggleShortcuts={() => {
-              setShowShortcuts((p) => !p);
-              setShowHistory(false);
-              setShowConnectionModal(false);
-            }}
-            onToggleConnectionModal={() => {
-              setShowConnectionModal((p) => !p);
-              setShowShortcuts(false);
-              setShowHistory(false);
-            }}
-            onPrevTab={() => {
-              const idx = files.findIndex((f) => f.id === activeTabId);
-              const prev = (idx - 1 + files.length) % files.length;
-              setActiveTab(files[prev].id);
-            }}
-            onNextTab={() => {
-              const idx = files.findIndex((f) => f.id === activeTabId);
-              const next = (idx + 1) % files.length;
-              setActiveTab(files[next].id);
-            }}
-          />
-
-          {/* Resize Handle */}
-          {resultHeight > 0 && (
-            <div
-              onMouseDown={handleMouseDown}
-              className={`flex items-center justify-center h-2 cursor-row-resize shrink-0 transition-colors ${
-                isDragging
-                  ? "bg-(--color-accent)"
-                  : "bg-(--color-border) hover:bg-(--color-accent)/50"
-              }`}
-            >
-              <GripHorizontal size={14} className="text-(--color-text-muted)" />
-            </div>
-          )}
-
-          {/* Result Panel */}
-          {resultHeight > 0 && (
-            <div
-              className="shrink-0 bg-(--color-bg-secondary) border-t border-(--color-border) overflow-hidden"
-              style={{ height: resultHeight }}
-            >
-              <ResultTable 
-                result={activeResult} 
-                onClose={handleCloseResultPanel}
-                onMaximizeToggle={handleToggleMaximizeResultPanel}
-                isMaximized={isResultMaximized}
+          
+          {activeFile ? (
+            <>
+              <SqlEditor
+                ref={editorRef}
+                onCursorPositionChange={setCursorPosition}
+                theme={theme}
+                onFocusSchemaSearch={handleFocusSchemaSearch}
+                onFocusFileSearch={handleFocusFileSearch}
+                onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
+                onToggleResultPanel={() => {
+                  setResultHeight((h) => {
+                    if (h > 0) {
+                      prevResultHeight.current = h;
+                      return 0;
+                    }
+                    return prevResultHeight.current || DEFAULT_RESULT_HEIGHT;
+                  });
+                }}
+                onNewTab={addFile}
+                onCloseTab={() => {
+                  requestCloseFile(activeTabId);
+                }}
+                onToggleQueryHistory={() => {
+                  setShowHistory((p) => !p);
+                  setShowShortcuts(false);
+                  setShowConnectionModal(false);
+                }}
+                onToggleShortcuts={() => {
+                  setShowShortcuts((p) => !p);
+                  setShowHistory(false);
+                  setShowConnectionModal(false);
+                }}
+                onToggleConnectionModal={() => {
+                  setShowConnectionModal((p) => !p);
+                  setShowShortcuts(false);
+                  setShowHistory(false);
+                }}
+                onPrevTab={() => {
+                  const idx = files.findIndex((f) => f.id === activeTabId);
+                  const prev = (idx - 1 + files.length) % files.length;
+                  setActiveTab(files[prev].id);
+                }}
+                onNextTab={() => {
+                  const idx = files.findIndex((f) => f.id === activeTabId);
+                  const next = (idx + 1) % files.length;
+                  setActiveTab(files[next].id);
+                }}
+                onRestoreTab={restoreLastClosedTab}
               />
-            </div>
+
+              {/* Resize Handle */}
+              {resultHeight > 0 && (
+                <div
+                  onMouseDown={handleMouseDown}
+                  className={`flex items-center justify-center h-2 cursor-row-resize shrink-0 transition-colors ${
+                    isDragging
+                      ? "bg-(--color-accent)"
+                      : "bg-(--color-border) hover:bg-(--color-accent)/50"
+                  }`}
+                >
+                  <GripHorizontal size={14} className="text-(--color-text-muted)" />
+                </div>
+              )}
+
+              {/* Result Panel */}
+              {resultHeight > 0 && (
+                <div
+                  className="shrink-0 bg-(--color-bg-secondary) border-t border-(--color-border) overflow-hidden"
+                  style={{ height: resultHeight }}
+                >
+                  <ResultTable 
+                    result={activeResult} 
+                    onClose={handleCloseResultPanel}
+                    onMaximizeToggle={handleToggleMaximizeResultPanel}
+                    isMaximized={isResultMaximized}
+                  />
+                </div>
+              )}
+            </>
+          ) : (
+            <WelcomeScreen
+              onCreateFile={() => addFile()}
+              onFocusFiles={handleFocusFileSearch}
+              onFocusSchema={handleFocusSchemaSearch}
+              onShowShortcuts={() => setShowShortcuts(true)}
+              onShowHistory={() => setShowHistory(true)}
+              onRestoreTab={restoreLastClosedTab}
+              hasClosedTabs={closedTabsHistory && closedTabsHistory.length > 0}
+            />
           )}
         </div>
       </div>

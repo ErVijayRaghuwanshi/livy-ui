@@ -326,9 +326,15 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, re
 
 
 
+  const containerRef = useRef(null);
+
   return (
 
-    <div className="flex flex-col h-full bg-(--color-bg-secondary) overflow-hidden)">
+    <div
+      ref={containerRef}
+      className="livy-schema-explorer flex flex-col h-full bg-(--color-bg-secondary) overflow-hidden focus:outline-none"
+      tabIndex={0}
+    >
 
       {/* Header */}
 
@@ -387,7 +393,7 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, re
 
               onChange={(e) => setSearchTerm(e.target.value)}
 
-              placeholder={`Filter schema...               ${mod}+K`}
+              placeholder={`Filter schema...         ${mod}+Shift+K`}
 
               className="w-full pl-7 pr-7 py-1 text-xs bg-(--color-bg-primary) text-(--color-text-primary) border border-(--color-border) rounded focus:outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted)"
 
