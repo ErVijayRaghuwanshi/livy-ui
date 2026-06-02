@@ -83,15 +83,15 @@ export default function App() {
     const handleKeyDown = (e) => {
       const ctrl = e.ctrlKey || e.metaKey;
 
-      // Ctrl+B — toggle sidebar
-      if (ctrl && !e.shiftKey && e.key === "b") {
+      // Ctrl+B / Cmd+B — toggle sidebar
+      if (ctrl && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "b") {
         e.preventDefault();
         setSidebarCollapsed((p) => !p);
         return;
       }
 
-      // Ctrl+` — toggle result panel
-      if (ctrl && !e.shiftKey && e.key === "`") {
+      // Ctrl+` / Cmd+` — toggle result panel
+      if (ctrl && !e.altKey && !e.shiftKey && e.key === "`") {
         e.preventDefault();
         setResultHeight((h) => {
           if (h > 0) {
@@ -103,36 +103,36 @@ export default function App() {
         return;
       }
 
-      // Ctrl+Enter — run SQL
-      if (ctrl && !e.shiftKey && e.key === "Enter") {
+      // Ctrl+Enter / Cmd+Enter — run SQL
+      if (ctrl && !e.altKey && !e.shiftKey && e.key === "Enter") {
         e.preventDefault();
         editorRef.current?.run();
         return;
       }
 
-      // Ctrl+Shift+F — format SQL
-      if (ctrl && e.shiftKey && e.key === "F") {
+      // Ctrl+Shift+F / Cmd+Shift+F — format SQL
+      if (ctrl && !e.altKey && e.shiftKey && e.key === "F") {
         e.preventDefault();
         editorRef.current?.format();
         return;
       }
 
-      // Ctrl+Shift+M — minify SQL to one line
-      if (ctrl && e.shiftKey && e.key === "M") {
+      // Ctrl+Shift+M / Cmd+Shift+M — minify SQL to one line
+      if (ctrl && !e.altKey && e.shiftKey && e.key === "M") {
         e.preventDefault();
         editorRef.current?.minify();
         return;
       }
 
-      // Ctrl+Shift+N — new tab
-      if (ctrl && e.shiftKey && e.key === "N") {
+      // Ctrl+Alt+N / Cmd+Option+N — new tab (VS Code-like browser override)
+      if (ctrl && e.altKey && !e.shiftKey && e.key.toLowerCase() === "n") {
         e.preventDefault();
         addFile();
         return;
       }
 
-      // Ctrl+Shift+W — close active tab
-      if (ctrl && e.shiftKey && e.key === "W") {
+      // Ctrl+Alt+W / Cmd+Option+W — close active tab (VS Code-like browser override)
+      if (ctrl && e.altKey && !e.shiftKey && e.key.toLowerCase() === "w") {
         e.preventDefault();
         if (files.length > 1) {
           removeFile(activeTabId);
@@ -140,65 +140,67 @@ export default function App() {
         return;
       }
 
-      // Ctrl+H — toggle query history
-      if (ctrl && !e.shiftKey && e.key === "h") {
+      // Ctrl+H / Cmd+H — toggle query history
+      if (ctrl && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "h") {
         e.preventDefault();
         setShowHistory((p) => !p);
 
-        // hide other two, 
+        // hide other two
         setShowShortcuts(false);
         setShowConnectionModal(false);
         return;
       }
 
-      // Ctrl+/ — show keyboard shortcuts
-      if (ctrl && !e.shiftKey && e.key === "/") {
+      // Ctrl+/ / Cmd+/ — show keyboard shortcuts
+      if (ctrl && !e.altKey && !e.shiftKey && e.key === "/") {
         e.preventDefault();
         setShowShortcuts((p) => !p);
 
-        // hide other two, 
+        // hide other two
         setShowHistory(false);
         setShowConnectionModal(false);
         return;
       }
 
-      // Ctrl+Shift+E — focus file explorer
-      if (ctrl && e.shiftKey && e.key === "E") {
+      // Ctrl+Shift+E / Cmd+Shift+E — focus file explorer
+      if (ctrl && !e.altKey && e.shiftKey && e.key === "E") {
         e.preventDefault();
         handleFocusFileSearch();
         return;
       }
 
-      // Ctrl+Shift+S — focus schema explorer
-      if (ctrl && e.shiftKey && e.key === "S") {
+      // Ctrl+K / Cmd+K — focus schema explorer search
+      if (ctrl && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "k") {
         e.preventDefault();
         handleFocusSchemaSearch();
         return;
       }
 
-      // Ctrl+. — manage Livy hosts
-      if (ctrl && !e.shiftKey && e.key === ".") {
+      // Ctrl+. / Cmd+. — manage Livy hosts
+      if (ctrl && !e.altKey && !e.shiftKey && e.key === ".") {
         e.preventDefault();
         setShowConnectionModal((p) => !p);
 
-        // hide other two, 
+        // hide other two
         setShowShortcuts(false);
         setShowHistory(false);
         return;
       }
 
-      // Ctrl+S — save SQL (clear dirty state)
-      if (ctrl && !e.shiftKey && e.key === "s") {
+      // Ctrl+S / Cmd+S — save SQL (clear dirty state)
+      if (ctrl && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
         saveFile(activeTabId);
         return;
       }
 
-      // Ctrl+PageDown / Ctrl+PageUp — next/prev tab
-      if (ctrl && !e.shiftKey && (e.key === "PageDown" || e.key === "PageUp")) {
+      // Ctrl+PageDown / Ctrl+PageUp or Cmd+Option+ArrowRight / Cmd+Option+ArrowLeft — next/prev tab
+      const isPrevTab = (ctrl && !e.shiftKey && e.key === "PageUp") || (ctrl && e.altKey && !e.shiftKey && e.key === "ArrowLeft");
+      const isNextTab = (ctrl && !e.shiftKey && e.key === "PageDown") || (ctrl && e.altKey && !e.shiftKey && e.key === "ArrowRight");
+      if (isPrevTab || isNextTab) {
         e.preventDefault();
         const idx = files.findIndex((f) => f.id === activeTabId);
-        if (e.key === "PageUp") {
+        if (isPrevTab) {
           const prev = (idx - 1 + files.length) % files.length;
           setActiveTab(files[prev].id);
         } else {
@@ -211,7 +213,7 @@ export default function App() {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [files, activeTabId, setActiveTab, addFile, removeFile, handleFocusFileSearch, handleFocusSchemaSearch]);
+  }, [files, activeTabId, setActiveTab, addFile, removeFile, handleFocusFileSearch, handleFocusSchemaSearch, saveFile]);
 
   // Resizable result panel
   const handleMouseDown = (e) => {
@@ -330,7 +332,54 @@ export default function App() {
         {/* Main Editor + Results Area */}
         <div className="flex flex-col flex-1 min-h-0 min-w-0">
           <TabBar sidebarCollapsed={sidebarCollapsed} setSidebarCollapsed={setSidebarCollapsed} editorRef={editorRef} />
-          <SqlEditor ref={editorRef} onCursorPositionChange={setCursorPosition} theme={theme} onFocusSchemaSearch={handleFocusSchemaSearch} />
+          <SqlEditor
+            ref={editorRef}
+            onCursorPositionChange={setCursorPosition}
+            theme={theme}
+            onFocusSchemaSearch={handleFocusSchemaSearch}
+            onFocusFileSearch={handleFocusFileSearch}
+            onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
+            onToggleResultPanel={() => {
+              setResultHeight((h) => {
+                if (h > 0) {
+                  prevResultHeight.current = h;
+                  return 0;
+                }
+                return prevResultHeight.current || DEFAULT_RESULT_HEIGHT;
+              });
+            }}
+            onNewTab={addFile}
+            onCloseTab={() => {
+              if (files.length > 1) {
+                removeFile(activeTabId);
+              }
+            }}
+            onToggleQueryHistory={() => {
+              setShowHistory((p) => !p);
+              setShowShortcuts(false);
+              setShowConnectionModal(false);
+            }}
+            onToggleShortcuts={() => {
+              setShowShortcuts((p) => !p);
+              setShowHistory(false);
+              setShowConnectionModal(false);
+            }}
+            onToggleConnectionModal={() => {
+              setShowConnectionModal((p) => !p);
+              setShowShortcuts(false);
+              setShowHistory(false);
+            }}
+            onPrevTab={() => {
+              const idx = files.findIndex((f) => f.id === activeTabId);
+              const prev = (idx - 1 + files.length) % files.length;
+              setActiveTab(files[prev].id);
+            }}
+            onNextTab={() => {
+              const idx = files.findIndex((f) => f.id === activeTabId);
+              const next = (idx + 1) % files.length;
+              setActiveTab(files[next].id);
+            }}
+          />
 
           {/* Resize Handle */}
           {resultHeight > 0 && (

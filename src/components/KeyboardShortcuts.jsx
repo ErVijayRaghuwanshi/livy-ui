@@ -3,24 +3,28 @@ import { X, Keyboard } from "lucide-react";
 
 const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 const mod = isMac ? "⌘" : "Ctrl";
+const alt = isMac ? "⌥" : "Alt";
 
 const SHORTCUTS = [
   { keys: [`${mod}+Enter`], description: "Run SQL (selected text or all)" },
-  { keys: [`${mod}+Shift+F`], description: "Format SQL" },
-  { keys: [`${mod}+Shift+M`], description: "Minify SQL to one line" },
+  { keys: [`${mod}+Shift+F`], description: "Format SQL (statement-by-statement)" },
+  { keys: [`${mod}+Shift+M`], description: "Minify SQL (statement-by-statement)" },
+  { keys: [`${mod}+S`], description: "Save SQL file" },
+  { keys: [`${mod}+Shift+A`], description: "Toggle Auto-Save" },
+  { keys: [isMac ? "⌥+Z" : "Alt+Z"], description: "Toggle Word Wrap" },
   { keys: [`${mod}+B`], description: "Toggle sidebar" },
   { keys: [`${mod}+Shift+E`], description: "Focus File Explorer" },
-  { keys: [`${mod}+Shift+S`], description: "Focus Schema Explorer" },
+  { keys: [`${mod}+K`], description: "Focus Schema Explorer" },
   { keys: [`${mod}+.`], description: "Manage Livy hosts" },
   { keys: [`${mod}+\``], description: "Toggle result panel" },
-  { keys: [`${mod}+Shift+N`], description: "New SQL file" },
-  { keys: [`${mod}+Shift+W`], description: "Close active tab" },
-  { keys: [`${mod}+PageUp`], description: "Previous tab" },
-  { keys: [`${mod}+PageDown`], description: "Next tab" },
+  { keys: [isMac ? "⌘+⌥+N" : "Ctrl+Alt+N"], description: "New SQL file" },
+  { keys: [isMac ? "⌘+⌥+W" : "Ctrl+Alt+W"], description: "Close active tab" },
+  { keys: [`${mod}+PageUp`, isMac ? "⌘+⌥+←" : "Ctrl+Alt+←"], description: "Previous tab" },
+  { keys: [`${mod}+PageDown`, isMac ? "⌘+⌥+→" : "Ctrl+Alt+→"], description: "Next tab" },
   { keys: [`${mod}+H`], description: "Query history" },
   { keys: [`${mod}+/`], description: "Show keyboard shortcuts" },
   { keys: ["F2"], description: "Rename file (in File Explorer)" },
-  { keys: ["Del"], description: "Delete file (in File Explorer)" },
+  { keys: isMac ? ["Delete", "Backspace"] : ["Del"], description: "Delete file (in File Explorer)" },
   { keys: ["Esc"], description: "Close modals / dropdowns" },
 ];
 

@@ -9,11 +9,15 @@ const defaultFile = {
   id: "default",
   name: "Untitled.sql",
   content: "-- Write your Spark SQL here\nSELECT 1;\n",
+  lastSavedContent: "-- Write your Spark SQL here\nSELECT 1;\n",
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
 
-const storedFiles = getItem(STORAGE_KEYS.SQL_FILES, [defaultFile]);
+const storedFiles = getItem(STORAGE_KEYS.SQL_FILES, [defaultFile]).map(f => ({
+  ...f,
+  lastSavedContent: f.lastSavedContent || f.content
+}));
 const storedOpenFiles = getItem(STORAGE_KEYS.OPEN_FILES, null);
 
 const initialState = {
@@ -34,6 +38,7 @@ function reducer(state, action) {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
+      newFile.lastSavedContent = newFile.content;
       const shouldOpen = action.payload?.open !== false;
       return {
         ...state,
@@ -78,14 +83,20 @@ function reducer(state, action) {
       };
     }
     case "CLEAR_ALL_DIRTY": {
+      const files = state.files.map(f => ({ ...f, lastSavedContent: f.content }));
       return {
         ...state,
+        files,
         dirtyFiles: {},
       };
     }
     case "SAVE_FILE": {
+      const files = state.files.map((f) =>
+        f.id === action.payload ? { ...f, lastSavedContent: f.content } : f
+      );
       return {
         ...state,
+        files,
         dirtyFiles: {
           ...state.dirtyFiles,
           [action.payload]: false,
@@ -123,7 +134,24 @@ function reducer(state, action) {
         state.activeTabId === fileId
           ? filteredOpen[filteredOpen.length - 1]
           : state.activeTabId;
-      return { ...state, openFiles: filteredOpen, activeTabId: newActiveId };
+
+      const files = state.files.map((f) => {
+        if (f.id === fileId && state.dirtyFiles[fileId]) {
+          return { ...f, content: f.lastSavedContent || f.content };
+        }
+        return f;
+      });
+
+      const nextDirty = { ...state.dirtyFiles };
+      delete nextDirty[fileId];
+
+      return {
+        ...state,
+        files,
+        openFiles: filteredOpen,
+        activeTabId: newActiveId,
+        dirtyFiles: nextDirty,
+      };
     }
     case "REORDER_FILES": {
       const { fromIndex, toIndex } = action.payload;

@@ -169,16 +169,28 @@ SELECT * FROM parquet.`hdfs://namenode/path/to/data` LIMIT 100
 
 ### Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+B` | Toggle sidebar |
-| `` Ctrl+` `` | Toggle result panel |
-| `Ctrl+Enter` | Run SQL |
-| `Ctrl+Shift+F` | Format SQL |
-| `Ctrl+Shift+M` | Minify SQL to one line |
-| `Ctrl+Shift+N` | New tab |
-| `Ctrl+Shift+W` | Close active tab |
-| `Ctrl+PageDown` / `Ctrl+PageUp` | Next / previous tab |
+| Shortcut (Windows/Linux) | Shortcut (macOS) | Action | Scope |
+|--------------------------|------------------|--------|-------|
+| `Ctrl+Enter` | `⌘+Enter` | **Run SQL** (selected text or all) | Global / Editor |
+| `Ctrl+Shift+F` | `⌘+Shift+F` | **Format SQL** (statement-by-statement) | Editor |
+| `Ctrl+Shift+M` | `⌘+Shift+M` | **Minify SQL** (statement-by-statement) | Editor |
+| `Ctrl+S` | `⌘+S` | **Save SQL file** | Editor |
+| `Ctrl+Shift+A` | `⌘+Shift+A` | **Toggle Auto-Save** | Editor |
+| `Alt+Z` | `⌥+Z` | **Toggle Word Wrap** (VS Code style) | Editor |
+| `Ctrl+B` | `⌘+B` | **Toggle sidebar** | Global / Editor |
+| `Ctrl+Shift+E` | `⌘+Shift+E` | **Focus File Explorer** | Global / Editor |
+| `Ctrl+K` | `⌘+K` | **Focus Schema Explorer** | Global / Editor |
+| `` Ctrl+` `` | `` ⌘+` `` | **Toggle result panel** | Global / Editor |
+| `Ctrl+Alt+N` | `⌘+⌥+N` | **New SQL file** (VS Code-like browser override) | Global / Editor |
+| `Ctrl+Alt+W` | `⌘+⌥+W` | **Close active tab** (VS Code-like browser override) | Global / Editor |
+| `Ctrl+PageUp` / `Ctrl+Alt+←` | `⌘+PageUp` / `⌘+⌥+←` | **Previous tab** | Global / Editor |
+| `Ctrl+PageDown` / `Ctrl+Alt+→` | `⌘+PageDown` / `⌘+⌥+→` | **Next tab** | Global / Editor |
+| `Ctrl+H` | `⌘+H` | **Query history** | Global / Editor |
+| `Ctrl+.` | `⌘+.` | **Manage Livy hosts** | Global / Editor |
+| `Ctrl+/` | `⌘+/` | **Show keyboard shortcuts** | Global / Editor |
+| `F2` | `F2` | **Rename file** | File Explorer |
+| `Del` | `Delete` / `Backspace` | **Delete file** | File Explorer |
+| `Esc` | `Esc` | **Close modals / dropdowns** | Global |
 
 ## Docker
 

@@ -282,7 +282,98 @@ function formatElapsedShort(ms) {
   return `${mins}m ${(secs % 60).toFixed(0)}s`;
 }
 
-const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme, onFocusSchemaSearch }, ref) {
+function splitSqlStatements(sql) {
+  const statements = [];
+  let current = "";
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let inBacktick = false;
+  let inSingleLineComment = false;
+  let inMultiLineComment = false;
+
+  for (let i = 0; i < sql.length; i++) {
+    const char = sql[i];
+    const nextChar = sql[i + 1];
+
+    if (inSingleLineComment) {
+      if (char === "\n" || char === "\r") {
+        inSingleLineComment = false;
+      }
+      current += char;
+    } else if (inMultiLineComment) {
+      if (char === "*" && nextChar === "/") {
+        inMultiLineComment = false;
+        current += "*/";
+        i++;
+      } else {
+        current += char;
+      }
+    } else if (inSingleQuote) {
+      if (char === "'" && sql[i - 1] !== "\\") {
+        inSingleQuote = false;
+      }
+      current += char;
+    } else if (inDoubleQuote) {
+      if (char === '"' && sql[i - 1] !== "\\") {
+        inDoubleQuote = false;
+      }
+      current += char;
+    } else if (inBacktick) {
+      if (char === "`" && sql[i - 1] !== "\\") {
+        inBacktick = false;
+      }
+      current += char;
+    } else if (char === "-" && nextChar === "-") {
+      inSingleLineComment = true;
+      current += "--";
+      i++;
+    } else if (char === "/" && nextChar === "*") {
+      inMultiLineComment = true;
+      current += "/*";
+      i++;
+    } else if (char === "'") {
+      inSingleQuote = true;
+      current += char;
+    } else if (char === '"') {
+      inDoubleQuote = true;
+      current += char;
+    } else if (char === "`") {
+      inBacktick = true;
+      current += char;
+    } else if (char === ";") {
+      statements.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  if (current) {
+    statements.push(current);
+  }
+  return statements;
+}
+
+function stripComments(sql) {
+  let result = sql.replace(/\/\*[\s\S]*?\*\//g, "");
+  result = result.split("\n").map(line => line.replace(/--.*$/, "")).join("\n");
+  return result;
+}
+
+const SqlEditor = forwardRef(function SqlEditor({
+  onCursorPositionChange,
+  theme,
+  onFocusSchemaSearch,
+  onFocusFileSearch,
+  onToggleSidebar,
+  onToggleResultPanel,
+  onNewTab,
+  onCloseTab,
+  onToggleQueryHistory,
+  onToggleShortcuts,
+  onToggleConnectionModal,
+  onPrevTab,
+  onNextTab,
+}, ref) {
   const { activeFile, updateContent, setResult, saveFile, toggleAutoSave } = useSqlFiles();
   const activeFileRef = useRef(activeFile);
   const toggleAutoSaveRef = useRef(toggleAutoSave);
@@ -401,6 +492,15 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
     });
 
     editor.addAction({
+      id: "run-sql-monaco",
+      label: "Run SQL",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
+      run: () => {
+        handleRunSqlRef.current?.();
+      },
+    });
+
+    editor.addAction({
       id: "format-sql",
       label: "Format SQL",
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF],
@@ -417,11 +517,11 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
       run: () => handleMinifyRef.current?.(),
     });
 
-    // Word wrap toggle action
+    // Word wrap toggle action (changed to Alt+Z / ⌥+Z for VS Code consistency)
     editor.addAction({
       id: "toggle-word-wrap",
       label: "Toggle Word Wrap",
-      keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.KeyW],
+      keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.KeyZ],
       contextMenuGroupId: "1_sql",
       contextMenuOrder: 3,
       run: () => {
@@ -448,6 +548,122 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK],
       run: () => {
         onFocusSchemaSearch?.();
+      },
+    });
+
+    // Focus File Explorer Search
+    editor.addAction({
+      id: "focus-file-search-action",
+      label: "Focus File Explorer",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyE],
+      run: () => {
+        onFocusFileSearch?.();
+      },
+    });
+
+    // Toggle Sidebar
+    editor.addAction({
+      id: "toggle-sidebar-action",
+      label: "Toggle Sidebar",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB],
+      run: () => {
+        onToggleSidebar?.();
+      },
+    });
+
+    // Toggle Result Panel
+    editor.addAction({
+      id: "toggle-result-panel-action",
+      label: "Toggle Result Panel",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Backquote],
+      run: () => {
+        onToggleResultPanel?.();
+      },
+    });
+
+    // New Tab (Ctrl+Alt+N / Cmd+Option+N)
+    editor.addAction({
+      id: "new-tab-action",
+      label: "New Tab",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyN],
+      run: () => {
+        onNewTab?.();
+      },
+    });
+
+    // Close Tab (Ctrl+Alt+W / Cmd+Option+W)
+    editor.addAction({
+      id: "close-tab-action",
+      label: "Close Tab",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyW],
+      run: () => {
+        onCloseTab?.();
+      },
+    });
+
+    // Previous Tab
+    editor.addAction({
+      id: "prev-tab-action-arrow",
+      label: "Previous Tab (Arrow)",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.LeftArrow],
+      run: () => {
+        onPrevTab?.();
+      },
+    });
+    editor.addAction({
+      id: "prev-tab-action-pgup",
+      label: "Previous Tab",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.PageUp],
+      run: () => {
+        onPrevTab?.();
+      },
+    });
+
+    // Next Tab
+    editor.addAction({
+      id: "next-tab-action-arrow",
+      label: "Next Tab (Arrow)",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.RightArrow],
+      run: () => {
+        onNextTab?.();
+      },
+    });
+    editor.addAction({
+      id: "next-tab-action-pgdn",
+      label: "Next Tab",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.PageDown],
+      run: () => {
+        onNextTab?.();
+      },
+    });
+
+    // Toggle Query History
+    editor.addAction({
+      id: "toggle-query-history-action",
+      label: "Toggle Query History",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH],
+      run: () => {
+        onToggleQueryHistory?.();
+      },
+    });
+
+    // Toggle Keyboard Shortcuts
+    editor.addAction({
+      id: "toggle-shortcuts-action",
+      label: "Toggle Keyboard Shortcuts",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Slash],
+      run: () => {
+        onToggleShortcuts?.();
+      },
+    });
+
+    // Manage Livy Hosts Modal
+    editor.addAction({
+      id: "toggle-connection-modal-action",
+      label: "Manage Livy Hosts",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Period],
+      run: () => {
+        onToggleConnectionModal?.();
       },
     });
 
@@ -488,7 +704,19 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
     const range = new monaco.Range(startLine, 1, endLine, model.getLineMaxColumn(endLine));
     const text = model.getValueInRange(range);
     try {
-      const formatted = format(text, { language: "spark", tabWidth: 2 });
+      const parts = splitSqlStatements(text);
+      const formattedParts = parts.map((part) => {
+        const trimmed = part.trim();
+        if (!trimmed) return "";
+        const withoutComments = stripComments(trimmed).trim();
+        if (!withoutComments) return trimmed;
+        try {
+          return format(trimmed, { language: "spark", tabWidth: 2 });
+        } catch {
+          return trimmed;
+        }
+      });
+      const formatted = formattedParts.filter(p => p !== "").join(";\n\n") + (text.trim().endsWith(";") ? ";" : "");
       editor.executeEdits("format-sql", [{ range, text: formatted }]);
       editor.pushUndoStop();
     } catch { /* ignore */ }
@@ -501,15 +729,27 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
     const model = editor.getModel();
     const range = new monaco.Range(startLine, 1, endLine, model.getLineMaxColumn(endLine));
     const text = model.getValueInRange(range);
-    const minified = text
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
-    editor.executeEdits("minify-sql", [{ range, text: minified }]);
-    editor.pushUndoStop();
+    try {
+      const parts = splitSqlStatements(text);
+      const minifiedParts = parts
+        .map((part) => {
+          const trimmed = part.trim();
+          if (!trimmed) return "";
+          const withoutComments = stripComments(trimmed).trim();
+          if (!withoutComments) return "";
+          return withoutComments
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .join(" ")
+            .replace(/\s+/g, " ")
+            .trim();
+        })
+        .filter(Boolean);
+      const minified = minifiedParts.join(";\n") + (minifiedParts.length > 0 ? ";" : "");
+      editor.executeEdits("minify-sql", [{ range, text: minified }]);
+      editor.pushUndoStop();
+    } catch { /* ignore */ }
   };
 
   const handleFormat = () => {
@@ -518,7 +758,19 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
     if (!editor || !monaco) return;
     const value = editor.getValue();
     try {
-      const formatted = format(value, { language: "spark", tabWidth: 2 });
+      const parts = splitSqlStatements(value);
+      const formattedParts = parts.map((part) => {
+        const trimmed = part.trim();
+        if (!trimmed) return "";
+        const withoutComments = stripComments(trimmed).trim();
+        if (!withoutComments) return trimmed;
+        try {
+          return format(trimmed, { language: "spark", tabWidth: 2 });
+        } catch {
+          return trimmed;
+        }
+      });
+      const formatted = formattedParts.filter(p => p !== "").join(";\n\n") + (value.trim().endsWith(";") ? ";" : "");
       const fullRange = editor.getModel().getFullModelRange();
       editor.executeEdits("format-sql", [{ range: fullRange, text: formatted }]);
       editor.pushUndoStop();
@@ -532,16 +784,30 @@ const SqlEditor = forwardRef(function SqlEditor({ onCursorPositionChange, theme,
     const monaco = monacoRef.current;
     if (!editor || !monaco) return;
     const value = editor.getValue();
-    const minified = value
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
-    const fullRange = editor.getModel().getFullModelRange();
-    editor.executeEdits("minify-sql", [{ range: fullRange, text: minified }]);
-    editor.pushUndoStop();
+    try {
+      const parts = splitSqlStatements(value);
+      const minifiedParts = parts
+        .map((part) => {
+          const trimmed = part.trim();
+          if (!trimmed) return "";
+          const withoutComments = stripComments(trimmed).trim();
+          if (!withoutComments) return "";
+          return withoutComments
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .join(" ")
+            .replace(/\s+/g, " ")
+            .trim();
+        })
+        .filter(Boolean);
+      const minified = minifiedParts.join(";\n") + (minifiedParts.length > 0 ? ";" : "");
+      const fullRange = editor.getModel().getFullModelRange();
+      editor.executeEdits("minify-sql", [{ range: fullRange, text: minified }]);
+      editor.pushUndoStop();
+    } catch {
+      // minify failed, ignore
+    }
   };
 
   const getSelectedOrAll = () => {

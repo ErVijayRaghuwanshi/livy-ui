@@ -29,6 +29,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor }, ref) => {
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
   const searchInputRef = useRef(null);
+  const containerRef = useRef(null);
 
   useImperativeHandle(ref, () => ({
     focusSearch: () => {
@@ -43,6 +44,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor }, ref) => {
   const handleFileClick = (fileId) => {
     setSelectedFileId(fileId);
     openFile(fileId);
+    containerRef.current?.focus();
   };
 
   const handleStartRename = (file, e) => {
@@ -80,7 +82,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor }, ref) => {
   const handleKeyDown = (e) => {
     if (!selectedFileId) return;
 
-    if (e.key === "Delete" && renamingId === null) {
+    if ((e.key === "Delete" || e.key === "Backspace") && renamingId === null) {
       e.preventDefault();
       const file = files.find((f) => f.id === selectedFileId);
       if (file) {
@@ -105,7 +107,12 @@ const FileExplorer = forwardRef(({ onInsertAtCursor }, ref) => {
   const isFileOpen = (fileId) => openFiles.includes(fileId);
 
   return (
-    <div className="flex flex-col h-full bg-(--color-bg-secondary)" onKeyDown={handleKeyDown} tabIndex={0}>
+    <div
+      ref={containerRef}
+      className="flex flex-col h-full bg-(--color-bg-secondary) focus:outline-none"
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border)">
         <span className="text-xs font-semibold text-(--color-text-secondary) uppercase tracking-wide">
