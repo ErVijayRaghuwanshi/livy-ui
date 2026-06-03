@@ -14,6 +14,7 @@ import { SPARK_SQL_KEYWORDS } from "../utils/spark-keywords-data";
 import { SPARK_SQL_SNIPPETS } from "../utils/spark_sql_snippets";
 import { useToast } from "./Toast";
 import { addHistoryEntry } from "./QueryHistory";
+import { v4 as uuidv4 } from "uuid";
 
 // Configure Monaco to use local files instead of CDN
 loader.config({ monaco });
@@ -375,7 +376,7 @@ const SqlEditor = forwardRef(function SqlEditor({
   onNextTab,
   onRestoreTab,
 }, ref) {
-  const { activeFile, updateContent, setResult, saveFile, toggleAutoSave } = useSqlFiles();
+  const { activeFile, updateContent, setResult, saveFile, toggleAutoSave, activeResultId } = useSqlFiles();
   const activeFileRef = useRef(activeFile);
   const toggleAutoSaveRef = useRef(toggleAutoSave);
 
@@ -875,7 +876,8 @@ const SqlEditor = forwardRef(function SqlEditor({
     const startTime = performance.now();
     let finalStatus = null;
     let finalError = null;
-    setResult(activeFile.id, { status: "running", data: null, error: null, elapsed: null, startTime });
+    const executionId = activeResultId || uuidv4();
+    setResult(activeFile.id, { status: "running", data: null, error: null, elapsed: null, startTime, sql }, executionId);
 
     if (startLine && endLine) {
       setRunningHighlight(startLine, endLine);
@@ -890,7 +892,7 @@ const SqlEditor = forwardRef(function SqlEditor({
         if (abortRef.current) {
           await livyApi.cancelStatement(sessionId, stmtId);
           finalStatus = "cancelled";
-          setResult(activeFile.id, { status: "cancelled", data: null, error: "Query cancelled", elapsed: performance.now() - startTime });
+          setResult(activeFile.id, { status: "cancelled", data: null, error: "Query cancelled", elapsed: performance.now() - startTime, sql }, executionId);
           break;
         }
 
@@ -900,7 +902,7 @@ const SqlEditor = forwardRef(function SqlEditor({
           const output = result.output;
           if (output.status === "ok") {
             finalStatus = "ok";
-            setResult(activeFile.id, { status: "ok", data: output.data, error: null, elapsed: performance.now() - startTime });
+            setResult(activeFile.id, { status: "ok", data: output.data, error: null, elapsed: performance.now() - startTime, sql }, executionId);
             
             // Trigger schema refresh if this was a DDL operation
             if (isDDLOperation(sql)) {
@@ -914,7 +916,8 @@ const SqlEditor = forwardRef(function SqlEditor({
               data: null,
               error: finalError,
               elapsed: performance.now() - startTime,
-            });
+              sql,
+            }, executionId);
           }
           break;
         }
@@ -927,7 +930,8 @@ const SqlEditor = forwardRef(function SqlEditor({
             data: null,
             error: finalError,
             elapsed: performance.now() - startTime,
-          });
+            sql,
+          }, executionId);
           break;
         }
 
@@ -936,7 +940,7 @@ const SqlEditor = forwardRef(function SqlEditor({
     } catch (err) {
       finalStatus = "error";
       finalError = err.message;
-      setResult(activeFile.id, { status: "error", data: null, error: err.message, elapsed: performance.now() - startTime });
+      setResult(activeFile.id, { status: "error", data: null, error: err.message, elapsed: performance.now() - startTime, sql }, executionId);
     } finally {
       clearRunningHighlight();
       setRunning(false);

@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import Navbar from "./components/Navbar";
+import TitleBar from "./components/TitleBar";
+import ActivityBar from "./components/ActivityBar";
+import CommandPalette from "./components/CommandPalette";
+import ConnectionModal from "./components/ConnectionModal";
 import TabBar from "./components/TabBar";
 import SqlEditor from "./components/SqlEditor";
 import ResultTable from "./components/ResultTable";
@@ -18,6 +21,9 @@ const DEFAULT_RESULT_HEIGHT = 250;
 
 export default function App() {
   const { activeFile, activeResult, files, activeTabId, setActiveTab, addFile, removeFile, saveFile, restoreLastClosedTab, closedTabsHistory, requestCloseFile } = useSqlFiles();
+
+  const [activeSidebarTab, setActiveSidebarTab] = useState("files");
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem(SIDEBAR_CACHE_KEY);
@@ -83,6 +89,13 @@ export default function App() {
   useEffect(() => {
     const handleKeyDown = (e) => {
       const ctrl = e.ctrlKey || e.metaKey;
+
+      // Ctrl+P / Cmd+P — Toggle Command Palette
+      if (ctrl && !e.altKey && !e.shiftKey && (e.key.toLowerCase() === "p" || e.code === "KeyP")) {
+        e.preventDefault();
+        setShowCommandPalette((p) => !p);
+        return;
+      }
 
       // Ctrl+B / Cmd+B — toggle sidebar
       if (ctrl && !e.altKey && !e.shiftKey && (e.key.toLowerCase() === "b" || e.code === "KeyB")) {
@@ -164,6 +177,7 @@ export default function App() {
       // Ctrl+Shift+E / Cmd+Shift+E — focus file explorer
       if (ctrl && !e.altKey && e.shiftKey && (e.key.toLowerCase() === "e" || e.code === "KeyE")) {
         e.preventDefault();
+        setActiveSidebarTab("files");
         handleFocusFileSearch();
         return;
       }
@@ -171,6 +185,7 @@ export default function App() {
       // Ctrl+Shift+K / Cmd+Shift+K — focus schema explorer search
       if (ctrl && !e.altKey && e.shiftKey && (e.key.toLowerCase() === "k" || e.code === "KeyK")) {
         e.preventDefault();
+        setActiveSidebarTab("schema");
         handleFocusSchemaSearch();
         return;
       }
@@ -222,7 +237,7 @@ export default function App() {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [files, activeTabId, setActiveTab, addFile, removeFile, handleFocusFileSearch, handleFocusSchemaSearch, saveFile, restoreLastClosedTab, requestCloseFile]);
+  }, [files, activeTabId, setActiveTab, addFile, removeFile, handleFocusFileSearch, handleFocusSchemaSearch, saveFile, restoreLastClosedTab, requestCloseFile, setActiveSidebarTab, setShowCommandPalette]);
 
   // Resizable result panel
   const handleMouseDown = (e) => {
@@ -312,21 +327,43 @@ export default function App() {
           editorRef.current?.runSql(sql);
         }}
       />
-      <Navbar 
-        theme={theme} 
+      <CommandPalette
+        isOpen={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
         toggleTheme={toggleTheme}
-        showConnectionModal={showConnectionModal}
+        setSidebarCollapsed={setSidebarCollapsed}
+        setShowShortcuts={setShowShortcuts}
+        setShowHistory={setShowHistory}
         setShowConnectionModal={setShowConnectionModal}
+        editorRef={editorRef}
+      />
+      <ConnectionModal isOpen={showConnectionModal} onClose={() => setShowConnectionModal(false)} />
+      <TitleBar
+        onOpenCommandPalette={() => setShowCommandPalette(true)}
+        onShowShortcuts={() => setShowShortcuts(true)}
       />
 
       <div className={`flex flex-1 min-h-0 ${isSidebarDragging ? "select-none" : ""}`}>
-        {/* Sidebar with Files and Schema tabs */}
+        {/* Activity Bar on the far left */}
+        <ActivityBar
+          activeTab={activeSidebarTab}
+          setActiveTab={setActiveSidebarTab}
+          sidebarCollapsed={sidebarCollapsed}
+          setSidebarCollapsed={setSidebarCollapsed}
+        />
+
+        {/* Sidebar tabs */}
         <SidebarTabs
           ref={sidebarTabsRef}
+          activeTab={activeSidebarTab}
           collapsed={sidebarCollapsed}
           setCollapsed={setSidebarCollapsed}
           onInsertAtCursor={handleInsertAtCursor}
           width={sidebarWidth}
+          theme={theme}
+          toggleTheme={toggleTheme}
+          showConnectionModal={showConnectionModal}
+          setShowConnectionModal={setShowConnectionModal}
         />
 
         {!sidebarCollapsed && (

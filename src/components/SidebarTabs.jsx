@@ -1,13 +1,25 @@
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
-import { FileCode, Database, ChevronDown, ChevronRight, CircleMinus, RefreshCw, FilePlus, Loader2, X } from "lucide-react";
+import { FileCode, ChevronDown, ChevronRight, CircleMinus, RefreshCw, FilePlus, Loader2, X, PanelLeftClose } from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import SchemaExplorer from "./SchemaExplorer";
+import SearchPanel from "./SearchPanel";
+import SettingsPanel from "./SettingsPanel";
 import { useSchema } from "../context/SchemaContext";
 import { useSqlFiles } from "../context/SqlFilesContext";
 import { useLivy } from "../context/LivyContext";
 import { SESSION_STATES } from "../utils/constants";
 
-const SidebarTabs = forwardRef(({ collapsed, setCollapsed, onInsertAtCursor, width }, ref) => {
+const SidebarTabs = forwardRef(({
+  activeTab,
+  collapsed,
+  setCollapsed,
+  onInsertAtCursor,
+  width,
+  theme,
+  toggleTheme,
+  showConnectionModal,
+  setShowConnectionModal
+}, ref) => {
   const { 
     files, 
     openFiles, 
@@ -29,7 +41,7 @@ const SidebarTabs = forwardRef(({ collapsed, setCollapsed, onInsertAtCursor, wid
 
   const [expandedSections, setExpandedSections] = useState(() => {
     const saved = localStorage.getItem("livy-sidebar-expanded-sections");
-    return saved ? JSON.parse(saved) : { openEditors: true, files: true, schema: false };
+    return saved ? JSON.parse(saved) : { openEditors: true, files: true };
   });
 
   useEffect(() => {
@@ -45,28 +57,17 @@ const SidebarTabs = forwardRef(({ collapsed, setCollapsed, onInsertAtCursor, wid
 
   useImperativeHandle(ref, () => ({
     focusFileSearch: () => {
-      const isExplorerFocused = document.activeElement && document.activeElement.closest(".livy-file-explorer");
-      if (!collapsed && expandedSections.files && isExplorerFocused) {
-        setCollapsed(true);
-      } else {
-        setCollapsed(false);
-        setExpandedSections((prev) => ({ ...prev, files: true }));
-        setTimeout(() => {
-          fileExplorerRef.current?.focusSearch();
-        }, 100);
-      }
+      setCollapsed(false);
+      setExpandedSections((prev) => ({ ...prev, files: true }));
+      setTimeout(() => {
+        fileExplorerRef.current?.focusSearch();
+      }, 100);
     },
     focusSchemaSearch: () => {
-      const isExplorerFocused = document.activeElement && document.activeElement.closest(".livy-schema-explorer");
-      if (!collapsed && expandedSections.schema && isExplorerFocused) {
-        setCollapsed(true);
-      } else {
-        setCollapsed(false);
-        setExpandedSections((prev) => ({ ...prev, schema: true }));
-        setTimeout(() => {
-          schemaExplorerRef.current?.focusSearch();
-        }, 100);
-      }
+      setCollapsed(false);
+      setTimeout(() => {
+        schemaExplorerRef.current?.focusSearch();
+      }, 100);
     },
   }));
 
@@ -74,6 +75,100 @@ const SidebarTabs = forwardRef(({ collapsed, setCollapsed, onInsertAtCursor, wid
     return null;
   }
 
+  // 1. SETTINGS PANEL TAB
+  if (activeTab === "settings") {
+    return (
+      <div
+        style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
+        className="flex flex-col bg-(--color-bg-secondary) shrink-0 overflow-hidden border-r border-(--color-border) h-full"
+      >
+        <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border) bg-(--color-bg-secondary)/10">
+          <span className="text-[11px] font-bold text-(--color-text-primary) uppercase tracking-wider">
+            Settings
+          </span>
+          <button
+            onClick={() => setCollapsed(true)}
+            className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-secondary) transition-colors cursor-pointer"
+            title="Collapse Sidebar (Ctrl+B)"
+          >
+            <PanelLeftClose size={13} />
+          </button>
+        </div>
+        <SettingsPanel
+          theme={theme}
+          toggleTheme={toggleTheme}
+          showConnectionModal={showConnectionModal}
+          setShowConnectionModal={setShowConnectionModal}
+        />
+      </div>
+    );
+  }
+
+  // 2. SEARCH PANEL TAB
+  if (activeTab === "search") {
+    return (
+      <div
+        style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
+        className="flex flex-col bg-(--color-bg-secondary) shrink-0 overflow-hidden border-r border-(--color-border) h-full"
+      >
+        <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border) bg-(--color-bg-secondary)/10">
+          <span className="text-[11px] font-bold text-(--color-text-primary) uppercase tracking-wider">
+            Search
+          </span>
+          <button
+            onClick={() => setCollapsed(true)}
+            className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-secondary) transition-colors cursor-pointer"
+            title="Collapse Sidebar (Ctrl+B)"
+          >
+            <PanelLeftClose size={13} />
+          </button>
+        </div>
+        <SearchPanel />
+      </div>
+    );
+  }
+
+  // 3. SCHEMA PANEL TAB (Independent Tab)
+  if (activeTab === "schema") {
+    return (
+      <div
+        style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
+        className="flex flex-col bg-(--color-bg-secondary) shrink-0 overflow-hidden border-r border-(--color-border) h-full"
+      >
+        <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border) bg-(--color-bg-secondary)/10">
+          <span className="text-[11px] font-bold text-(--color-text-primary) uppercase tracking-wider">
+            Schema Explorer
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => refreshSchema()}
+              disabled={!isLivyReady || loading._dbs}
+              className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors disabled:opacity-30 cursor-pointer"
+              title="Refresh Schema"
+            >
+              {loading._dbs ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <RefreshCw size={13} />
+              )}
+            </button>
+            <button
+              onClick={() => setCollapsed(true)}
+              className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-secondary) transition-colors cursor-pointer"
+              title="Collapse Sidebar (Ctrl+B)"
+            >
+              <PanelLeftClose size={13} />
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 min-h-0">
+          <SchemaExplorer ref={schemaExplorerRef} onInsertAtCursor={onInsertAtCursor} showHeader={false} />
+        </div>
+      </div>
+    );
+  }
+
+  // 4. FILES / EXPLORER PANEL TAB (Default)
   const openFilesData = openFiles.map((id) => files.find((f) => f.id === id)).filter(Boolean);
 
   return (
@@ -81,6 +176,19 @@ const SidebarTabs = forwardRef(({ collapsed, setCollapsed, onInsertAtCursor, wid
       style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
       className="flex flex-col bg-(--color-bg-secondary) shrink-0 overflow-hidden border-r border-(--color-border) h-full"
     >
+      <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border) bg-(--color-bg-secondary)/10">
+        <span className="text-[11px] font-bold text-(--color-text-primary) uppercase tracking-wider">
+          Explorer
+        </span>
+        <button
+          onClick={() => setCollapsed(true)}
+          className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-secondary) transition-colors cursor-pointer"
+          title="Collapse Sidebar (Ctrl+B)"
+        >
+          <PanelLeftClose size={13} />
+        </button>
+      </div>
+
       {/* 1. OPEN EDITORS Section */}
       <div className={`flex flex-col border-b border-(--color-border) ${expandedSections.openEditors ? "max-h-[250px] shrink-0" : "h-auto"}`}>
         <div 
@@ -104,7 +212,7 @@ const SidebarTabs = forwardRef(({ collapsed, setCollapsed, onInsertAtCursor, wid
                 e.stopPropagation();
                 closeAllFiles();
               }}
-              className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-error) transition-colors opacity-0 group-hover:opacity-100"
+              className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-error) transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
               title="Close All Editors"
             >
               <CircleMinus size={13} />
@@ -146,7 +254,7 @@ const SidebarTabs = forwardRef(({ collapsed, setCollapsed, onInsertAtCursor, wid
                         )}
                         <button
                           onClick={() => requestCloseFile(file.id)}
-                          className={`p-0.5 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-error) transition-colors ${
+                          className={`p-0.5 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-error) transition-colors cursor-pointer ${
                             isDirty ? "hidden group-hover:flex" : "opacity-0 group-hover:opacity-100 flex"
                           }`}
                           title="Close Tab"
@@ -181,7 +289,7 @@ const SidebarTabs = forwardRef(({ collapsed, setCollapsed, onInsertAtCursor, wid
               setExpandedSections((prev) => ({ ...prev, files: true }));
               addFile();
             }}
-            className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors opacity-0 group-hover:opacity-100"
+            className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
             title="New SQL File"
           >
             <FilePlus size={13} />
@@ -191,43 +299,6 @@ const SidebarTabs = forwardRef(({ collapsed, setCollapsed, onInsertAtCursor, wid
         {expandedSections.files && (
           <div className="flex-1 min-h-0 border-t border-(--color-border)/35">
             <FileExplorer ref={fileExplorerRef} onInsertAtCursor={onInsertAtCursor} showHeaderFooter={false} />
-          </div>
-        )}
-      </div>
-
-      {/* 3. SCHEMA Section */}
-      <div className={`flex flex-col ${expandedSections.schema ? "flex-1 min-h-[150px]" : "h-auto"}`}>
-        <div 
-          onClick={() => toggleSection("schema")}
-          className="flex items-center justify-between px-2 py-1.5 bg-(--color-bg-secondary) hover:bg-(--color-bg-tertiary)/15 cursor-pointer select-none group"
-        >
-          <div className="flex items-center gap-1">
-            {expandedSections.schema ? <ChevronDown size={14} className="text-(--color-text-muted)" /> : <ChevronRight size={14} className="text-(--color-text-muted)" />}
-            <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wider">
-              Schema Explorer
-            </span>
-          </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpandedSections((prev) => ({ ...prev, schema: true }));
-              refreshSchema();
-            }}
-            disabled={!isLivyReady || loading._dbs}
-            className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-30"
-            title="Refresh Schema"
-          >
-            {loading._dbs ? (
-              <Loader2 size={13} className="animate-spin" />
-            ) : (
-              <RefreshCw size={13} />
-            )}
-          </button>
-        </div>
-
-        {expandedSections.schema && (
-          <div className="flex-1 min-h-0 border-t border-(--color-border)/35">
-            <SchemaExplorer ref={schemaExplorerRef} onInsertAtCursor={onInsertAtCursor} showHeader={false} />
           </div>
         )}
       </div>

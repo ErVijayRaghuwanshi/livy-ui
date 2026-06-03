@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { AlertCircle, Loader2, Table, CheckCircle2, Ban, Clock, FileText, Copy, Check, Download, Search, X, FilterX, Hash, Type, Calendar, ToggleLeft, Binary, List, Braces, ChevronDown } from "lucide-react";
+import { AlertCircle, Loader2, Table, CheckCircle2, Ban, Clock, FileText, Copy, Check, Download, Search, X, FilterX, Hash, Type, Calendar, ToggleLeft, Binary, List, Braces, ChevronDown, Trash2, Plus, History } from "lucide-react";
+import { useSqlFiles } from "../context/SqlFilesContext";
 
 function getDataTypeIcon(type) {
   if (!type) return null;
@@ -226,7 +227,7 @@ function DownloadButtons({ getCsv, getJson, className = "" }) {
   );
 }
 
-export default function ResultTable({ result, onClose, onMaximizeToggle, isMaximized }) {
+function ActiveResultView({ result, onClose, onMaximizeToggle, isMaximized, onToggleHistory, historyVisible }) {
   if (!result) {
     return (
       <div className="flex items-center justify-center h-full text-(--color-text-muted) text-sm select-none">
@@ -251,6 +252,17 @@ export default function ResultTable({ result, onClose, onMaximizeToggle, isMaxim
             {result.startTime && <LiveTimer startTime={result.startTime} />}
           </div>
           <div className="flex items-center gap-2 h-full">
+            {onToggleHistory && (
+              <button
+                onClick={onToggleHistory}
+                className={`p-1 rounded hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer ${
+                  historyVisible ? "text-(--color-accent)" : "text-(--color-text-secondary)"
+                }`}
+                title={historyVisible ? "Hide Run History" : "Show Run History"}
+              >
+                <History size={13} />
+              </button>
+            )}
             {onMaximizeToggle && (
               <button
                 onClick={onMaximizeToggle}
@@ -298,6 +310,17 @@ export default function ResultTable({ result, onClose, onMaximizeToggle, isMaxim
             <ElapsedBadge elapsed={result.elapsed} />
           </div>
           <div className="flex items-center gap-2 h-full">
+            {onToggleHistory && (
+              <button
+                onClick={onToggleHistory}
+                className={`p-1 rounded hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer ${
+                  historyVisible ? "text-(--color-accent)" : "text-(--color-text-secondary)"
+                }`}
+                title={historyVisible ? "Hide Run History" : "Show Run History"}
+              >
+                <History size={13} />
+              </button>
+            )}
             {onMaximizeToggle && (
               <button
                 onClick={onMaximizeToggle}
@@ -347,6 +370,17 @@ export default function ResultTable({ result, onClose, onMaximizeToggle, isMaxim
           <div className="flex items-center gap-2 h-full">
             <CopyButton getText={() => result.error} className="hover:bg-(--color-bg-tertiary) h-7" />
             {(onMaximizeToggle || onClose) && <div className="h-4 w-px bg-(--color-border) mx-1" />}
+            {onToggleHistory && (
+              <button
+                onClick={onToggleHistory}
+                className={`p-1 rounded hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer ${
+                  historyVisible ? "text-(--color-accent)" : "text-(--color-text-secondary)"
+                }`}
+                title={historyVisible ? "Hide Run History" : "Show Run History"}
+              >
+                <History size={13} />
+              </button>
+            )}
             {onMaximizeToggle && (
               <button
                 onClick={onMaximizeToggle}
@@ -387,7 +421,7 @@ export default function ResultTable({ result, onClose, onMaximizeToggle, isMaxim
 
     // Try to render as a table if we have structured JSON data
     if (jsonData) {
-      return <JsonTable data={jsonData} elapsed={result.elapsed} onClose={onClose} onMaximizeToggle={onMaximizeToggle} isMaximized={isMaximized} />;
+      return <JsonTable data={jsonData} elapsed={result.elapsed} onClose={onClose} onMaximizeToggle={onMaximizeToggle} isMaximized={isMaximized} onToggleHistory={onToggleHistory} historyVisible={historyVisible} />;
     }
 
     // Render text output
@@ -411,6 +445,17 @@ export default function ResultTable({ result, onClose, onMaximizeToggle, isMaxim
               <CopyButton getText={() => textData} className="hover:bg-(--color-bg-tertiary) h-7" />
               <DownloadButtons getCsv={() => textData} className="h-7" />
               {(onMaximizeToggle || onClose) && <div className="h-4 w-px bg-(--color-border) mx-1" />}
+              {onToggleHistory && (
+                <button
+                  onClick={onToggleHistory}
+                  className={`p-1 rounded hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer ${
+                    historyVisible ? "text-(--color-accent)" : "text-(--color-text-secondary)"
+                  }`}
+                  title={historyVisible ? "Hide Run History" : "Show Run History"}
+                >
+                  <History size={13} />
+                </button>
+              )}
               {onMaximizeToggle && (
                 <button
                   onClick={onMaximizeToggle}
@@ -456,6 +501,209 @@ export default function ResultTable({ result, onClose, onMaximizeToggle, isMaxim
   return null;
 }
 
+export default function ResultTable({ onClose, onMaximizeToggle, isMaximized }) {
+  const { activeFileResultsList, activeResultId, selectResult, deleteResult, clearFileResults, createResultSession, activeTabId } = useSqlFiles();
+  const [historyVisible, setHistoryVisible] = useState(() => {
+    try {
+      const saved = localStorage.getItem("livy-result-history-visible");
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch (e) {
+      return true;
+    }
+  });
+
+  const toggleHistory = useCallback(() => {
+    setHistoryVisible(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem("livy-result-history-visible", JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  }, []);
+
+  const list = activeFileResultsList || [];
+  const activeResult = list.find(r => r.id === activeResultId) || null;
+
+  if (list.length === 0) {
+    return (
+      <div className="flex flex-col h-full bg-(--color-bg-secondary)">
+        <div className="flex items-center justify-between border-b border-(--color-border) shrink-0 h-9 px-3 bg-(--color-bg-secondary) select-none">
+          <div className="flex items-center h-full">
+            <span className="text-xs font-semibold text-(--color-text-secondary)">No Results</span>
+          </div>
+          <div className="flex items-center gap-2 h-full">
+            {onMaximizeToggle && (
+              <button
+                onClick={onMaximizeToggle}
+                className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) transition-colors cursor-pointer"
+                title={isMaximized ? "Restore Height" : "Maximize Panel"}
+              >
+                {isMaximized ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/></svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                )}
+              </button>
+            )}
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) hover:text-red-500 transition-colors cursor-pointer"
+                title="Close Panel (Ctrl+`)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center text-(--color-text-muted) text-sm select-none">
+          <Table size={16} className="mr-2 animate-pulse" />
+          Run a query to see results
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full bg-(--color-bg-secondary) overflow-hidden">
+      {/* Left panel: Active result display */}
+      <div className="flex-1 min-w-0 h-full overflow-hidden relative">
+        {activeResult && activeResult.status !== "idle" ? (
+          <ActiveResultView
+            result={activeResult}
+            onClose={onClose}
+            onMaximizeToggle={onMaximizeToggle}
+            isMaximized={isMaximized}
+            onToggleHistory={toggleHistory}
+            historyVisible={historyVisible}
+          />
+        ) : (
+          <div className="flex flex-col h-full bg-(--color-bg-secondary)">
+            <div className="flex items-center justify-between border-b border-(--color-border) shrink-0 h-9 px-3 bg-(--color-bg-secondary) select-none">
+              <div className="flex items-center h-full">
+                <span className="text-xs font-semibold text-(--color-text-secondary)">
+                  {activeResult ? "New Run Session" : "No Active Result"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 h-full">
+                <button
+                  onClick={toggleHistory}
+                  className={`p-1 rounded hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer ${
+                    historyVisible ? "text-(--color-accent)" : "text-(--color-text-secondary)"
+                  }`}
+                  title={historyVisible ? "Hide Run History" : "Show Run History"}
+                >
+                  <History size={13} />
+                </button>
+                {onMaximizeToggle && (
+                  <button
+                    onClick={onMaximizeToggle}
+                    className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) transition-colors cursor-pointer"
+                    title={isMaximized ? "Restore Height" : "Maximize Panel"}
+                  >
+                    {isMaximized ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/></svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                    )}
+                  </button>
+                )}
+                {onClose && (
+                  <button
+                    onClick={onClose}
+                    className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) hover:text-red-500 transition-colors cursor-pointer"
+                    title="Close Panel (Ctrl+`)"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="flex-1 flex items-center justify-center text-(--color-text-muted) text-sm select-none">
+              <Table size={16} className="mr-2 animate-pulse" />
+              {activeResult ? "Run a query in this session to see results" : "Select a query execution to view results"}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Right panel: VS Code terminal style selector */}
+      {historyVisible && (
+        <div className="w-[180px] shrink-0 border-l border-(--color-border) bg-(--color-bg-secondary) flex flex-col h-full overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border) text-[10px] font-bold text-(--color-text-secondary) tracking-wider uppercase bg-(--color-bg-secondary) select-none h-9 shrink-0">
+            <span>Run History</span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => createResultSession(activeTabId)}
+                className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors cursor-pointer flex items-center justify-center"
+                title="New run session"
+              >
+                <Plus size={12} />
+              </button>
+              <button
+                onClick={() => clearFileResults(activeTabId)}
+                className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) hover:text-red-500 transition-colors cursor-pointer flex items-center justify-center"
+                title="Clear run history"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto py-1">
+            {list.map((item, idx) => {
+              const isActive = item.id === activeResultId;
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => selectResult(activeTabId, item.id)}
+                  className={`group flex items-center justify-between px-3 py-1.5 cursor-pointer text-xs select-none transition-colors border-l-2 ${
+                    isActive
+                      ? "bg-(--color-bg-tertiary) text-(--color-text-primary) border-(--color-accent)"
+                      : "text-(--color-text-secondary) border-transparent hover:bg-(--color-bg-tertiary)/50 hover:text-(--color-text-primary)"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    {/* Status Icon */}
+                    {item.status === "idle" && <Table size={12} className="text-(--color-text-muted) shrink-0" />}
+                    {item.status === "running" && <Loader2 size={12} className="animate-spin text-(--color-warning) shrink-0" />}
+                    {item.status === "ok" && <Check size={12} className="text-(--color-success) shrink-0" />}
+                    {item.status === "error" && <AlertCircle size={12} className="text-(--color-error) shrink-0" />}
+                    {item.status === "cancelled" && <Ban size={12} className="text-(--color-text-muted) shrink-0" />}
+
+                    <div className="flex flex-col min-w-0 leading-tight">
+                      <span className="font-semibold text-[9px] text-(--color-text-muted) flex items-center gap-1">
+                        <span>Run #{idx + 1}</span>
+                        <span>•</span>
+                        <span>{item.timestamp}</span>
+                      </span>
+                      <span className="truncate text-[10.5px] font-mono mt-0.5" title={item.sql}>
+                        {item.sql || "Empty query"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Delete button, visible on hover */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteResult(activeTabId, item.id);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-secondary) hover:text-red-500 transition-all cursor-pointer shrink-0 ml-1 flex items-center justify-center"
+                    title="Remove from history"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const PLAN_OPERATORS = [
   "AdaptiveSparkPlan", "Project", "Filter", "BroadcastHashJoin", "SortMergeJoin",
   "ShuffledHashJoin", "CartesianProduct", "Exchange", "BroadcastExchange",
@@ -489,7 +737,7 @@ function highlightPlanLine(line) {
   return parts;
 }
 
-function ExplainPlan({ planText, elapsed, onClose, onMaximizeToggle, isMaximized }) {
+function ExplainPlan({ planText, elapsed, onClose, onMaximizeToggle, isMaximized, onToggleHistory, historyVisible }) {
   const lines = planText.split("\n");
 
   return (
@@ -513,6 +761,17 @@ function ExplainPlan({ planText, elapsed, onClose, onMaximizeToggle, isMaximized
           <CopyButton getText={() => planText} className="hover:bg-(--color-bg-tertiary) h-7" />
           <DownloadButtons getCsv={() => planText} className="h-7" />
           {(onMaximizeToggle || onClose) && <div className="h-4 w-px bg-(--color-border) mx-1" />}
+          {onToggleHistory && (
+            <button
+              onClick={onToggleHistory}
+              className={`p-1.5 rounded hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer ${
+                historyVisible ? "text-(--color-accent)" : "text-(--color-text-secondary)"
+              }`}
+              title={historyVisible ? "Hide Run History" : "Show Run History"}
+            >
+              <History size={13} />
+            </button>
+          )}
           {onMaximizeToggle && (
             <button
               onClick={onMaximizeToggle}
@@ -606,7 +865,7 @@ function estimateInitialColumnWidths(data) {
   return initialWidths;
 }
 
-function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
+function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized, onToggleHistory, historyVisible }) {
   const scrollRef = useRef(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewHeight, setViewHeight] = useState(400);
@@ -655,7 +914,7 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
 
   if (isExplainResult(data)) {
     const planText = Array.isArray(data.data[0]) ? data.data[0][0] : data.data[0].plan;
-    return <ExplainPlan planText={planText} elapsed={elapsed} onClose={onClose} onMaximizeToggle={onMaximizeToggle} isMaximized={isMaximized} />;
+    return <ExplainPlan planText={planText} elapsed={elapsed} onClose={onClose} onMaximizeToggle={onMaximizeToggle} isMaximized={isMaximized} onToggleHistory={onToggleHistory} historyVisible={historyVisible} />;
   }
 
   if (!(data && data.schema && data.data)) {
@@ -937,6 +1196,17 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
 
           {/* Panel Layout Controls */}
           {(onMaximizeToggle || onClose) && <div className="h-4 w-px bg-(--color-border) mx-1" />}
+          {onToggleHistory && (
+            <button
+              onClick={onToggleHistory}
+              className={`p-1.5 rounded hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer ${
+                historyVisible ? "text-(--color-accent)" : "text-(--color-text-secondary)"
+              }`}
+              title={historyVisible ? "Hide Run History" : "Show Run History"}
+            >
+              <History size={13} />
+            </button>
+          )}
 
           {onMaximizeToggle && (
             <button

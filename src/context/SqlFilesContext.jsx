@@ -115,8 +115,111 @@ function reducer(state, action) {
     }
     case "SET_ACTIVE_TAB":
       return { ...state, activeTabId: action.payload };
-    case "SET_RESULT":
-      return { ...state, results: { ...state.results, [action.payload.id]: action.payload.result } };
+    case "SET_RESULT": {
+      const { id: fileId, result, executionId } = action.payload;
+      const fileResults = state.results[fileId] || { list: [], activeResultId: null };
+      
+      let newList = [...fileResults.list];
+      const existingIdx = newList.findIndex(item => item.id === executionId);
+      
+      const updatedItem = {
+        id: executionId,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        ...result,
+      };
+      
+      if (existingIdx >= 0) {
+        newList[existingIdx] = {
+          ...newList[existingIdx],
+          ...updatedItem
+        };
+      } else {
+        newList.push(updatedItem);
+      }
+      
+      return {
+        ...state,
+        results: {
+          ...state.results,
+          [fileId]: {
+            list: newList,
+            activeResultId: executionId
+          }
+        }
+      };
+    }
+    case "SELECT_RESULT": {
+      const { fileId, executionId } = action.payload;
+      const fileResults = state.results[fileId] || { list: [], activeResultId: null };
+      return {
+        ...state,
+        results: {
+          ...state.results,
+          [fileId]: {
+            ...fileResults,
+            activeResultId: executionId
+          }
+        }
+      };
+    }
+    case "DELETE_RESULT": {
+      const { fileId, executionId } = action.payload;
+      const fileResults = state.results[fileId] || { list: [], activeResultId: null };
+      const newList = fileResults.list.filter(item => item.id !== executionId);
+      
+      let newActiveId = fileResults.activeResultId;
+      if (newActiveId === executionId) {
+        newActiveId = newList.length > 0 ? newList[newList.length - 1].id : null;
+      }
+      
+      return {
+        ...state,
+        results: {
+          ...state.results,
+          [fileId]: {
+            list: newList,
+            activeResultId: newActiveId
+          }
+        }
+      };
+    }
+    case "CLEAR_FILE_RESULTS": {
+      const fileId = action.payload;
+      return {
+        ...state,
+        results: {
+          ...state.results,
+          [fileId]: {
+            list: [],
+            activeResultId: null
+          }
+        }
+      };
+    }
+    case "CREATE_RESULT_SESSION": {
+      const fileId = action.payload;
+      const fileResults = state.results[fileId] || { list: [], activeResultId: null };
+      const newSessionId = uuidv4();
+      const newSession = {
+        id: newSessionId,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        status: "idle",
+        data: null,
+        error: null,
+        elapsed: null,
+        sql: "New Session"
+      };
+      return {
+        ...state,
+        results: {
+          ...state.results,
+          [fileId]: {
+            list: [...fileResults.list, newSession],
+            activeResultId: newSessionId
+          }
+        }
+      };
+    }
     case "OPEN_FILE": {
       const fileId = action.payload;
       const nextClosedHistory = (state.closedTabsHistory || []).filter((id) => id !== fileId);
@@ -268,7 +371,11 @@ export function SqlFilesProvider({ children }) {
   }, [autoSave]);
   const renameFile = useCallback((id, name) => dispatch({ type: "RENAME_FILE", payload: { id, name } }), []);
   const setActiveTab = useCallback((id) => dispatch({ type: "SET_ACTIVE_TAB", payload: id }), []);
-  const setResult = useCallback((id, result) => dispatch({ type: "SET_RESULT", payload: { id, result } }), []);
+  const setResult = useCallback((id, result, executionId) => dispatch({ type: "SET_RESULT", payload: { id, result, executionId } }), []);
+  const selectResult = useCallback((fileId, executionId) => dispatch({ type: "SELECT_RESULT", payload: { fileId, executionId } }), []);
+  const deleteResult = useCallback((fileId, executionId) => dispatch({ type: "DELETE_RESULT", payload: { fileId, executionId } }), []);
+  const clearFileResults = useCallback((fileId) => dispatch({ type: "CLEAR_FILE_RESULTS", payload: fileId }), []);
+  const createResultSession = useCallback((fileId) => dispatch({ type: "CREATE_RESULT_SESSION", payload: fileId }), []);
   const openFile = useCallback((id) => dispatch({ type: "OPEN_FILE", payload: id }), []);
   const closeFile = useCallback((id) => dispatch({ type: "CLOSE_FILE", payload: id }), []);
   const reorderFiles = useCallback((fromIndex, toIndex) => dispatch({ type: "REORDER_FILES", payload: { fromIndex, toIndex } }), []);
@@ -284,7 +391,10 @@ export function SqlFilesProvider({ children }) {
     }
   }, [state.openFiles, state.dirtyFiles]);
 
-  const activeResult = state.results[state.activeTabId] || null;
+  const fileResults = state.results[state.activeTabId] || { list: [], activeResultId: null };
+  const activeResult = fileResults.list.find(r => r.id === fileResults.activeResultId) || null;
+  const activeFileResultsList = fileResults.list;
+  const activeResultId = fileResults.activeResultId;
 
   const value = {
     files: state.files,
@@ -292,6 +402,8 @@ export function SqlFilesProvider({ children }) {
     activeTabId: state.activeTabId,
     activeFile,
     activeResult,
+    activeFileResultsList,
+    activeResultId,
     dirtyFiles: state.dirtyFiles,
     autoSave,
     addFile,
@@ -300,6 +412,10 @@ export function SqlFilesProvider({ children }) {
     renameFile,
     setActiveTab,
     setResult,
+    selectResult,
+    deleteResult,
+    clearFileResults,
+    createResultSession,
     openFile,
     closeFile,
     closeAllFiles,
