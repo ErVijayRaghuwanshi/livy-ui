@@ -227,7 +227,7 @@ function DownloadButtons({ getCsv, getJson, className = "" }) {
   );
 }
 
-function ActiveResultView({ result, onClose, onMaximizeToggle, isMaximized, onToggleHistory, historyVisible }) {
+function ActiveResultView({ result, onClose, onMaximizeToggle, isMaximized }) {
   if (!result) {
     return (
       <div className="flex items-center justify-center h-full text-(--color-text-muted) text-sm select-none">
@@ -252,17 +252,6 @@ function ActiveResultView({ result, onClose, onMaximizeToggle, isMaximized, onTo
             {result.startTime && <LiveTimer startTime={result.startTime} />}
           </div>
           <div className="flex items-center gap-2 h-full">
-            {onToggleHistory && (
-              <button
-                onClick={onToggleHistory}
-                className={`p-1 rounded hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer ${
-                  historyVisible ? "text-(--color-accent)" : "text-(--color-text-secondary)"
-                }`}
-                title={historyVisible ? "Hide Run History" : "Show Run History"}
-              >
-                <History size={13} />
-              </button>
-            )}
             {onMaximizeToggle && (
               <button
                 onClick={onMaximizeToggle}
@@ -310,17 +299,6 @@ function ActiveResultView({ result, onClose, onMaximizeToggle, isMaximized, onTo
             <ElapsedBadge elapsed={result.elapsed} />
           </div>
           <div className="flex items-center gap-2 h-full">
-            {onToggleHistory && (
-              <button
-                onClick={onToggleHistory}
-                className={`p-1 rounded hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer ${
-                  historyVisible ? "text-(--color-accent)" : "text-(--color-text-secondary)"
-                }`}
-                title={historyVisible ? "Hide Run History" : "Show Run History"}
-              >
-                <History size={13} />
-              </button>
-            )}
             {onMaximizeToggle && (
               <button
                 onClick={onMaximizeToggle}
@@ -370,17 +348,6 @@ function ActiveResultView({ result, onClose, onMaximizeToggle, isMaximized, onTo
           <div className="flex items-center gap-2 h-full">
             <CopyButton getText={() => result.error} className="hover:bg-(--color-bg-tertiary) h-7" />
             {(onMaximizeToggle || onClose) && <div className="h-4 w-px bg-(--color-border) mx-1" />}
-            {onToggleHistory && (
-              <button
-                onClick={onToggleHistory}
-                className={`p-1 rounded hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer ${
-                  historyVisible ? "text-(--color-accent)" : "text-(--color-text-secondary)"
-                }`}
-                title={historyVisible ? "Hide Run History" : "Show Run History"}
-              >
-                <History size={13} />
-              </button>
-            )}
             {onMaximizeToggle && (
               <button
                 onClick={onMaximizeToggle}
@@ -421,7 +388,7 @@ function ActiveResultView({ result, onClose, onMaximizeToggle, isMaximized, onTo
 
     // Try to render as a table if we have structured JSON data
     if (jsonData) {
-      return <JsonTable data={jsonData} elapsed={result.elapsed} onClose={onClose} onMaximizeToggle={onMaximizeToggle} isMaximized={isMaximized} onToggleHistory={onToggleHistory} historyVisible={historyVisible} />;
+      return <JsonTable data={jsonData} elapsed={result.elapsed} onClose={onClose} onMaximizeToggle={onMaximizeToggle} isMaximized={isMaximized} />;
     }
 
     // Render text output
@@ -445,17 +412,6 @@ function ActiveResultView({ result, onClose, onMaximizeToggle, isMaximized, onTo
               <CopyButton getText={() => textData} className="hover:bg-(--color-bg-tertiary) h-7" />
               <DownloadButtons getCsv={() => textData} className="h-7" />
               {(onMaximizeToggle || onClose) && <div className="h-4 w-px bg-(--color-border) mx-1" />}
-              {onToggleHistory && (
-                <button
-                  onClick={onToggleHistory}
-                  className={`p-1 rounded hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer ${
-                    historyVisible ? "text-(--color-accent)" : "text-(--color-text-secondary)"
-                  }`}
-                  title={historyVisible ? "Hide Run History" : "Show Run History"}
-                >
-                  <History size={13} />
-                </button>
-              )}
               {onMaximizeToggle && (
                 <button
                   onClick={onMaximizeToggle}
@@ -566,7 +522,7 @@ export default function ResultTable({ onClose, onMaximizeToggle, isMaximized }) 
   }
 
   return (
-    <div className="flex h-full bg-(--color-bg-secondary) overflow-hidden">
+    <div className="flex h-full bg-(--color-bg-secondary) overflow-hidden relative">
       {/* Left panel: Active result display */}
       <div className="flex-1 min-w-0 h-full overflow-hidden relative">
         {activeResult && activeResult.status !== "idle" ? (
@@ -575,8 +531,6 @@ export default function ResultTable({ onClose, onMaximizeToggle, isMaximized }) 
             onClose={onClose}
             onMaximizeToggle={onMaximizeToggle}
             isMaximized={isMaximized}
-            onToggleHistory={toggleHistory}
-            historyVisible={historyVisible}
           />
         ) : (
           <div className="flex flex-col h-full bg-(--color-bg-secondary)">
@@ -587,15 +541,6 @@ export default function ResultTable({ onClose, onMaximizeToggle, isMaximized }) 
                 </span>
               </div>
               <div className="flex items-center gap-2 h-full">
-                <button
-                  onClick={toggleHistory}
-                  className={`p-1 rounded hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer ${
-                    historyVisible ? "text-(--color-accent)" : "text-(--color-text-secondary)"
-                  }`}
-                  title={historyVisible ? "Hide Run History" : "Show Run History"}
-                >
-                  <History size={13} />
-                </button>
                 {onMaximizeToggle && (
                   <button
                     onClick={onMaximizeToggle}
@@ -629,7 +574,7 @@ export default function ResultTable({ onClose, onMaximizeToggle, isMaximized }) 
       </div>
 
       {/* Right panel: VS Code terminal style selector */}
-      {historyVisible && (
+      {historyVisible ? (
         <div className="w-[180px] shrink-0 border-l border-(--color-border) bg-(--color-bg-secondary) flex flex-col h-full overflow-hidden">
           <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border) text-[10px] font-bold text-(--color-text-secondary) tracking-wider uppercase bg-(--color-bg-secondary) select-none h-9 shrink-0">
             <span>Run History</span>
@@ -647,6 +592,13 @@ export default function ResultTable({ onClose, onMaximizeToggle, isMaximized }) 
                 title="Clear run history"
               >
                 <Trash2 size={12} />
+              </button>
+              <button
+                onClick={toggleHistory}
+                className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) hover:text-red-500 transition-colors cursor-pointer flex items-center justify-center"
+                title="Collapse run history"
+              >
+                <X size={12} />
               </button>
             </div>
           </div>
@@ -699,6 +651,20 @@ export default function ResultTable({ onClose, onMaximizeToggle, isMaximized }) 
             })}
           </div>
         </div>
+      ) : (
+        <button
+          onClick={toggleHistory}
+          className="w-7 shrink-0 border-l border-(--color-border) bg-(--color-bg-secondary) hover:bg-(--color-bg-tertiary)/40 cursor-pointer flex flex-col items-center py-3 gap-2.5 transition-colors select-none group focus:outline-none"
+          title="Show Run History"
+        >
+          <History size={12} className="text-(--color-text-muted) group-hover:text-(--color-text-primary) transition-colors" />
+          <span 
+            className="text-[9px] font-bold text-(--color-text-muted) group-hover:text-(--color-text-primary) tracking-widest uppercase select-none transition-colors"
+            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+          >
+            History
+          </span>
+        </button>
       )}
     </div>
   );
@@ -737,7 +703,7 @@ function highlightPlanLine(line) {
   return parts;
 }
 
-function ExplainPlan({ planText, elapsed, onClose, onMaximizeToggle, isMaximized, onToggleHistory, historyVisible }) {
+function ExplainPlan({ planText, elapsed, onClose, onMaximizeToggle, isMaximized }) {
   const lines = planText.split("\n");
 
   return (
@@ -761,17 +727,6 @@ function ExplainPlan({ planText, elapsed, onClose, onMaximizeToggle, isMaximized
           <CopyButton getText={() => planText} className="hover:bg-(--color-bg-tertiary) h-7" />
           <DownloadButtons getCsv={() => planText} className="h-7" />
           {(onMaximizeToggle || onClose) && <div className="h-4 w-px bg-(--color-border) mx-1" />}
-          {onToggleHistory && (
-            <button
-              onClick={onToggleHistory}
-              className={`p-1.5 rounded hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer ${
-                historyVisible ? "text-(--color-accent)" : "text-(--color-text-secondary)"
-              }`}
-              title={historyVisible ? "Hide Run History" : "Show Run History"}
-            >
-              <History size={13} />
-            </button>
-          )}
           {onMaximizeToggle && (
             <button
               onClick={onMaximizeToggle}
@@ -865,7 +820,8 @@ function estimateInitialColumnWidths(data) {
   return initialWidths;
 }
 
-function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized, onToggleHistory, historyVisible }) {
+function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
+  const headerScrollRef = useRef(null);
   const scrollRef = useRef(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewHeight, setViewHeight] = useState(400);
@@ -910,11 +866,14 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized, onTo
 
   const handleScroll = useCallback((e) => {
     setScrollTop(e.currentTarget.scrollTop);
+    if (headerScrollRef.current) {
+      headerScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+    }
   }, []);
 
   if (isExplainResult(data)) {
     const planText = Array.isArray(data.data[0]) ? data.data[0][0] : data.data[0].plan;
-    return <ExplainPlan planText={planText} elapsed={elapsed} onClose={onClose} onMaximizeToggle={onMaximizeToggle} isMaximized={isMaximized} onToggleHistory={onToggleHistory} historyVisible={historyVisible} />;
+    return <ExplainPlan planText={planText} elapsed={elapsed} onClose={onClose} onMaximizeToggle={onMaximizeToggle} isMaximized={isMaximized} />;
   }
 
   if (!(data && data.schema && data.data)) {
@@ -1196,17 +1155,6 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized, onTo
 
           {/* Panel Layout Controls */}
           {(onMaximizeToggle || onClose) && <div className="h-4 w-px bg-(--color-border) mx-1" />}
-          {onToggleHistory && (
-            <button
-              onClick={onToggleHistory}
-              className={`p-1.5 rounded hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer ${
-                historyVisible ? "text-(--color-accent)" : "text-(--color-text-secondary)"
-              }`}
-              title={historyVisible ? "Hide Run History" : "Show Run History"}
-            >
-              <History size={13} />
-            </button>
-          )}
 
           {onMaximizeToggle && (
             <button
@@ -1233,19 +1181,23 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized, onTo
           )}
         </div>
       </div>
-      <div className="flex-1 overflow-auto" ref={scrollRef} onScroll={handleScroll}>
+
+      {/* Table Header Wrapper (Scrolls horizontally, hidden scrollbars) */}
+      <div 
+        ref={headerScrollRef} 
+        className="overflow-x-hidden overflow-y-hidden shrink-0 bg-(--color-bg-tertiary) border-b border-(--color-border)"
+        style={{ width: "100%" }}
+      >
         <table className="text-xs" style={{ tableLayout: "fixed", width: totalTableWidth }}>
           <colgroup>
-            {/* Locked index column col width */}
             <col style={{ width: 48 }} />
             {fields.map((_, i) => (
               <col key={i} style={{ width: colWidths[i] || 150 }} />
             ))}
           </colgroup>
           <thead>
-            <tr className="bg-(--color-bg-tertiary) sticky top-0 z-20 select-none">
-              {/* Sticky Row Index header column */}
-              <th className="px-2 py-1.5 text-center border-b border-(--color-border) sticky left-0 top-0 bg-(--color-bg-tertiary) z-30 w-12 min-w-12 border-r text-(--color-text-muted) font-semibold select-none">
+            <tr className="bg-(--color-bg-tertiary) select-none">
+              <th className="px-2 py-1.5 text-center border-r border-(--color-border) text-(--color-text-muted) font-semibold select-none w-12 min-w-12">
                 #
               </th>
               {fields.map((field, i) => {
@@ -1271,7 +1223,7 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized, onTo
                 return (
                   <th
                     key={i}
-                    className="px-2 py-1.5 text-left border-b border-r border-(--color-border)/35 relative group/th cursor-pointer hover:bg-(--color-bg-primary)/25"
+                    className="px-2 py-1.5 text-left border-r border-(--color-border)/35 relative group/th cursor-pointer hover:bg-(--color-bg-primary)/25"
                     onClick={(e) => {
                       if (e.target.closest('.dg--header-resizeHandle') || e.target.closest('input')) return;
                       handleSort(i);
@@ -1358,6 +1310,19 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized, onTo
               })}
             </tr>
           </thead>
+        </table>
+      </div>
+
+      {/* Table Body Container (Scrollable) */}
+      <div className="flex-1 overflow-auto" ref={scrollRef} onScroll={handleScroll}>
+        <table className="text-xs" style={{ tableLayout: "fixed", width: totalTableWidth }}>
+          <colgroup>
+            {/* Locked index column col width */}
+            <col style={{ width: 48 }} />
+            {fields.map((_, i) => (
+              <col key={i} style={{ width: colWidths[i] || 150 }} />
+            ))}
+          </colgroup>
           <tbody>
             {topPad > 0 && (
               <tr><td colSpan={fields.length + 1} style={{ height: topPad, padding: 0, border: "none" }} /></tr>
