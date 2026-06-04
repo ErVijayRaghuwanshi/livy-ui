@@ -74,15 +74,19 @@ export function LivyProvider({ children }) {
 
   // Add host
   const addHost = useCallback((host) => {
-    dispatch({ type: "SET_HOSTS", payload: [...state.hosts, host] });
+    const updated = [...state.hosts, host];
+    setItem(STORAGE_KEYS.HOSTS, updated);
+    dispatch({ type: "SET_HOSTS", payload: updated });
   }, [state.hosts]);
 
   // Remove host
   const removeHost = useCallback((hostId) => {
     if (hostId === DEFAULT_HOST.id) return;
     const updated = state.hosts.filter((h) => h.id !== hostId);
+    setItem(STORAGE_KEYS.HOSTS, updated);
     dispatch({ type: "SET_HOSTS", payload: updated });
     if (state.activeHostId === hostId) {
+      setItem(STORAGE_KEYS.ACTIVE_HOST, DEFAULT_HOST.id);
       dispatch({ type: "SET_ACTIVE_HOST", payload: DEFAULT_HOST.id });
     }
   }, [state.hosts, state.activeHostId]);
@@ -90,13 +94,15 @@ export function LivyProvider({ children }) {
   // Update host
   const updateHost = useCallback((hostId, updates) => {
     const updated = state.hosts.map((h) => (h.id === hostId ? { ...h, ...updates } : h));
+    setItem(STORAGE_KEYS.HOSTS, updated);
     dispatch({ type: "SET_HOSTS", payload: updated });
   }, [state.hosts]);
 
   // Select host
   const selectHost = useCallback((hostId) => {
-    dispatch({ type: "SET_ACTIVE_HOST", payload: hostId });
+    setItem(STORAGE_KEYS.ACTIVE_HOST, hostId);
     removeItem(STORAGE_KEYS.SESSION_ID);
+    dispatch({ type: "SET_ACTIVE_HOST", payload: hostId });
   }, []);
 
   // Refresh session
