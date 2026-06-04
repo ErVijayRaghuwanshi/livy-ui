@@ -28,6 +28,8 @@ import {
 
   TextCursorInput,
 
+  AlertTriangle,
+
 } from "lucide-react";
 
 import { useLivy } from "../context/LivyContext";
@@ -296,33 +298,45 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, re
 
 
 
+  const [dropConfirmTable, setDropConfirmTable] = useState(null);
+
   const dropTable = useCallback(
 
-    async (db, table) => {
+    (db, table) => {
 
       if (!isReady) return;
 
-      if (!window.confirm(`Drop table \`${db}\`.\`${table}\`?\n\nThis will remove the table from the catalog. If it was created with LOCATION, the underlying data will NOT be deleted.`)) return;
-
-      try {
-
-        await livyApi.runSql(sessionId, `DROP TABLE IF EXISTS \`${db}\`.\`${table}\``);
-
-        refreshSchema();
-
-      } catch (err) {
-
-        console.error(`[SchemaExplorer] Error dropping ${db}.${table}:`, err);
-
-        setError(`Failed to drop ${table}: ${err.message}`);
-
-      }
+      setDropConfirmTable({ db, table });
 
     },
 
-    [sessionId, isReady, refreshSchema]
+    [isReady]
 
   );
+
+  const handleConfirmDropTable = async () => {
+
+    if (!dropConfirmTable) return;
+
+    const { db, table } = dropConfirmTable;
+
+    setDropConfirmTable(null);
+
+    try {
+
+      await livyApi.runSql(sessionId, `DROP TABLE IF EXISTS \`${db}\`.\`${table}\``);
+
+      refreshSchema();
+
+    } catch (err) {
+
+      console.error(`[SchemaExplorer] Error dropping ${db}.${table}:`, err);
+
+      setError(`Failed to drop ${table}: ${err.message}`);
+
+    }
+
+  };
 
 
 
@@ -644,6 +658,41 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, re
         })}
 
       </div>
+
+      {/* Custom Confirm Drop Table Dialog */}
+      {dropConfirmTable && (() => {
+        const { db, table } = dropConfirmTable;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs animate-in fade-in duration-200" onClick={() => setDropConfirmTable(null)}>
+            <div className="bg-(--color-bg-secondary) border border-(--color-border) rounded-2xl shadow-2xl w-full max-w-sm mx-4 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+              <div className="flex flex-col items-center px-6 py-5 text-center">
+                <div className="w-11 h-11 rounded-full bg-(--color-error)/10 flex items-center justify-center mb-3">
+                  <AlertTriangle size={22} className="text-(--color-error)" />
+                </div>
+                <h3 className="text-sm font-semibold text-(--color-text-primary) mb-1">Drop Table</h3>
+                <p className="text-xs text-(--color-text-muted) leading-relaxed">
+                  Are you sure you want to drop table <span className="text-(--color-text-primary) font-semibold">`{db}`.`{table}`</span>?
+                  <span className="block mt-1">This will remove the table from the catalog. If it was created with LOCATION, the underlying data will NOT be deleted.</span>
+                </p>
+              </div>
+              <div className="flex gap-2 px-6 pb-5">
+                <button
+                  onClick={() => setDropConfirmTable(null)}
+                  className="flex-1 px-3 py-2 text-xs font-semibold text-(--color-text-secondary) bg-(--color-bg-tertiary)/40 hover:bg-(--color-bg-tertiary)/80 rounded-lg border border-(--color-border) transition-colors cursor-pointer dg-spring-btn"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDropTable}
+                  className="flex-1 px-3 py-2 text-xs font-semibold text-white bg-(--color-error) hover:bg-(--color-error)/90 rounded-lg transition-colors cursor-pointer dg-spring-btn"
+                >
+                  Drop
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
 

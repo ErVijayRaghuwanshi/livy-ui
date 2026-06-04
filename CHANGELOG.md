@@ -15,6 +15,7 @@ All notable changes to the Livy SQL Editor project will be documented in this fi
 * Monaco editor scroll position, cursor position, selection ranges, and folding editor state persistence across tab switches.
 * VS Code-style preview tabs (single click opens a file in italics in preview mode, double click or editing promotes it to permanent tab).
 * Integrated project-wide search matches to open file tabs and jump directly to matching line inside Monaco editor.
+* Replaced native browser blocking confirm dialogs (for deleting SQL files and dropping database tables) with custom-styled confirmation overlay modals.
 
 ### Fixed
 * Swallowed keypresses on Monaco editor, explicitly registering `Ctrl+P`/`Ctrl+Cmd+P` shortcut override actions to open Command Center instead of browser print.

@@ -8,6 +8,7 @@ import {
   X,
   FolderOpen,
   File,
+  AlertTriangle,
 } from "lucide-react";
 import { useSqlFiles } from "../context/SqlFilesContext";
 
@@ -82,16 +83,23 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true }, 
     setRenamingId(null);
   };
 
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+
   const handleDelete = (fileId, e) => {
     e?.stopPropagation();
     if (files.length === 1) {
       return;
     }
-    if (confirm("Are you sure you want to delete this file?")) {
-      removeFile(fileId);
-      if (selectedFileId === fileId) {
+    setDeleteConfirmId(fileId);
+  };
+
+  const handleConfirmDelete = () => {
+    if (deleteConfirmId) {
+      removeFile(deleteConfirmId);
+      if (selectedFileId === deleteConfirmId) {
         setSelectedFileId(null);
       }
+      setDeleteConfirmId(null);
     }
   };
 
@@ -292,6 +300,40 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true }, 
           {searchQuery && ` (filtered from ${files.length})`}
         </div>
       )}
+
+      {/* Custom Confirm Delete Dialog */}
+      {deleteConfirmId && (() => {
+        const file = files.find((f) => f.id === deleteConfirmId);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs animate-in fade-in duration-200" onClick={() => setDeleteConfirmId(null)}>
+            <div className="bg-(--color-bg-secondary) border border-(--color-border) rounded-2xl shadow-2xl w-full max-w-sm mx-4 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+              <div className="flex flex-col items-center px-6 py-5 text-center">
+                <div className="w-11 h-11 rounded-full bg-(--color-error)/10 flex items-center justify-center mb-3">
+                  <AlertTriangle size={22} className="text-(--color-error)" />
+                </div>
+                <h3 className="text-sm font-semibold text-(--color-text-primary) mb-1">Delete File</h3>
+                <p className="text-xs text-(--color-text-muted) leading-relaxed">
+                  Are you sure you want to delete <span className="text-(--color-text-primary) font-semibold">"{file?.name}"</span>? This action cannot be undone.
+                </p>
+              </div>
+              <div className="flex gap-2 px-6 pb-5">
+                <button
+                  onClick={() => setDeleteConfirmId(null)}
+                  className="flex-1 px-3 py-2 text-xs font-semibold text-(--color-text-secondary) bg-(--color-bg-tertiary)/40 hover:bg-(--color-bg-tertiary)/80 rounded-lg border border-(--color-border) transition-colors cursor-pointer dg-spring-btn"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  className="flex-1 px-3 py-2 text-xs font-semibold text-white bg-(--color-error) hover:bg-(--color-error)/90 rounded-lg transition-colors cursor-pointer dg-spring-btn"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 });
