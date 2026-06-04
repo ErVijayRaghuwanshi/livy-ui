@@ -1,5 +1,5 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useState } from "react";
-import { getItem, setItem } from "../utils/localStorage";
+import { getItem, setItem, removeItem } from "../utils/localStorage";
 import { STORAGE_KEYS } from "../utils/constants";
 import { v4 as uuidv4 } from "uuid";
 
@@ -28,6 +28,7 @@ const initialState = {
   dirtyFiles: {},
   closedTabsHistory: [],
   pendingLineReveal: null,
+  previewTabId: getItem(STORAGE_KEYS.PREVIEW_TAB, null),
 };
 
 function reducer(state, action) {
@@ -63,14 +64,16 @@ function reducer(state, action) {
       const nextDirty = { ...state.dirtyFiles };
       delete nextDirty[action.payload];
       const nextClosedHistory = (state.closedTabsHistory || []).filter((id) => id !== action.payload);
+      const isPreviewActive = state.previewTabId === action.payload;
+      const nextPreviewTabId = isPreviewActive ? null : state.previewTabId;
       if (filtered.length === 0) {
-        return { files: [defaultFile], openFiles: [defaultFile.id], activeTabId: defaultFile.id, results: {}, dirtyFiles: {}, closedTabsHistory: [] };
+        return { files: [defaultFile], openFiles: [defaultFile.id], activeTabId: defaultFile.id, results: {}, dirtyFiles: {}, closedTabsHistory: [], previewTabId: null };
       }
       const newActiveId =
         state.activeTabId === action.payload
           ? (filteredOpen.length > 0 ? filteredOpen[filteredOpen.length - 1] : null)
           : (filteredOpen.includes(state.activeTabId) ? state.activeTabId : (filteredOpen.length > 0 ? filteredOpen[0] : null));
-      return { ...state, files: filtered, openFiles: filteredOpen, activeTabId: newActiveId, results: nextResults, dirtyFiles: nextDirty, closedTabsHistory: nextClosedHistory };
+      return { ...state, files: filtered, openFiles: filteredOpen, activeTabId: newActiveId, results: nextResults, dirtyFiles: nextDirty, closedTabsHistory: nextClosedHistory, previewTabId: nextPreviewTabId };
     }
     case "UPDATE_FILE_CONTENT": {
       const files = state.files.map((f) =>
@@ -78,6 +81,7 @@ function reducer(state, action) {
           ? { ...f, content: action.payload.content, updatedAt: new Date().toISOString() }
           : f
       );
+      const isPreviewActive = state.previewTabId === action.payload.id;
       return {
         ...state,
         files,
@@ -85,6 +89,7 @@ function reducer(state, action) {
           ...state.dirtyFiles,
           [action.payload.id]: action.payload.isDirty,
         },
+        previewTabId: isPreviewActive ? null : state.previewTabId,
       };
     }
     case "CLEAR_ALL_DIRTY": {
@@ -224,15 +229,46 @@ function reducer(state, action) {
     case "OPEN_FILE": {
       const fileId = action.payload;
       const nextClosedHistory = (state.closedTabsHistory || []).filter((id) => id !== fileId);
+      const isCurrentlyPreview = state.previewTabId === fileId;
+      const nextPreviewTabId = isCurrentlyPreview ? null : state.previewTabId;
       if (state.openFiles.includes(fileId)) {
-        return { ...state, activeTabId: fileId, closedTabsHistory: nextClosedHistory };
+        return { ...state, activeTabId: fileId, previewTabId: nextPreviewTabId, closedTabsHistory: nextClosedHistory };
       }
       return {
         ...state,
         openFiles: [...state.openFiles, fileId],
         activeTabId: fileId,
+        previewTabId: nextPreviewTabId,
         closedTabsHistory: nextClosedHistory,
       };
+    }
+    case "PREVIEW_FILE": {
+      const fileId = action.payload;
+      const nextClosedHistory = (state.closedTabsHistory || []).filter((id) => id !== fileId);
+      if (state.openFiles.includes(fileId)) {
+        return { ...state, activeTabId: fileId, closedTabsHistory: nextClosedHistory };
+      }
+      let nextOpenFiles = [...state.openFiles];
+      if (state.previewTabId && state.openFiles.includes(state.previewTabId)) {
+        const idx = state.openFiles.indexOf(state.previewTabId);
+        nextOpenFiles[idx] = fileId;
+      } else {
+        nextOpenFiles.push(fileId);
+      }
+      return {
+        ...state,
+        openFiles: nextOpenFiles,
+        activeTabId: fileId,
+        previewTabId: fileId,
+        closedTabsHistory: nextClosedHistory,
+      };
+    }
+    case "PROMOTE_PREVIEW_TAB": {
+      const fileId = action.payload;
+      if (state.previewTabId === fileId) {
+        return { ...state, previewTabId: null };
+      }
+      return state;
     }
     case "CLOSE_FILE": {
       const fileId = action.payload;
@@ -257,6 +293,8 @@ function reducer(state, action) {
         fileId
       ];
 
+      const nextPreviewTabId = state.previewTabId === fileId ? null : state.previewTabId;
+
       return {
         ...state,
         files,
@@ -264,6 +302,7 @@ function reducer(state, action) {
         activeTabId: newActiveId,
         dirtyFiles: nextDirty,
         closedTabsHistory: nextClosedHistory,
+        previewTabId: nextPreviewTabId,
       };
     }
     case "CLOSE_ALL_FILES": {
@@ -276,12 +315,15 @@ function reducer(state, action) {
       ];
 
       const newActiveId = dirtyOpen.length > 0 ? dirtyOpen[0] : null;
+      const isPreviewDirty = state.previewTabId && state.dirtyFiles[state.previewTabId];
+      const nextPreviewTabId = isPreviewDirty ? state.previewTabId : null;
 
       return {
         ...state,
         openFiles: dirtyOpen,
         activeTabId: newActiveId,
         closedTabsHistory: nextClosedHistory,
+        previewTabId: nextPreviewTabId,
       };
     }
     case "REORDER_FILES": {
@@ -355,6 +397,15 @@ export function SqlFilesProvider({ children }) {
     setItem(STORAGE_KEYS.ACTIVE_TAB, state.activeTabId);
   }, [state.activeTabId]);
 
+  // Persist preview tab
+  useEffect(() => {
+    if (state.previewTabId !== null) {
+      setItem(STORAGE_KEYS.PREVIEW_TAB, state.previewTabId);
+    } else {
+      removeItem(STORAGE_KEYS.PREVIEW_TAB);
+    }
+  }, [state.previewTabId]);
+
   const activeFile = state.openFiles.includes(state.activeTabId)
     ? state.files.find((f) => f.id === state.activeTabId)
     : null;
@@ -382,6 +433,8 @@ export function SqlFilesProvider({ children }) {
   const clearFileResults = useCallback((fileId) => dispatch({ type: "CLEAR_FILE_RESULTS", payload: fileId }), []);
   const createResultSession = useCallback((fileId) => dispatch({ type: "CREATE_RESULT_SESSION", payload: fileId }), []);
   const openFile = useCallback((id) => dispatch({ type: "OPEN_FILE", payload: id }), []);
+  const previewFile = useCallback((id) => dispatch({ type: "PREVIEW_FILE", payload: id }), []);
+  const promotePreviewTab = useCallback((id) => dispatch({ type: "PROMOTE_PREVIEW_TAB", payload: id }), []);
   const closeFile = useCallback((id) => dispatch({ type: "CLOSE_FILE", payload: id }), []);
   const reorderFiles = useCallback((fromIndex, toIndex) => dispatch({ type: "REORDER_FILES", payload: { fromIndex, toIndex } }), []);
   const saveFile = useCallback((id) => dispatch({ type: "SAVE_FILE", payload: id }), []);
@@ -420,8 +473,11 @@ export function SqlFilesProvider({ children }) {
     dirtyFiles: state.dirtyFiles,
     autoSave,
     pendingLineReveal: state.pendingLineReveal,
+    previewTabId: state.previewTabId,
     setPendingLineReveal,
     clearPendingLineReveal,
+    previewFile,
+    promotePreviewTab,
     addFile,
     removeFile,
     updateContent,

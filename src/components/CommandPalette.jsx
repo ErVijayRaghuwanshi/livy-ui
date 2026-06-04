@@ -23,7 +23,7 @@ export default function CommandPalette({
     requestCloseFile,
     closeAllFiles,
     setActiveTab,
-    openFile,
+    previewFile,
   } = useSqlFiles();
 
   const [search, setSearch] = useState("");
@@ -295,7 +295,7 @@ export default function CommandPalette({
 
     onClose();
     if (item.type === "file") {
-      openFile(item.fileId);
+      previewFile(item.fileId);
     } else if (item.type === "command") {
       item.action();
     }

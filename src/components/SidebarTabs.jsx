@@ -29,7 +29,9 @@ const SidebarTabs = forwardRef(({
     requestCloseFile, 
     closeAllFiles, 
     addFile, 
-    dirtyFiles 
+    dirtyFiles,
+    previewTabId,
+    promotePreviewTab
   } = useSqlFiles();
 
   const { refreshSchema, loading } = useSchema();
@@ -235,6 +237,7 @@ const SidebarTabs = forwardRef(({
                     <div
                       key={file.id}
                       onClick={() => setActiveTab(file.id)}
+                      onDoubleClick={() => promotePreviewTab(file.id)}
                       className={`group flex items-center justify-between px-4 py-1.5 text-xs cursor-pointer select-none transition-colors ${
                         isActive
                           ? "bg-(--color-bg-primary) text-(--color-text-primary) border-l-2 border-l-(--color-accent)"
@@ -243,7 +246,7 @@ const SidebarTabs = forwardRef(({
                     >
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         <FileCode size={13} className={`shrink-0 ${isActive ? "text-(--color-accent)" : "text-(--color-text-muted)"}`} />
-                        <span className={`truncate ${isActive ? "font-semibold text-(--color-text-primary)" : ""}`}>
+                        <span className={`truncate ${isActive ? "font-semibold text-(--color-text-primary)" : ""} ${file.id === previewTabId ? "italic text-(--color-text-secondary)/80" : ""}`}>
                           {file.name}
                         </span>
                       </div>

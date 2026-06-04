@@ -23,7 +23,7 @@ function ensureExtension(name) {
 }
 
 const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true }, ref) => {
-  const { files, openFiles, activeTabId, openFile, removeFile, renameFile, addFile } = useSqlFiles();
+  const { files, openFiles, activeTabId, openFile, previewFile, removeFile, renameFile, addFile } = useSqlFiles();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFileId, setSelectedFileId] = useState(null);
   const [renamingId, setRenamingId] = useState(null);
@@ -43,8 +43,12 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true }, 
 
   const handleFileClick = (fileId) => {
     setSelectedFileId(fileId);
-    openFile(fileId);
+    previewFile(fileId);
     containerRef.current?.focus();
+  };
+
+  const handleFileDoubleClick = (fileId) => {
+    openFile(fileId);
   };
 
   const handleSearchChange = (val) => {
@@ -220,6 +224,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true }, 
               <div
                 key={file.id}
                 onClick={() => handleFileClick(file.id)}
+                onDoubleClick={() => handleFileDoubleClick(file.id)}
                 className={`group flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer transition-colors ${
                   selectedFileId === file.id
                     ? "bg-(--color-bg-primary) text-(--color-text-primary)"

@@ -12,7 +12,7 @@ function ensureExtension(name) {
 }
 
 export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRef }) {
-  const { files, openFiles, activeTabId, setActiveTab, addFile, closeFile, renameFile, reorderFiles, dirtyFiles, promptCloseFileId, setPromptCloseFileId, requestCloseFile } = useSqlFiles();
+  const { files, openFiles, activeTabId, setActiveTab, addFile, closeFile, renameFile, reorderFiles, dirtyFiles, promptCloseFileId, setPromptCloseFileId, requestCloseFile, previewTabId, promotePreviewTab } = useSqlFiles();
   const [running, setRunning] = useState(false);
   const [canRun, setCanRun] = useState(false);
   
@@ -135,6 +135,13 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
             onDrop={(e) => handleDrop(e, index)}
             onDragEnd={handleDragEnd}
             onClick={() => setActiveTab(file.id)}
+            onDoubleClick={() => {
+              if (file.id === previewTabId) {
+                promotePreviewTab(file.id);
+              } else {
+                handleStartRename(file);
+              }
+            }}
             className={`group flex items-center gap-1.5 px-2 sm:px-3 py-2 text-xs cursor-pointer border-r border-(--color-border) min-w-0 max-w-32 sm:max-w-48 transition-colors ${draggedIndex === index ? "opacity-50" : ""} ${
               dragOverIndex === index ? "border-l-2 border-l-(--color-accent)" : ""
             } ${
@@ -161,13 +168,7 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
                 <span className="text-[10px] text-(--color-text-muted)">.sql</span>
               </div>
             ) : (
-              <span
-                className="truncate hidden sm:inline"
-                onDoubleClick={(e) => {
-                  e.stopPropagation();
-                  handleStartRename(file);
-                }}
-              >
+              <span className={`truncate hidden sm:inline ${file.id === previewTabId ? "italic text-(--color-text-secondary)/80" : ""}`}>
                 {file.name}
               </span>
             )}
