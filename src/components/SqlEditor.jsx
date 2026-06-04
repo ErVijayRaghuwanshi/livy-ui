@@ -492,10 +492,28 @@ const SqlEditor = forwardRef(function SqlEditor({
       }, 50);
     }
 
+    // Track scroll changes to save view state
+    editor.onDidScrollChange(() => {
+      const currentId = activeFileRef.current?.id;
+      if (currentId && editorRef.current) {
+        const state = editorRef.current.saveViewState();
+        if (state) {
+          viewStatesRef.current[currentId] = state;
+        }
+      }
+    });
+
     // Track cursor position
     editor.onDidChangeCursorPosition((e) => {
       if (onCursorPositionChange) {
         onCursorPositionChange({ lineNumber: e.position.lineNumber, column: e.position.column });
+      }
+      const currentId = activeFileRef.current?.id;
+      if (currentId && editorRef.current) {
+        const state = editorRef.current.saveViewState();
+        if (state) {
+          viewStatesRef.current[currentId] = state;
+        }
       }
     });
 
@@ -1101,20 +1119,7 @@ const SqlEditor = forwardRef(function SqlEditor({
     }
   }, [pendingLineReveal, activeFile?.id, clearPendingLineReveal]);
 
-  // Save editor view state before the active file changes/unmounts
-  useEffect(() => {
-    const fileId = activeFile?.id;
-    return () => {
-      if (editorRef.current && fileId) {
-        try {
-          const state = editorRef.current.saveViewState();
-          viewStatesRef.current[fileId] = state;
-        } catch (e) {
-          console.error("Failed to save Monaco view state:", e);
-        }
-      }
-    };
-  }, [activeFile?.id]);
+  // Monaco view state is saved continuously via editor event listeners to avoid unmount/disposal races
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
