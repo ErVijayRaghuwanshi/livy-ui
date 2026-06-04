@@ -377,7 +377,7 @@ const SqlEditor = forwardRef(function SqlEditor({
   onRestoreTab,
   onToggleCommandPalette,
 }, ref) {
-  const { activeFile, updateContent, setResult, saveFile, toggleAutoSave, activeResultId } = useSqlFiles();
+  const { activeFile, updateContent, setResult, saveFile, toggleAutoSave, activeResultId, pendingLineReveal, clearPendingLineReveal } = useSqlFiles();
   const activeFileRef = useRef(activeFile);
   const toggleAutoSaveRef = useRef(toggleAutoSave);
 
@@ -471,6 +471,17 @@ const SqlEditor = forwardRef(function SqlEditor({
     setMonacoInstance(monaco);
 
     updateDecorations(editor);
+
+    // Check for pending line reveal immediately on mount
+    if (pendingLineReveal && pendingLineReveal.fileId === activeFile?.id) {
+      const { lineNumber } = pendingLineReveal;
+      setTimeout(() => {
+        editor.revealLineInCenter(lineNumber);
+        editor.setPosition({ lineNumber, column: 1 });
+        editor.focus();
+        clearPendingLineReveal();
+      }, 50);
+    }
 
     // Track cursor position
     editor.onDidChangeCursorPosition((e) => {
@@ -1063,6 +1074,23 @@ const SqlEditor = forwardRef(function SqlEditor({
       updateDecorations(editorRef.current);
     }
   }, [activeFile?.content, updateDecorations]);
+
+  // Handle pending line reveals when the editor is already active
+  useEffect(() => {
+    if (editorRef.current && pendingLineReveal && pendingLineReveal.fileId === activeFile?.id) {
+      const editor = editorRef.current;
+      const { lineNumber } = pendingLineReveal;
+      
+      const timer = setTimeout(() => {
+        editor.revealLineInCenter(lineNumber);
+        editor.setPosition({ lineNumber, column: 1 });
+        editor.focus();
+        clearPendingLineReveal();
+      }, 50);
+
+      return () => clearTimeout(timer);
+    }
+  }, [pendingLineReveal, activeFile?.id, clearPendingLineReveal]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0">

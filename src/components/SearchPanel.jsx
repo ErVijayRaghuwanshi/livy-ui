@@ -3,7 +3,7 @@ import { Search, FileCode, ChevronDown, ChevronRight } from "lucide-react";
 import { useSqlFiles } from "../context/SqlFilesContext";
 
 export default function SearchPanel() {
-  const { files, setActiveTab } = useSqlFiles();
+  const { files, openFile, setPendingLineReveal } = useSqlFiles();
   const [query, setQuery] = useState("");
 
   const searchResults = useMemo(() => {
@@ -131,7 +131,10 @@ export default function SearchPanel() {
                       {result.matches.map((match) => (
                         <div
                           key={`${result.fileId}-line-${match.lineNumber}`}
-                          onClick={() => setActiveTab(result.fileId)}
+                          onClick={() => {
+                            openFile(result.fileId);
+                            setPendingLineReveal(result.fileId, match.lineNumber);
+                          }}
                           className="flex items-start gap-2.5 py-1 px-2 hover:bg-(--color-bg-tertiary)/30 rounded text-[11px] cursor-pointer transition-all text-(--color-text-secondary) hover:text-(--color-text-primary)"
                         >
                           <span className="font-mono text-(--color-text-muted) shrink-0 min-w-5 text-right select-none">

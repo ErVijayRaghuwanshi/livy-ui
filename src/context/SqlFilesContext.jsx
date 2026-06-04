@@ -27,6 +27,7 @@ const initialState = {
   results: {},
   dirtyFiles: {},
   closedTabsHistory: [],
+  pendingLineReveal: null,
 };
 
 function reducer(state, action) {
@@ -313,6 +314,10 @@ function reducer(state, action) {
         closedTabsHistory: nextClosedHistory,
       };
     }
+    case "SET_PENDING_LINE_REVEAL":
+      return { ...state, pendingLineReveal: action.payload };
+    case "CLEAR_PENDING_LINE_REVEAL":
+      return { ...state, pendingLineReveal: null };
     default:
       return state;
   }
@@ -383,6 +388,14 @@ export function SqlFilesProvider({ children }) {
 
   const restoreLastClosedTab = useCallback(() => dispatch({ type: "RESTORE_LAST_CLOSED_TAB" }), []);
 
+  const setPendingLineReveal = useCallback((fileId, lineNumber) => {
+    dispatch({ type: "SET_PENDING_LINE_REVEAL", payload: { fileId, lineNumber } });
+  }, []);
+
+  const clearPendingLineReveal = useCallback(() => {
+    dispatch({ type: "CLEAR_PENDING_LINE_REVEAL" });
+  }, []);
+
   const closeAllFiles = useCallback(() => {
     const dirtyOpen = state.openFiles.filter(id => state.dirtyFiles[id]);
     dispatch({ type: "CLOSE_ALL_FILES" });
@@ -406,6 +419,9 @@ export function SqlFilesProvider({ children }) {
     activeResultId,
     dirtyFiles: state.dirtyFiles,
     autoSave,
+    pendingLineReveal: state.pendingLineReveal,
+    setPendingLineReveal,
+    clearPendingLineReveal,
     addFile,
     removeFile,
     updateContent,
