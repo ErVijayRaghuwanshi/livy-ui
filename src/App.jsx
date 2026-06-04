@@ -387,6 +387,7 @@ export default function App() {
                 theme={theme}
                 onFocusSchemaSearch={handleFocusSchemaSearch}
                 onFocusFileSearch={handleFocusFileSearch}
+                onToggleCommandPalette={() => setShowCommandPalette((p) => !p)}
                 onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
                 onToggleResultPanel={() => {
                   setResultHeight((h) => {

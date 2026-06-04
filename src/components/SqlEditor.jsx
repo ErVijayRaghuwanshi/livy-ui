@@ -375,6 +375,7 @@ const SqlEditor = forwardRef(function SqlEditor({
   onPrevTab,
   onNextTab,
   onRestoreTab,
+  onToggleCommandPalette,
 }, ref) {
   const { activeFile, updateContent, setResult, saveFile, toggleAutoSave, activeResultId } = useSqlFiles();
   const activeFileRef = useRef(activeFile);
@@ -560,6 +561,16 @@ const SqlEditor = forwardRef(function SqlEditor({
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyE],
       run: () => {
         onFocusFileSearch?.();
+      },
+    });
+
+    // Toggle Command Palette
+    editor.addAction({
+      id: "toggle-command-palette-action",
+      label: "Toggle Command Palette",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP],
+      run: () => {
+        onToggleCommandPalette?.();
       },
     });
 
