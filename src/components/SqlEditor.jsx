@@ -395,6 +395,7 @@ const SqlEditor = forwardRef(function SqlEditor({
   const { addToast } = useToast();
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
+  const viewStatesRef = useRef({});
   const [monacoInstance, setMonacoInstance] = useState(null);
   const [running, setRunning] = useState(false);
   const [wordWrap, setWordWrap] = useState(() => localStorage.getItem('livy-ui-word-wrap') !== 'off');
@@ -471,6 +472,14 @@ const SqlEditor = forwardRef(function SqlEditor({
     setMonacoInstance(monaco);
 
     updateDecorations(editor);
+
+    // Restore view state if it exists
+    if (activeFile?.id) {
+      const savedState = viewStatesRef.current[activeFile.id];
+      if (savedState) {
+        editor.restoreViewState(savedState);
+      }
+    }
 
     // Check for pending line reveal immediately on mount
     if (pendingLineReveal && pendingLineReveal.fileId === activeFile?.id) {
@@ -1091,6 +1100,21 @@ const SqlEditor = forwardRef(function SqlEditor({
       return () => clearTimeout(timer);
     }
   }, [pendingLineReveal, activeFile?.id, clearPendingLineReveal]);
+
+  // Save editor view state before the active file changes/unmounts
+  useEffect(() => {
+    const fileId = activeFile?.id;
+    return () => {
+      if (editorRef.current && fileId) {
+        try {
+          const state = editorRef.current.saveViewState();
+          viewStatesRef.current[fileId] = state;
+        } catch (e) {
+          console.error("Failed to save Monaco view state:", e);
+        }
+      }
+    };
+  }, [activeFile?.id]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
