@@ -12,6 +12,14 @@ All notable changes to the Livy SQL Editor project will be documented in this fi
 * Copyable CORS configuration troubleshooting panel inside the Livy connection tab.
 * Grid layout displaying Spark properties inside responsive key-value tags.
 * JAR dependency managers listing active JAR endpoints with packages icons.
+* Monaco editor scroll position, cursor position, selection ranges, and folding editor state persistence across tab switches.
+* VS Code-style preview tabs (single click opens a file in italics in preview mode, double click or editing promotes it to permanent tab).
+* Integrated project-wide search matches to open file tabs and jump directly to matching line inside Monaco editor.
+
+### Fixed
+* Swallowed keypresses on Monaco editor, explicitly registering `Ctrl+P`/`Ctrl+Cmd+P` shortcut override actions to open Command Center instead of browser print.
+* Host-switching race condition where Session Manager did not refresh by writing updates to `localStorage` synchronously.
+* Results tab styling so the scrollbar starts after column headers, and relocated the "Hide History" toggle from the result tab bar to the history header.
 
 [Details in Release Notes](release-notes/v1.4.5.md)
 
@@ -23,9 +31,6 @@ All notable changes to the Livy SQL Editor project will be documented in this fi
 * Centered Command Center button inside a slim top Title Bar.
 * Floating fuzzy-matching Command Palette with recents memory.
 * On-demand per-tab results sessions list allowing users to preserve previous execution outputs.
-* Monaco editor action registers for overrides to capture `Ctrl+P` / `Cmd+P` keyboard shortcuts.
-* Scroll position, cursor position, selection ranges, and folding editor state persistence when switching tabs.
-* FileExplorer preview mode (italic tabs for single clicks, promoted to permanent on double click or content editing).
 
 [Details in Release Notes](release-notes/v1.4.4.md)
 
