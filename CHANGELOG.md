@@ -2,6 +2,33 @@
 
 All notable changes to the Livy SQL Editor project will be documented in this file.
 
+## [v1.4.5] - 2026-06-04
+### Added
+* Tabbed navigation switcher inside the Connection Manager modal, dividing settings into **Livy Hosts**, **Spark Config**, and **JARs & Libraries**.
+* Dynamic chevron rotation transition classes (`rotate-90`) in collapsible Settings Panel headers.
+* Segmented control switcher for Light/Dark color themes in the Appearance sidebar.
+* Monospace URLs, glowing pulse active badges, and hover actions inside the Livy Hosts list.
+* Session Manager status cards with dynamically mapped colored status pills (e.g. green for `idle`, orange pulse for `starting`, red for `dead`/`killed`).
+* Copyable CORS configuration troubleshooting panel inside the Livy connection tab.
+* Grid layout displaying Spark properties inside responsive key-value tags.
+* JAR dependency managers listing active JAR endpoints with packages icons.
+
+[Details in Release Notes](release-notes/v1.4.5.md)
+
+---
+
+## [v1.4.4] - 2026-06-04
+### Added
+* VS Code-style workspace layout integrating vertical collapsible sidebar activity bars.
+* Centered Command Center button inside a slim top Title Bar.
+* Floating fuzzy-matching Command Palette with recents memory.
+* On-demand per-tab results sessions list allowing users to preserve previous execution outputs.
+* Monaco editor action registers for overrides to capture `Ctrl+P` / `Cmd+P` keyboard shortcuts.
+* Scroll position, cursor position, selection ranges, and folding editor state persistence when switching tabs.
+* FileExplorer preview mode (italic tabs for single clicks, promoted to permanent on double click or content editing).
+
+[Details in Release Notes](release-notes/v1.4.4.md)
+
 ---
 
 ## [v1.4.3] - 2026-06-02
