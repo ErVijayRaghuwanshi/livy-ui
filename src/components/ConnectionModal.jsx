@@ -203,19 +203,25 @@ export default function ConnectionModal({ isOpen, onClose }) {
                         ? "border-(--color-accent) bg-(--color-accent)/5 shadow-xs"
                         : "border-(--color-border) hover:border-(--color-text-muted) bg-(--color-bg-primary)/20"
                     }`}
-                    onClick={() => selectHost(host.id)}
+                    onClick={() => {
+                      if (editingId !== host.id) {
+                        selectHost(host.id);
+                      }
+                    }}
                   >
                     {editingId === host.id ? (
                       <div className="flex-1 flex gap-2" onClick={(e) => e.stopPropagation()}>
                         <input
                           value={editName}
                           onChange={(e) => setEditName(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
                           className="flex-1 bg-(--color-bg-primary) border border-(--color-border) rounded-lg px-3 py-1.5 text-xs text-(--color-text-primary) outline-none focus:border-(--color-accent)"
                           placeholder="Host Label"
                         />
                         <input
                           value={editUrl}
                           onChange={(e) => setEditUrl(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
                           className="flex-2 bg-(--color-bg-primary) border border-(--color-border) rounded-lg px-3 py-1.5 text-xs text-(--color-text-primary) font-mono outline-none focus:border-(--color-accent)"
                           placeholder="http://url"
                         />
@@ -280,7 +286,10 @@ export default function ConnectionModal({ isOpen, onClose }) {
                             
                             {(!testStatus[host.id] || testStatus[host.id] === "idle" || testStatus[host.id] === "error" || testStatus[host.id] === "cors_warning" || testStatus[host.id] === "success") && (
                               <button
-                                onClick={() => handleTestConnection(host.id, host.url)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleTestConnection(host.id, host.url);
+                                }}
                                 className="px-2.5 py-1 text-[10px] font-semibold text-(--color-text-secondary) hover:text-white bg-(--color-bg-tertiary)/40 hover:bg-(--color-accent) border border-(--color-border) hover:border-(--color-accent) rounded-lg transition-all dg-spring-btn cursor-pointer"
                                 title="Ping connection endpoint"
                               >
@@ -290,7 +299,10 @@ export default function ConnectionModal({ isOpen, onClose }) {
                           </div>
 
                           <button
-                            onClick={() => handleEdit(host)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(host);
+                            }}
                             className="p-1.5 rounded-lg hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-colors dg-spring-btn"
                             title="Edit Host"
                           >
@@ -298,7 +310,10 @@ export default function ConnectionModal({ isOpen, onClose }) {
                           </button>
                           {host.id !== "default" && (
                             <button
-                              onClick={() => setConfirmDeleteId(host.id)}
+                              onClick={(e) => {
+                                  e.stopPropagation();
+                                  setConfirmDeleteId(host.id);
+                              }}
                               className="p-1.5 rounded-lg hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-error) transition-colors dg-spring-btn"
                               title="Remove Host"
                             >

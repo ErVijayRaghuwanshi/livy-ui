@@ -1197,7 +1197,7 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
           </colgroup>
           <thead>
             <tr className="bg-(--color-bg-tertiary) select-none">
-              <th className="px-2 py-1.5 text-center border-r border-(--color-border) text-(--color-text-muted) font-semibold select-none w-12 min-w-12">
+              <th className="px-2 py-1.5 text-center border-r border-(--color-border) text-(--color-text-muted) font-semibold select-none w-12 min-w-12 shadow-[2px_0_5px_rgba(0,0,0,0.04)] dg-sticky-index-header">
                 #
               </th>
               {fields.map((field, i) => {
