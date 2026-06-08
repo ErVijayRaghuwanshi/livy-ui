@@ -6,7 +6,7 @@ const mod = isMac ? "⌘" : "Ctrl";
 const alt = isMac ? "⌥" : "Alt";
 
 const SHORTCUTS = [
-  { keys: [`${mod}+Enter`], description: "Run SQL (selected text or all)" },
+  { keys: [`${mod}+Enter`], description: "Run SQL (selected text or statement at cursor)" },
   { keys: [`${mod}+Shift+F`], description: "Format SQL (statement-by-statement)" },
   { keys: [`${mod}+Shift+M`], description: "Minify SQL (statement-by-statement)" },
   { keys: [`${mod}+S`], description: "Save SQL file" },
@@ -23,7 +23,8 @@ const SHORTCUTS = [
   { keys: [`${mod}+PageUp`, isMac ? "⌘+⌥+←" : "Ctrl+Alt+←"], description: "Previous tab" },
   { keys: [`${mod}+PageDown`, isMac ? "⌘+⌥+→" : "Ctrl+Alt+→"], description: "Next tab" },
   { keys: [`${mod}+H`], description: "Query history" },
-  { keys: [`${mod}+/`], description: "Show keyboard shortcuts" },
+  { keys: [`${mod}+/`], description: "Toggle line comment" },
+  { keys: ["?"], description: "Show keyboard shortcuts" },
   { keys: ["F2"], description: "Rename file (in File Explorer)" },
   { keys: isMac ? ["Delete", "Backspace"] : ["Del"], description: "Delete file (in File Explorer)" },
   { keys: ["Esc"], description: "Close modals / dropdowns" },
