@@ -1,10 +1,16 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Search, FileCode, ChevronDown, ChevronRight } from "lucide-react";
 import { useSqlFiles } from "../context/SqlFilesContext";
 
 export default function SearchPanel() {
   const { files, previewFile, setPendingLineReveal } = useSqlFiles();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(() => {
+    return localStorage.getItem("livy-search-query") || "";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("livy-search-query", query);
+  }, [query]);
 
   const searchResults = useMemo(() => {
     if (!query.trim()) return [];

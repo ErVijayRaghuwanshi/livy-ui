@@ -124,7 +124,7 @@ function ElapsedBadge({ elapsed }) {
   const text = formatElapsed(elapsed);
   if (!text) return null;
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] text-(--color-text-muted) ml-2">
+    <span className="inline-flex items-center gap-1 text-[10px] text-(--color-text-muted) ml-2 whitespace-nowrap shrink-0">
       <Clock size={10} />
       {text}
     </span>
@@ -146,14 +146,14 @@ function LiveTimer({ startTime }) {
 
   const elapsed = now - startTime;
   return (
-    <span className="inline-flex items-center gap-1 text-xs text-(--color-warning) font-mono ml-2">
+    <span className="inline-flex items-center gap-1 text-xs text-(--color-warning) font-mono ml-2 whitespace-nowrap shrink-0">
       <Clock size={12} />
       {formatElapsed(elapsed)}
     </span>
   );
 }
 
-function CopyButton({ getText, className = "" }) {
+function CopyButton({ getText, className = "", hideText = false }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -185,7 +185,7 @@ function CopyButton({ getText, className = "" }) {
       title="Copy to clipboard"
     >
       {copied ? <Check size={12} className="text-(--color-success)" /> : <Copy size={12} />}
-      {copied ? "Copied" : "Copy"}
+      {!hideText && (copied ? "Copied" : "Copy")}
     </button>
   );
 }
@@ -202,7 +202,7 @@ function downloadFile(content, filename, mimeType) {
   URL.revokeObjectURL(url);
 }
 
-function DownloadButtons({ getCsv, getJson, className = "" }) {
+function DownloadButtons({ getCsv, getJson, className = "", hideText = false }) {
   return (
     <span className={`flex items-center gap-1 ${className}`}>
       {getCsv && (
@@ -211,7 +211,7 @@ function DownloadButtons({ getCsv, getJson, className = "" }) {
           className="flex items-center gap-1 px-2 py-1 rounded text-[11px] hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-colors cursor-pointer"
           title="Download CSV"
         >
-          <Download size={12} /> CSV
+          <Download size={12} /> {!hideText && "CSV"}
         </button>
       )}
       {getJson && (
@@ -220,14 +220,14 @@ function DownloadButtons({ getCsv, getJson, className = "" }) {
           className="flex items-center gap-1 px-2 py-1 rounded text-[11px] hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-colors cursor-pointer"
           title="Download JSON"
         >
-          <Download size={12} /> JSON
+          <Download size={12} /> {!hideText && "JSON"}
         </button>
       )}
     </span>
   );
 }
 
-function ActiveResultView({ result, onClose, onMaximizeToggle, isMaximized }) {
+function ActiveResultView({ result, onClose, onMaximizeToggle, isMaximized, containerWidth }) {
   if (!result) {
     return (
       <div className="flex items-center justify-center h-full text-(--color-text-muted) text-sm select-none">
@@ -338,7 +338,7 @@ function ActiveResultView({ result, onClose, onMaximizeToggle, isMaximized }) {
         <div className="flex items-center justify-between border-b border-(--color-border) shrink-0 h-9 px-3 bg-(--color-bg-secondary) select-none">
           <div className="flex items-center h-full">
             <div className="flex items-center gap-1.5 px-3 border-r border-(--color-border) h-full">
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-(--color-error)">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-(--color-error) whitespace-nowrap">
                 <AlertCircle size={12} />
                 Error
               </span>
@@ -346,7 +346,9 @@ function ActiveResultView({ result, onClose, onMaximizeToggle, isMaximized }) {
             <ElapsedBadge elapsed={result.elapsed} />
           </div>
           <div className="flex items-center gap-2 h-full">
-            <CopyButton getText={() => result.error} className="hover:bg-(--color-bg-tertiary) h-7" />
+            {containerWidth >= 380 && (
+              <CopyButton getText={() => result.error} className="hover:bg-(--color-bg-tertiary) h-7" hideText={containerWidth < 480} />
+            )}
             {(onMaximizeToggle || onClose) && <div className="h-4 w-px bg-(--color-border) mx-1" />}
             {onMaximizeToggle && (
               <button
@@ -388,7 +390,7 @@ function ActiveResultView({ result, onClose, onMaximizeToggle, isMaximized }) {
 
     // Try to render as a table if we have structured JSON data
     if (jsonData) {
-      return <JsonTable data={jsonData} elapsed={result.elapsed} onClose={onClose} onMaximizeToggle={onMaximizeToggle} isMaximized={isMaximized} />;
+      return <JsonTable data={jsonData} elapsed={result.elapsed} onClose={onClose} onMaximizeToggle={onMaximizeToggle} isMaximized={isMaximized} activeWidth={containerWidth} />;
     }
 
     // Render text output
@@ -409,8 +411,12 @@ function ActiveResultView({ result, onClose, onMaximizeToggle, isMaximized }) {
             </div>
 
             <div className="flex items-center gap-2 px-3 h-full">
-              <CopyButton getText={() => textData} className="hover:bg-(--color-bg-tertiary) h-7" />
-              <DownloadButtons getCsv={() => textData} className="h-7" />
+              {containerWidth >= 380 && (
+                <>
+                  <CopyButton getText={() => textData} className="hover:bg-(--color-bg-tertiary) h-7" hideText={containerWidth < 480} />
+                  <DownloadButtons getCsv={() => textData} className="h-7" hideText={containerWidth < 480} />
+                </>
+              )}
               {(onMaximizeToggle || onClose) && <div className="h-4 w-px bg-(--color-border) mx-1" />}
               {onMaximizeToggle && (
                 <button
@@ -459,6 +465,18 @@ function ActiveResultView({ result, onClose, onMaximizeToggle, isMaximized }) {
 
 export default function ResultTable({ onClose, onMaximizeToggle, isMaximized }) {
   const { activeFileResultsList, activeResultId, selectResult, deleteResult, clearFileResults, createResultSession, activeTabId } = useSqlFiles();
+  const activeViewRef = useRef(null);
+  const [activeWidth, setActiveWidth] = useState(500);
+
+  useEffect(() => {
+    const el = activeViewRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setActiveWidth(entry.contentRect.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const [historyVisible, setHistoryVisible] = useState(() => {
     try {
       const saved = localStorage.getItem("livy-result-history-visible");
@@ -524,13 +542,14 @@ export default function ResultTable({ onClose, onMaximizeToggle, isMaximized }) 
   return (
     <div className="flex h-full bg-(--color-bg-secondary) overflow-hidden relative">
       {/* Left panel: Active result display */}
-      <div className="flex-1 min-w-0 h-full overflow-hidden relative">
+      <div ref={activeViewRef} className="flex-1 min-w-0 h-full overflow-hidden relative">
         {activeResult && activeResult.status !== "idle" ? (
           <ActiveResultView
             result={activeResult}
             onClose={onClose}
             onMaximizeToggle={onMaximizeToggle}
             isMaximized={isMaximized}
+            containerWidth={activeWidth}
           />
         ) : (
           <div className="flex flex-col h-full bg-(--color-bg-secondary)">
@@ -703,7 +722,7 @@ function highlightPlanLine(line) {
   return parts;
 }
 
-function ExplainPlan({ planText, elapsed, onClose, onMaximizeToggle, isMaximized }) {
+function ExplainPlan({ planText, elapsed, onClose, onMaximizeToggle, isMaximized, containerWidth }) {
   const lines = planText.split("\n");
 
   return (
@@ -724,8 +743,12 @@ function ExplainPlan({ planText, elapsed, onClose, onMaximizeToggle, isMaximized
 
         {/* Right cluster: actions and resize controls */}
         <div className="flex items-center gap-2 px-3 h-full">
-          <CopyButton getText={() => planText} className="hover:bg-(--color-bg-tertiary) h-7" />
-          <DownloadButtons getCsv={() => planText} className="h-7" />
+          {containerWidth >= 380 && (
+            <>
+              <CopyButton getText={() => planText} className="hover:bg-(--color-bg-tertiary) h-7" hideText={containerWidth < 480} />
+              <DownloadButtons getCsv={() => planText} className="h-7" hideText={containerWidth < 480} />
+            </>
+          )}
           {(onMaximizeToggle || onClose) && <div className="h-4 w-px bg-(--color-border) mx-1" />}
           {onMaximizeToggle && (
             <button
@@ -820,7 +843,7 @@ function estimateInitialColumnWidths(data) {
   return initialWidths;
 }
 
-function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
+function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized, activeWidth = 500 }) {
   const headerScrollRef = useRef(null);
   const scrollRef = useRef(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -873,7 +896,7 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
 
   if (isExplainResult(data)) {
     const planText = Array.isArray(data.data[0]) ? data.data[0][0] : data.data[0].plan;
-    return <ExplainPlan planText={planText} elapsed={elapsed} onClose={onClose} onMaximizeToggle={onMaximizeToggle} isMaximized={isMaximized} />;
+    return <ExplainPlan planText={planText} elapsed={elapsed} onClose={onClose} onMaximizeToggle={onMaximizeToggle} isMaximized={isMaximized} containerWidth={activeWidth} />;
   }
 
   if (!(data && data.schema && data.data)) {
@@ -1034,7 +1057,7 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-(--color-text-primary) border-b-2 border-(--color-accent) bg-(--color-bg-primary)/40 hover:bg-(--color-bg-primary)/60 transition-colors h-full cursor-pointer"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 16 16" aria-hidden="true" focusable="false" className="text-(--color-accent)"><path fill="currentColor" fill-rule="evenodd" d="M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75zm1.5.75v2.5h11V2.5zm0 4v2.5h11V6.5zm0 4v3h11v-3z" clipRule="evenodd"></path></svg>
-              <span>Table</span>
+              {activeWidth >= 380 && <span>Table</span>}
               <ChevronDown size={10} className={`text-(--color-text-muted) transition-transform duration-200 ${viewDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
           </div>
@@ -1082,22 +1105,28 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
             </div>
           )}
 
-          <div className="flex items-center gap-2 px-3 text-[11px] text-(--color-text-secondary) font-medium">
-            <CheckCircle2 size={12} className="text-(--color-success)" />
+          <div className="flex items-center gap-2 px-3 text-[11px] text-(--color-text-secondary) font-medium whitespace-nowrap truncate min-w-0">
+            <CheckCircle2 size={12} className="text-(--color-success) shrink-0" />
             {hasActiveFilters ? (
-              <div className="flex items-center gap-1.5">
-                <span>{filteredCount} of {totalRows} rows · {fields.length} columns</span>
+              <div className="flex items-center gap-1.5 whitespace-nowrap shrink-0">
+                <span>
+                  {filteredCount}/{totalRows} rows
+                  {activeWidth >= 460 && ` · ${fields.length} cols`}
+                </span>
                 <button
                   onClick={clearAllFilters}
-                  className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-(--color-bg-tertiary) hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-colors cursor-pointer"
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-(--color-bg-tertiary) hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-colors cursor-pointer shrink-0"
                   title="Clear all filters"
                 >
                   <FilterX size={9} />
-                  <span>Clear</span>
+                  {activeWidth >= 420 && <span>Clear</span>}
                 </button>
               </div>
             ) : (
-              <span>{totalRows} rows · {fields.length} columns</span>
+              <span className="whitespace-nowrap shrink-0">
+                {totalRows} rows
+                {activeWidth >= 460 && ` · ${fields.length} cols`}
+              </span>
             )}
             <ElapsedBadge elapsed={elapsed} />
           </div>
@@ -1106,19 +1135,21 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
         {/* Right cluster: Search/Filter and Download actions */}
         <div className="flex items-center gap-2 px-3 h-full">
           {/* Search filter button */}
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`p-1.5 rounded transition-colors cursor-pointer ${
-              showFilters
-                ? 'bg-(--color-accent) text-white'
-                : 'hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) hover:text-(--color-text-primary)'
-            }`}
-            title={showFilters ? "Hide column filters" : "Show column filters"}
-          >
-            <Search size={13} />
-          </button>
+          {activeWidth >= 380 && (
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`p-1.5 rounded transition-colors cursor-pointer ${
+                showFilters
+                  ? 'bg-(--color-accent) text-white'
+                  : 'hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) hover:text-(--color-text-primary)'
+              }`}
+              title={showFilters ? "Hide column filters" : "Show column filters"}
+            >
+              <Search size={13} />
+            </button>
+          )}
 
-          {(() => {
+          {activeWidth >= 380 && (() => {
             const buildCsv = () => {
               const csvEscape = (v) => {
                 const s = String(v);
@@ -1147,8 +1178,8 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized }) {
             };
             return (
               <>
-                <CopyButton getText={buildCsv} className="hover:bg-(--color-bg-tertiary) h-7" />
-                <DownloadButtons getCsv={buildCsv} getJson={buildJson} className="h-7" />
+                <CopyButton getText={buildCsv} className="hover:bg-(--color-bg-tertiary) h-7" hideText={activeWidth < 520} />
+                <DownloadButtons getCsv={buildCsv} getJson={buildJson} className="h-7" hideText={activeWidth < 520} />
               </>
             );
           })()}

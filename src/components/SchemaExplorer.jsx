@@ -629,9 +629,9 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, re
 
                                 sublabel={col.type}
 
-                                onCopy={() => copyToClipboard(col.name)}
+                                onCopy={() => copyToClipboard(col.name.includes(" ") ? `\`${col.name}\`` : col.name)}
 
-                                onInsert={onInsertAtCursor ? () => onInsertAtCursor(col.name) : undefined}
+                                onInsert={onInsertAtCursor ? () => onInsertAtCursor(col.name.includes(" ") ? `\`${col.name}\`` : col.name) : undefined}
 
                               />
 

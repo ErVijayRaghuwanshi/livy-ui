@@ -22,7 +22,9 @@ const DEFAULT_RESULT_HEIGHT = 250;
 export default function App() {
   const { activeFile, activeResult, files, activeTabId, setActiveTab, addFile, removeFile, saveFile, restoreLastClosedTab, closedTabsHistory, requestCloseFile } = useSqlFiles();
 
-  const [activeSidebarTab, setActiveSidebarTab] = useState("files");
+  const [activeSidebarTab, setActiveSidebarTab] = useState(() => {
+    return localStorage.getItem("livy-active-sidebar-tab") || "files";
+  });
   const [showCommandPalette, setShowCommandPalette] = useState(false);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -70,6 +72,11 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(SIDEBAR_CACHE_KEY, JSON.stringify(sidebarCollapsed));
   }, [sidebarCollapsed]);
+
+  // Persist active sidebar tab
+  useEffect(() => {
+    localStorage.setItem("livy-active-sidebar-tab", activeSidebarTab);
+  }, [activeSidebarTab]);
 
   // Apply theme class to root
   useEffect(() => {
@@ -163,12 +170,11 @@ export default function App() {
         return;
       }
 
-      // Ctrl+/ / Cmd+/ — show keyboard shortcuts
-      if (ctrl && !e.altKey && !e.shiftKey && e.key === "/") {
+      // Shift+/ (or '?') — show keyboard shortcuts
+      const isInput = e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.closest(".monaco-editor");
+      if (!ctrl && !e.altKey && e.shiftKey && e.key === "/" && !isInput) {
         e.preventDefault();
         setShowShortcuts((p) => !p);
-
-        // hide other two
         setShowHistory(false);
         setShowConnectionModal(false);
         return;

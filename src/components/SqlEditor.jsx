@@ -145,10 +145,11 @@ function registerSparkProviders(monaco, schemaDataRef) {
           Object.entries(columns).forEach(([key, columnList]) => {
             const [db, tbl] = key.split('.');
             columnList.forEach((col) => {
+              const insertText = col.name.includes(" ") ? `\`${col.name}\`` : col.name;
               schemaSuggestions.push({
                 label: col.name,
                 kind: monaco.languages.CompletionItemKind.Field,
-                insertText: col.name,
+                insertText: insertText,
                 detail: `${col.type} (${db}.${tbl})`,
                 documentation: `Column: ${col.name}\nType: ${col.type}\nTable: ${db}.${tbl}`,
                 range,
@@ -715,7 +716,7 @@ const SqlEditor = forwardRef(function SqlEditor({
     editor.addAction({
       id: "toggle-shortcuts-action",
       label: "Toggle Keyboard Shortcuts",
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Slash],
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.Slash],
       run: () => {
         onToggleShortcuts?.();
       },
@@ -917,7 +918,39 @@ const SqlEditor = forwardRef(function SqlEditor({
 
   const handleRunSql = async (sqlOverride, startLine, endLine) => {
     if (!canRun) return;
-    const sql = (sqlOverride || getSelectedOrAll()).trim();
+
+    let sql = "";
+    let finalStartLine = startLine;
+    let finalEndLine = endLine;
+
+    if (sqlOverride) {
+      sql = sqlOverride.trim();
+    } else {
+      const editor = editorRef.current;
+      if (editor) {
+        const selection = editor.getSelection();
+        if (selection && !selection.isEmpty()) {
+          sql = editor.getModel().getValueInRange(selection).trim();
+        } else {
+          const position = editor.getPosition();
+          if (position) {
+            const line = position.lineNumber;
+            const stmt = statementsRef.current.find(
+              (s) => line >= s.startLine && line <= s.endLine
+            );
+            if (stmt && stmt.sql) {
+              sql = stmt.sql.trim();
+              finalStartLine = stmt.startLine;
+              finalEndLine = stmt.endLine;
+            }
+          }
+        }
+      }
+      if (!sql) {
+        sql = getSelectedOrAll().trim();
+      }
+    }
+
     if (!sql) return;
 
     setRunning(true);
@@ -928,8 +961,8 @@ const SqlEditor = forwardRef(function SqlEditor({
     const executionId = activeResultId || uuidv4();
     setResult(activeFile.id, { status: "running", data: null, error: null, elapsed: null, startTime, sql }, executionId);
 
-    if (startLine && endLine) {
-      setRunningHighlight(startLine, endLine);
+    if (finalStartLine && finalEndLine) {
+      setRunningHighlight(finalStartLine, finalEndLine);
     }
 
     try {
