@@ -90,7 +90,7 @@ export default function StatusBar({ cursorPosition, onShowShortcuts, onShowHisto
         <button
           onClick={onShowShortcuts}
           className="flex items-center gap-1 hover:text-(--color-text-primary) transition-colors"
-          title="Keyboard Shortcuts (Ctrl+/)"
+          title="Keyboard Shortcuts (?)"
         >
           <Keyboard size={11} />
         </button>
