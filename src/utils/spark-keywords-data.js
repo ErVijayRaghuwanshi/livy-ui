@@ -97,6 +97,9 @@ const RAW_KEYWORDS = [
   'RENAME',
   'DESCRIBE',
   'USE',
+  'ADD',
+  'TYPE',
+  'LIKE',
 
   /* =====================
      DDL OBJECTS
@@ -108,6 +111,16 @@ const RAW_KEYWORDS = [
   'FUNCTION',
   'INDEX',
   'PARTITION',
+  'PARTITIONED',
+  'EXTERNAL',
+  'TEMP',
+  'TEMPORARY',
+  'GLOBAL',
+  'CLUSTERED',
+  'BUCKETS',
+  'CASCADE',
+  'COLUMNS',
+  'COLUMN',
 
   /* =====================
      TABLE PROPERTIES
@@ -130,6 +143,7 @@ const RAW_KEYWORDS = [
   'UPDATE',
   'DELETE',
   'MERGE',
+  'NAME',
 
   /* =====================
      MERGE
@@ -174,6 +188,23 @@ const RAW_KEYWORDS = [
   'SHOW',
   'LOAD',
   'UNLOAD',
+
+  /* =====================
+     SPARK SQL DATA TYPES
+     ===================== */
+  'STRING',
+  'INT',
+  'INTEGER',
+  'BIGINT',
+  'DOUBLE',
+  'FLOAT',
+  'DECIMAL',
+  'BOOLEAN',
+  'DATE',
+  'TIMESTAMP',
+  'ARRAY',
+  'MAP',
+  'STRUCT',
 ];
 
 export const SPARK_SQL_KEYWORDS = Array.from(new Set(RAW_KEYWORDS));

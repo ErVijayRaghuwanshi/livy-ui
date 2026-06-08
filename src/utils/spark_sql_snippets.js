@@ -467,5 +467,323 @@ export const SPARK_SQL_SNIPPETS = [
     label: "delta_repair_table",
     description: "Recover partitions in a directory-based table metadata",
     insertText: "MSCK REPAIR TABLE ${1:table_name};",
+  },
+  
+  // ==========================================
+  // SPARK SQL DDL 101 SNIPPETS
+  // ==========================================
+  {
+    label: "ddl_create_db",
+    description: "Create a database",
+    insertText: "CREATE DATABASE ${1:sales_db};",
+  },
+  {
+    label: "ddl_create_db_if_not_exists",
+    description: "Create a database only if it doesn't already exist",
+    insertText: "CREATE DATABASE IF NOT EXISTS ${1:sales_db};",
+  },
+  {
+    label: "ddl_use_db",
+    description: "Switch active database context",
+    insertText: "USE ${1:sales_db};",
+  },
+  {
+    label: "ddl_show_databases",
+    description: "Show list of databases",
+    insertText: "SHOW DATABASES;",
+  },
+  {
+    label: "ddl_describe_db",
+    description: "Describe a database metadata",
+    insertText: "DESCRIBE DATABASE ${1:sales_db};",
+  },
+  {
+    label: "ddl_create_table_managed",
+    description: "Create a managed Spark SQL table",
+    insertText: [
+      "CREATE TABLE ${1:customers} (",
+      "    ${2:customer_id} INT,",
+      "    ${3:name} STRING,",
+      "    ${4:email} STRING,",
+      "    ${5:signup_date} DATE",
+      ");"
+    ].join("\n"),
+  },
+  {
+    label: "ddl_create_table_external",
+    description: "Create an external table with physical location",
+    insertText: [
+      "CREATE EXTERNAL TABLE ${1:customers_ext} (",
+      "    ${2:customer_id} INT,",
+      "    ${3:name} STRING,",
+      "    ${4:email} STRING",
+      ")",
+      "LOCATION '${5:/data/customers}';"
+    ].join("\n"),
+  },
+  {
+    label: "ddl_create_table_parquet",
+    description: "Create a table using PARQUET format",
+    insertText: [
+      "CREATE TABLE ${1:customers} (",
+      "    ${2:customer_id} INT,",
+      "    ${3:name} STRING",
+      ")",
+      "USING PARQUET;"
+    ].join("\n"),
+  },
+  {
+    label: "ddl_create_table_delta",
+    description: "Create a table using DELTA format",
+    insertText: [
+      "CREATE TABLE ${1:customers} (",
+      "    ${2:customer_id} INT,",
+      "    ${3:name} STRING",
+      ")",
+      "USING DELTA;"
+    ].join("\n"),
+  },
+  {
+    label: "ddl_create_table_csv",
+    description: "Create a CSV data-source table with custom options",
+    insertText: [
+      "CREATE TABLE ${1:customers_csv} (",
+      "    ${2:customer_id} INT,",
+      "    ${3:name} STRING",
+      ")",
+      "USING CSV",
+      "OPTIONS (",
+      "    path '${4:/data/customers.csv}',",
+      "    header '${5:true}'",
+      ");"
+    ].join("\n"),
+  },
+  {
+    label: "ddl_create_table_like",
+    description: "Create a table matching the schema of another table using a specific format",
+    insertText: "CREATE TABLE ${1:default.merged_telecom_tbl} LIKE ${2:default.mass_delta_partitioned} USING ${3:DELTA};",
+  },
+  {
+    label: "ddl_create_table_partitioned",
+    description: "Create a partitioned table (improved query scan performance)",
+    insertText: [
+      "CREATE TABLE ${1:orders} (",
+      "    ${2:order_id} BIGINT,",
+      "    ${3:customer_id} INT,",
+      "    ${4:amount} DECIMAL(10,2),",
+      "    ${5:order_date} DATE",
+      ")",
+      "USING ${6:PARQUET}",
+      "PARTITIONED BY (${7:order_date});"
+    ].join("\n"),
+  },
+  {
+    label: "ddl_create_table_bucketed",
+    description: "Create a bucketed table distributed into fixed clusters",
+    insertText: [
+      "CREATE TABLE ${1:users} (",
+      "    ${2:user_id} BIGINT,",
+      "    ${3:name} STRING",
+      ")",
+      "USING ${4:PARQUET}",
+      "CLUSTERED BY (${5:user_id})",
+      "INTO ${6:8} BUCKETS;"
+    ].join("\n"),
+  },
+  {
+    label: "ddl_create_table_ctas",
+    description: "Create Table As Select (CTAS) to populate in one step",
+    insertText: [
+      "CREATE TABLE ${1:active_customers}",
+      "USING ${2:PARQUET}",
+      "AS",
+      "SELECT ${3:*}",
+      "FROM ${4:customers}",
+      "WHERE ${5:status = 'ACTIVE'};"
+    ].join("\n"),
+  },
+  {
+    label: "ddl_create_table_ctas_empty",
+    description: "Create an empty table copying the schema of another table",
+    insertText: [
+      "CREATE TABLE ${1:default.merged_telecom_tbl}",
+      "USING ${2:DELTA}",
+      "AS SELECT ${3:*}",
+      "FROM ${4:default.mass_delta_partitioned}",
+      "WHERE 1=0;"
+    ].join("\n"),
+  },
+  {
+    label: "ddl_create_temp_view",
+    description: "Create a session-scoped temporary view",
+    insertText: [
+      "CREATE TEMP VIEW ${1:customer_view} AS",
+      "SELECT ${2:*}",
+      "FROM ${3:customers};"
+    ].join("\n"),
+  },
+  {
+    label: "ddl_create_global_temp_view",
+    description: "Create a global temporary view (query via global_temp.name)",
+    insertText: [
+      "CREATE GLOBAL TEMP VIEW ${1:customer_view} AS",
+      "SELECT ${2:*}",
+      "FROM ${3:customers};"
+    ].join("\n"),
+  },
+  {
+    label: "ddl_select_global_temp_view",
+    description: "Query a global temporary view",
+    insertText: "SELECT * FROM global_temp.${1:customer_view};",
+  },
+  {
+    label: "ddl_alter_rename_table",
+    description: "Rename an existing table",
+    insertText: "ALTER TABLE ${1:customers} RENAME TO ${2:customer_master};",
+  },
+  {
+    label: "ddl_alter_add_columns",
+    description: "Add new columns to an existing table schema",
+    insertText: [
+      "ALTER TABLE ${1:customers}",
+      "ADD COLUMNS (",
+      "    ${2:phone} STRING,",
+      "    ${3:city} STRING",
+      ");"
+    ].join("\n"),
+  },
+  {
+    label: "ddl_alter_column_type",
+    description: "Modify an existing column type",
+    insertText: "ALTER TABLE ${1:customers} ALTER COLUMN ${2:phone} TYPE ${3:STRING};",
+  },
+  {
+    label: "ddl_alter_rename_column",
+    description: "Rename a column within a table",
+    insertText: "ALTER TABLE ${1:customers} RENAME COLUMN ${2:phone} TO ${3:mobile};",
+  },
+  {
+    label: "ddl_alter_drop_columns",
+    description: "Drop columns from a table (requires Delta column mapping mode)",
+    insertText: "ALTER TABLE ${1:default.merged_telecom_tbl} DROP COLUMN (${2:CASEID, ID});",
+  },
+  {
+    label: "ddl_partition_add",
+    description: "Add a physical partition path manually",
+    insertText: "ALTER TABLE ${1:orders} ADD PARTITION (${2:order_date}='${3:2025-01-01}');",
+  },
+  {
+    label: "ddl_partition_drop",
+    description: "Drop a physical partition",
+    insertText: "ALTER TABLE ${1:orders} DROP PARTITION (${2:order_date}='${3:2025-01-01}');",
+  },
+  {
+    label: "ddl_partition_show",
+    description: "List all partitions defined for a table",
+    insertText: "SHOW PARTITIONS ${1:orders};",
+  },
+  {
+    label: "ddl_properties_set",
+    description: "Define TBLPROPERTIES metadata key-values",
+    insertText: [
+      "ALTER TABLE ${1:customers} SET TBLPROPERTIES (",
+      "    '${2:owner}'='${3:data_team}',",
+      "    '${4:quality}'='${5:gold}'",
+      ");"
+    ].join("\n"),
+  },
+  {
+    label: "ddl_properties_show",
+    description: "View all table properties",
+    insertText: "SHOW TBLPROPERTIES ${1:customers};",
+  },
+  {
+    label: "ddl_describe",
+    description: "Describe schema configuration",
+    insertText: "DESCRIBE ${1:customers};",
+  },
+  {
+    label: "ddl_describe_extended",
+    description: "Describe extended table metadata",
+    insertText: "DESCRIBE EXTENDED ${1:customers};",
+  },
+  {
+    label: "ddl_describe_formatted",
+    description: "Describe formatted table metadata with storage specs",
+    insertText: "DESCRIBE FORMATTED ${1:customers};",
+  },
+  {
+    label: "ddl_drop_table",
+    description: "Delete table",
+    insertText: "DROP TABLE ${1:customers};",
+  },
+  {
+    label: "ddl_drop_table_if_exists",
+    description: "Delete table if it exists",
+    insertText: "DROP TABLE IF EXISTS ${1:customers};",
+  },
+  {
+    label: "ddl_drop_db",
+    description: "Delete database",
+    insertText: "DROP DATABASE ${1:sales_db};",
+  },
+  {
+    label: "ddl_drop_db_cascade",
+    description: "Delete database and all contained objects",
+    insertText: "DROP DATABASE IF EXISTS ${1:sales_db} CASCADE;",
+  },
+  {
+    label: "ddl_show_tables",
+    description: "Show list of tables in current database",
+    insertText: "SHOW TABLES;",
+  },
+  {
+    label: "ddl_insert_by_name",
+    description: "Insert data matching target columns by name",
+    insertText: [
+      "INSERT INTO ${1:default.merged_telecom_tbl} BY NAME",
+      "SELECT ${2:*}",
+      "FROM ${3:voice_tbl};"
+    ].join("\n"),
+  },
+  {
+    label: "ddl_create_table_complex_types",
+    description: "Create a table with Array, Map, and Struct complex types",
+    insertText: [
+      "CREATE TABLE IF NOT EXISTS ${1:events} (",
+      "    ${2:id} BIGINT,",
+      "    ${3:tags} ARRAY<STRING>,",
+      "    ${4:attributes} MAP<STRING, STRING>,",
+      "    ${5:metadata} STRUCT<",
+      "        source: STRING,",
+      "        version: INT",
+      "    >",
+      ")",
+      "USING ${6:PARQUET};"
+    ].join("\n"),
+  },
+  {
+    label: "ddl_production_example",
+    description: "Comprehensive delta table creation with partitioning and table properties",
+    insertText: [
+      "CREATE TABLE IF NOT EXISTS ${1:sales_fact} (",
+      "    sale_id BIGINT,",
+      "    customer_id BIGINT,",
+      "    product_id BIGINT,",
+      "    quantity INT,",
+      "    amount DECIMAL(12,2),",
+      "    sale_timestamp TIMESTAMP",
+      ")",
+      "USING DELTA",
+      "PARTITIONED BY (${2:product_id});",
+      "",
+      "ALTER TABLE ${1:sales_fact}",
+      "SET TBLPROPERTIES (",
+      "    'data_tier'='gold',",
+      "    'owner'='analytics'",
+      ");",
+      "",
+      "DESCRIBE FORMATTED ${1:sales_fact};"
+    ].join("\n"),
   }
 ];
