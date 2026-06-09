@@ -2,6 +2,22 @@
 
 All notable changes to the Livy SQL Editor project will be documented in this file.
 
+## [v1.4.6] - 2026-06-09
+### Added
+* Monaco model-based document swapping to preserve undo/redo history stacks, selection ranges, and scroll positions across tab switches.
+* Closed tabs model cache holding recently closed files for up to 1 hour, allowing complete edit history restoration when a closed tab is reopened (e.g. via `Cmd+Shift+T` / `Ctrl+Shift+T`).
+* Browser-safe tab switching hotkeys (`Alt + [` for previous tab, `Alt + ]` for next tab, `Alt + PageUp`/`PageDown` for navigation, and `Alt + 1...9` to switch directly to tabs 1-9) that bypass browser interceptions on macOS and Windows/Linux.
+* Classic Nokia Snake and retro Bounce game easter egg integrations, triggered by running SQL commands (e.g. `play snake`, `play bounce`) or via Command Palette actions.
+* Local storage persistence for active sidebar tabs and the search query field across page refreshes.
+* Escaped column names containing spaces with backticks inside Schema Explorer actions.
+
+### Fixed
+* Swallowed keypresses inside Monaco editor by routing callback triggers through React references (`useRef`), resolving stale closures for all hotkeys.
+
+[Details in Release Notes](release-notes/v1.4.6.md)
+
+---
+
 ## [v1.4.5] - 2026-06-04
 ### Added
 * Tabbed navigation switcher inside the Connection Manager modal, dividing settings into **Livy Hosts**, **Spark Config**, and **JARs & Libraries**.

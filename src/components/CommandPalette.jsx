@@ -13,6 +13,8 @@ export default function CommandPalette({
   setShowHistory,
   setShowConnectionModal,
   editorRef,
+  onTriggerBounce,
+  onTriggerSnake,
 }) {
   const {
     files,
@@ -167,7 +169,21 @@ export default function CommandPalette({
       shortcut: isMac ? "⌘/" : "Ctrl+/",
       action: () => setShowShortcuts(true),
     },
-  ], [addFile, saveFile, activeTabId, requestCloseFile, closeAllFiles, editorRef, restoreLastClosedTab, setSidebarCollapsed, toggleTheme, setShowConnectionModal, setShowHistory, setShowShortcuts]);
+    {
+      id: "play-bounce",
+      name: "Play Retro Bounce Game",
+      category: "Fun",
+      shortcut: "",
+      action: () => onTriggerBounce?.(),
+    },
+    {
+      id: "play-snake",
+      name: "Play Classic Nokia Snake",
+      category: "Fun",
+      shortcut: "",
+      action: () => onTriggerSnake?.(),
+    },
+  ], [addFile, saveFile, activeTabId, requestCloseFile, closeAllFiles, editorRef, restoreLastClosedTab, setSidebarCollapsed, toggleTheme, setShowConnectionModal, setShowHistory, setShowShortcuts, onTriggerBounce, onTriggerSnake]);
 
   // Combined list of filtered items
   const filteredItems = useMemo(() => {

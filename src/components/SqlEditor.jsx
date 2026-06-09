@@ -375,12 +375,37 @@ const SqlEditor = forwardRef(function SqlEditor({
   onToggleConnectionModal,
   onPrevTab,
   onNextTab,
+  onSwitchToTab,
   onRestoreTab,
   onToggleCommandPalette,
+  onTriggerBounce,
+  onTriggerSnake,
 }, ref) {
-  const { activeFile, updateContent, setResult, saveFile, toggleAutoSave, activeResultId, pendingLineReveal, clearPendingLineReveal } = useSqlFiles();
+  const { activeFile, files, openFiles, updateContent, setResult, saveFile, toggleAutoSave, activeResultId, pendingLineReveal, clearPendingLineReveal } = useSqlFiles();
   const activeFileRef = useRef(activeFile);
   const toggleAutoSaveRef = useRef(toggleAutoSave);
+  const onPrevTabRef = useRef(onPrevTab);
+  const onNextTabRef = useRef(onNextTab);
+  const onSwitchToTabRef = useRef(onSwitchToTab);
+  const onRestoreTabRef = useRef(onRestoreTab);
+  const onNewTabRef = useRef(onNewTab);
+  const onCloseTabRef = useRef(onCloseTab);
+  const onToggleQueryHistoryRef = useRef(onToggleQueryHistory);
+  const onToggleShortcutsRef = useRef(onToggleShortcuts);
+  const onToggleConnectionModalRef = useRef(onToggleConnectionModal);
+  const onToggleCommandPaletteRef = useRef(onToggleCommandPalette);
+  const onFocusSchemaSearchRef = useRef(onFocusSchemaSearch);
+  const onFocusFileSearchRef = useRef(onFocusFileSearch);
+  const onToggleSidebarRef = useRef(onToggleSidebar);
+  const onToggleResultPanelRef = useRef(onToggleResultPanel);
+  const onTriggerBounceRef = useRef(onTriggerBounce);
+  const onTriggerSnakeRef = useRef(onTriggerSnake);
+
+  // Monaco model caching for undo history preservation
+  const modelsRef = useRef(new Map());
+  const closedModelsRef = useRef(new Map());
+  const prevActiveFileIdRef = useRef(null);
+  const handleChangeRef = useRef(null);
 
   useEffect(() => {
     activeFileRef.current = activeFile;
@@ -389,6 +414,25 @@ const SqlEditor = forwardRef(function SqlEditor({
   useEffect(() => {
     toggleAutoSaveRef.current = toggleAutoSave;
   }, [toggleAutoSave]);
+
+  useEffect(() => {
+    onPrevTabRef.current = onPrevTab;
+    onNextTabRef.current = onNextTab;
+    onSwitchToTabRef.current = onSwitchToTab;
+    onRestoreTabRef.current = onRestoreTab;
+    onNewTabRef.current = onNewTab;
+    onCloseTabRef.current = onCloseTab;
+    onToggleQueryHistoryRef.current = onToggleQueryHistory;
+    onToggleShortcutsRef.current = onToggleShortcuts;
+    onToggleConnectionModalRef.current = onToggleConnectionModal;
+    onToggleCommandPaletteRef.current = onToggleCommandPalette;
+    onFocusSchemaSearchRef.current = onFocusSchemaSearch;
+    onFocusFileSearchRef.current = onFocusFileSearch;
+    onToggleSidebarRef.current = onToggleSidebar;
+    onToggleResultPanelRef.current = onToggleResultPanel;
+    onTriggerBounceRef.current = onTriggerBounce;
+    onTriggerSnakeRef.current = onTriggerSnake;
+  });
 
   const { sessionId, sessionState } = useLivy();
   const schemaContext = useSchema();
@@ -472,11 +516,38 @@ const SqlEditor = forwardRef(function SqlEditor({
     monacoRef.current = monaco;
     setMonacoInstance(monaco);
 
+    // Initialize model for active file
+    if (activeFileRef.current) {
+      let model = modelsRef.current.get(activeFileRef.current.id);
+      if (!model) {
+        const closedItem = closedModelsRef.current.get(activeFileRef.current.id);
+        if (closedItem) {
+          model = closedItem.model;
+          closedModelsRef.current.delete(activeFileRef.current.id);
+          modelsRef.current.set(activeFileRef.current.id, model);
+        }
+      }
+      if (!model) {
+        model = monaco.editor.createModel(
+          activeFileRef.current.content,
+          "sql",
+          monaco.Uri.parse(`inmemory://model-${activeFileRef.current.id}.sql`)
+        );
+        model.onDidChangeContent(() => {
+          const val = model.getValue();
+          handleChangeRef.current?.(val);
+        });
+        modelsRef.current.set(activeFileRef.current.id, model);
+      }
+      editor.setModel(model);
+      prevActiveFileIdRef.current = activeFileRef.current.id;
+    }
+
     updateDecorations(editor);
 
     // Restore view state if it exists
-    if (activeFile?.id) {
-      const savedState = viewStatesRef.current[activeFile.id];
+    if (activeFileRef.current?.id) {
+      const savedState = viewStatesRef.current[activeFileRef.current.id];
       if (savedState) {
         editor.restoreViewState(savedState);
       }
@@ -589,7 +660,7 @@ const SqlEditor = forwardRef(function SqlEditor({
       label: "Focus Schema Search",
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyK],
       run: () => {
-        onFocusSchemaSearch?.();
+        onFocusSchemaSearchRef.current?.();
       },
     });
 
@@ -599,7 +670,7 @@ const SqlEditor = forwardRef(function SqlEditor({
       label: "Focus File Explorer",
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyE],
       run: () => {
-        onFocusFileSearch?.();
+        onFocusFileSearchRef.current?.();
       },
     });
 
@@ -609,7 +680,7 @@ const SqlEditor = forwardRef(function SqlEditor({
       label: "Toggle Command Palette",
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP],
       run: () => {
-        onToggleCommandPalette?.();
+        onToggleCommandPaletteRef.current?.();
       },
     });
 
@@ -619,7 +690,7 @@ const SqlEditor = forwardRef(function SqlEditor({
       label: "Toggle Sidebar",
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB],
       run: () => {
-        onToggleSidebar?.();
+        onToggleSidebarRef.current?.();
       },
     });
 
@@ -629,7 +700,7 @@ const SqlEditor = forwardRef(function SqlEditor({
       label: "Toggle Result Panel",
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Backquote],
       run: () => {
-        onToggleResultPanel?.();
+        onToggleResultPanelRef.current?.();
       },
     });
 
@@ -639,7 +710,7 @@ const SqlEditor = forwardRef(function SqlEditor({
       label: "New Tab",
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyN],
       run: () => {
-        onNewTab?.();
+        onNewTabRef.current?.();
       },
     });
 
@@ -649,7 +720,7 @@ const SqlEditor = forwardRef(function SqlEditor({
       label: "Close Tab",
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyW],
       run: () => {
-        onCloseTab?.();
+        onCloseTabRef.current?.();
       },
     });
 
@@ -662,45 +733,55 @@ const SqlEditor = forwardRef(function SqlEditor({
         monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyT
       ],
       run: () => {
-        onRestoreTab?.();
+        onRestoreTabRef.current?.();
       },
     });
 
     // Previous Tab
     editor.addAction({
-      id: "prev-tab-action-arrow",
-      label: "Previous Tab (Arrow)",
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.LeftArrow],
-      run: () => {
-        onPrevTab?.();
-      },
-    });
-    editor.addAction({
       id: "prev-tab-action-pgup",
       label: "Previous Tab",
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.PageUp],
+      keybindings: [
+        monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.LeftArrow,
+        monaco.KeyMod.CtrlCmd | monaco.KeyCode.PageUp,
+        monaco.KeyMod.WinCtrl | monaco.KeyMod.Shift | monaco.KeyCode.Tab,
+        monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.BracketLeft,
+        monaco.KeyMod.Alt | monaco.KeyCode.BracketLeft,
+        monaco.KeyMod.Alt | monaco.KeyCode.PageUp
+      ],
       run: () => {
-        onPrevTab?.();
+        onPrevTabRef.current?.();
       },
     });
 
     // Next Tab
     editor.addAction({
-      id: "next-tab-action-arrow",
-      label: "Next Tab (Arrow)",
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.RightArrow],
-      run: () => {
-        onNextTab?.();
-      },
-    });
-    editor.addAction({
       id: "next-tab-action-pgdn",
       label: "Next Tab",
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.PageDown],
+      keybindings: [
+        monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.RightArrow,
+        monaco.KeyMod.CtrlCmd | monaco.KeyCode.PageDown,
+        monaco.KeyMod.WinCtrl | monaco.KeyCode.Tab,
+        monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.BracketRight,
+        monaco.KeyMod.Alt | monaco.KeyCode.BracketRight,
+        monaco.KeyMod.Alt | monaco.KeyCode.PageDown
+      ],
       run: () => {
-        onNextTab?.();
+        onNextTabRef.current?.();
       },
     });
+
+    // Direct numerical tab switches Alt+1 to Alt+9
+    for (let i = 1; i <= 9; i++) {
+      editor.addAction({
+        id: `switch-tab-${i}`,
+        label: `Switch to Tab ${i}`,
+        keybindings: [monaco.KeyMod.Alt | (monaco.KeyCode.KEY_1 + (i - 1))],
+        run: () => {
+          onSwitchToTabRef.current?.(i - 1);
+        },
+      });
+    }
 
     // Toggle Query History
     editor.addAction({
@@ -708,7 +789,7 @@ const SqlEditor = forwardRef(function SqlEditor({
       label: "Toggle Query History",
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH],
       run: () => {
-        onToggleQueryHistory?.();
+        onToggleQueryHistoryRef.current?.();
       },
     });
 
@@ -718,7 +799,7 @@ const SqlEditor = forwardRef(function SqlEditor({
       label: "Toggle Keyboard Shortcuts",
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.Slash],
       run: () => {
-        onToggleShortcuts?.();
+        onToggleShortcutsRef.current?.();
       },
     });
 
@@ -728,7 +809,7 @@ const SqlEditor = forwardRef(function SqlEditor({
       label: "Manage Livy Hosts",
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Period],
       run: () => {
-        onToggleConnectionModal?.();
+        onToggleConnectionModalRef.current?.();
       },
     });
 
@@ -754,12 +835,127 @@ const SqlEditor = forwardRef(function SqlEditor({
 
   const handleChange = useCallback(
     (value) => {
-      if (activeFile) {
-        updateContent(activeFile.id, value || "");
+      if (activeFileRef.current) {
+        updateContent(activeFileRef.current.id, value || "");
       }
     },
-    [activeFile, updateContent]
+    [updateContent]
   );
+
+  useEffect(() => {
+    handleChangeRef.current = handleChange;
+  }, [handleChange]);
+
+  // Tab Switch Effect
+  useEffect(() => {
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    if (!editor || !monaco || !activeFile) return;
+
+    // Save previous active file's view state
+    if (prevActiveFileIdRef.current && prevActiveFileIdRef.current !== activeFile.id) {
+      const currentModel = editor.getModel();
+      if (currentModel) {
+        viewStatesRef.current[prevActiveFileIdRef.current] = editor.saveViewState();
+      }
+    }
+    prevActiveFileIdRef.current = activeFile.id;
+
+    // Get or create model
+    let newModel = modelsRef.current.get(activeFile.id);
+    if (!newModel) {
+      const closedItem = closedModelsRef.current.get(activeFile.id);
+      if (closedItem) {
+        newModel = closedItem.model;
+        closedModelsRef.current.delete(activeFile.id);
+        modelsRef.current.set(activeFile.id, newModel);
+      }
+    }
+
+    if (!newModel) {
+      newModel = monaco.editor.createModel(
+        activeFile.content,
+        "sql",
+        monaco.Uri.parse(`inmemory://model-${activeFile.id}.sql`)
+      );
+      newModel.onDidChangeContent(() => {
+        const val = newModel.getValue();
+        handleChangeRef.current?.(val);
+      });
+      modelsRef.current.set(activeFile.id, newModel);
+    }
+
+    // Synchronize content if changed externally (e.g. initial load, external reload)
+    if (newModel.getValue() !== activeFile.content) {
+      newModel.setValue(activeFile.content);
+    }
+
+    // Set model and restore view state
+    editor.setModel(newModel);
+
+    const savedState = viewStatesRef.current[activeFile.id];
+    if (savedState) {
+      editor.restoreViewState(savedState);
+    } else {
+      editor.setPosition({ lineNumber: 1, column: 1 });
+    }
+
+    updateDecorations(editor);
+    editor.focus();
+  }, [activeFile?.id, updateDecorations]);
+
+  // External Content Syncer Effect
+  useEffect(() => {
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    if (!editor || !monaco || !activeFile) return;
+
+    const currentModel = editor.getModel();
+    if (currentModel && currentModel.getValue() !== activeFile.content) {
+      currentModel.setValue(activeFile.content);
+    }
+  }, [activeFile?.content]);
+
+  // Closed Tabs Tracker & Retention Cleaner Effect
+  useEffect(() => {
+    if (!openFiles) return;
+    const openSet = new Set(openFiles);
+
+    // Track newly closed files
+    for (const [id, model] of modelsRef.current.entries()) {
+      if (!openSet.has(id)) {
+        if (!closedModelsRef.current.has(id)) {
+          closedModelsRef.current.set(id, {
+            model,
+            closedAt: Date.now()
+          });
+        }
+        modelsRef.current.delete(id);
+      }
+    }
+
+    // Pruning expired closed models (1 hour retention)
+    const now = Date.now();
+    for (const [id, item] of closedModelsRef.current.entries()) {
+      if (now - item.closedAt > 3600000) {
+        item.model.dispose();
+        closedModelsRef.current.delete(id);
+      }
+    }
+  }, [openFiles]);
+
+  // Component Unmount Cleanup Effect
+  useEffect(() => {
+    return () => {
+      // Clean up all models to prevent memory leaks
+      for (const model of modelsRef.current.values()) {
+        model.dispose();
+      }
+      for (const item of closedModelsRef.current.values()) {
+        item.model.dispose();
+      }
+    };
+  }, []);
 
   const formatRange = (startLine, endLine) => {
     const editor = editorRef.current;
@@ -952,6 +1148,29 @@ const SqlEditor = forwardRef(function SqlEditor({
     }
 
     if (!sql) return;
+
+    // Check for secret bounce game activation
+    const cleanSql = sql.trim().toLowerCase().replace(/;$/, "");
+    if (
+      cleanSql === "bounce" ||
+      cleanSql === "/bounce" ||
+      cleanSql === "play bounce" ||
+      cleanSql === "select 'bounce'"
+    ) {
+      onTriggerBounceRef.current?.();
+      return;
+    }
+
+    // Check for secret snake game activation
+    if (
+      cleanSql === "snake" ||
+      cleanSql === "/snake" ||
+      cleanSql === "play snake" ||
+      cleanSql === "select 'snake'"
+    ) {
+      onTriggerSnakeRef.current?.();
+      return;
+    }
 
     setRunning(true);
     abortRef.current = false;
@@ -1205,12 +1424,9 @@ const SqlEditor = forwardRef(function SqlEditor({
           </div>
         )}
         <Editor
-          key={activeFile?.id}
           height="100%"
           defaultLanguage="sql"
-          defaultValue={activeFile?.content || ""}
           theme={theme === "light" ? "light" : "vs-dark"}
-          onChange={handleChange}
           onMount={handleEditorMount}
           options={{
             fontSize: 14,

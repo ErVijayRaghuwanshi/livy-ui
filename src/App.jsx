@@ -14,6 +14,8 @@ import { GripHorizontal } from "lucide-react";
 import { useSqlFiles } from "./context/SqlFilesContext";
 import { ToastContainer } from "./components/Toast";
 import WelcomeScreen from "./components/WelcomeScreen";
+import BounceGame from "./components/BounceGame";
+import SnakeGame from "./components/SnakeGame";
 
 const SIDEBAR_CACHE_KEY = "livy-ui-explorer-collapsed";
 const THEME_CACHE_KEY = "livy-ui-theme";
@@ -21,6 +23,34 @@ const DEFAULT_RESULT_HEIGHT = 250;
 
 export default function App() {
   const { activeFile, activeResult, files, activeTabId, setActiveTab, addFile, removeFile, saveFile, restoreLastClosedTab, closedTabsHistory, requestCloseFile } = useSqlFiles();
+
+  const [activeGames, setActiveGames] = useState({});
+  const [pendingGame, setPendingGame] = useState(null); // 'bounce' | 'snake' | null
+
+  const handleTriggerBounce = useCallback(() => {
+    if (activeTabId) {
+      setActiveGames((prev) => ({ ...prev, [activeTabId]: 'bounce' }));
+    } else {
+      setPendingGame('bounce');
+      addFile({ name: "Retro Bounce.sql" });
+    }
+  }, [activeTabId, addFile]);
+
+  const handleTriggerSnake = useCallback(() => {
+    if (activeTabId) {
+      setActiveGames((prev) => ({ ...prev, [activeTabId]: 'snake' }));
+    } else {
+      setPendingGame('snake');
+      addFile({ name: "Retro Snake.sql" });
+    }
+  }, [activeTabId, addFile]);
+
+  useEffect(() => {
+    if (pendingGame && activeTabId) {
+      setActiveGames((prev) => ({ ...prev, [activeTabId]: pendingGame }));
+      setPendingGame(null);
+    }
+  }, [activeTabId, pendingGame]);
 
   const [activeSidebarTab, setActiveSidebarTab] = useState(() => {
     return localStorage.getItem("livy-active-sidebar-tab") || "files";
@@ -224,9 +254,41 @@ export default function App() {
         return;
       }
 
-      // Ctrl+PageDown / Ctrl+PageUp or Cmd+Option+ArrowRight / Cmd+Option+ArrowLeft — next/prev tab
-      const isPrevTab = (ctrl && !e.shiftKey && e.key === "PageUp") || (ctrl && e.altKey && !e.shiftKey && e.key === "ArrowLeft");
-      const isNextTab = (ctrl && !e.shiftKey && e.key === "PageDown") || (ctrl && e.altKey && !e.shiftKey && e.key === "ArrowRight");
+      // Alt + [1-9] to switch directly to tab 1-9 (browser-safe shortcut, works on Mac Option+1-9 too)
+      if (e.altKey && !ctrl && !e.shiftKey && e.code.startsWith("Digit")) {
+        const digitStr = e.code.slice(5);
+        if (digitStr >= "1" && digitStr <= "9") {
+          e.preventDefault();
+          const tabIndex = parseInt(digitStr, 10) - 1;
+          if (tabIndex < files.length) {
+            setActiveTab(files[tabIndex].id);
+          }
+          return;
+        }
+      }
+
+      // Next / Prev Tab Switchers:
+      // - Ctrl+PageDown / Ctrl+PageUp or Cmd+Option+ArrowRight / Cmd+Option+ArrowLeft
+      // - Ctrl+Tab (next), Ctrl+Shift+Tab (prev) (explicitly ctrlKey only to not block macOS Cmd+Tab app switch)
+      // - Ctrl+Shift+[ / Cmd+Shift+[ (prev), Ctrl+Shift+] / Cmd+Shift+] (next)
+      // - Alt+[ (prev), Alt+] (next) (browser-safe alternative)
+      // - Alt+PageUp (prev), Alt+PageDown (next) (browser-safe alternative)
+      const isPrevTab =
+        (ctrl && !e.shiftKey && e.key === "PageUp") ||
+        (ctrl && e.altKey && !e.shiftKey && e.key === "ArrowLeft") ||
+        (e.ctrlKey && !e.metaKey && e.shiftKey && e.key === "Tab") ||
+        (ctrl && e.shiftKey && (e.key === "[" || e.key === "{" || e.code === "BracketLeft")) ||
+        (e.altKey && !ctrl && !e.shiftKey && (e.key === "[" || e.key === "{" || e.code === "BracketLeft")) ||
+        (e.altKey && !ctrl && !e.shiftKey && e.key === "PageUp");
+
+      const isNextTab =
+        (ctrl && !e.shiftKey && e.key === "PageDown") ||
+        (ctrl && e.altKey && !e.shiftKey && e.key === "ArrowRight") ||
+        (e.ctrlKey && !e.metaKey && !e.shiftKey && e.key === "Tab") ||
+        (ctrl && e.shiftKey && (e.key === "]" || e.key === "}" || e.code === "BracketRight")) ||
+        (e.altKey && !ctrl && !e.shiftKey && (e.key === "]" || e.key === "}" || e.code === "BracketRight")) ||
+        (e.altKey && !ctrl && !e.shiftKey && e.key === "PageDown");
+
       if (isPrevTab || isNextTab) {
         e.preventDefault();
         const idx = files.findIndex((f) => f.id === activeTabId);
@@ -342,6 +404,8 @@ export default function App() {
         setShowHistory={setShowHistory}
         setShowConnectionModal={setShowConnectionModal}
         editorRef={editorRef}
+        onTriggerBounce={handleTriggerBounce}
+        onTriggerSnake={handleTriggerSnake}
       />
       <ConnectionModal isOpen={showConnectionModal} onClose={() => setShowConnectionModal(false)} />
       <TitleBar
@@ -387,82 +451,106 @@ export default function App() {
           
           {activeFile ? (
             <>
-              <SqlEditor
-                ref={editorRef}
-                onCursorPositionChange={setCursorPosition}
-                theme={theme}
-                onFocusSchemaSearch={handleFocusSchemaSearch}
-                onFocusFileSearch={handleFocusFileSearch}
-                onToggleCommandPalette={() => setShowCommandPalette((p) => !p)}
-                onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
-                onToggleResultPanel={() => {
-                  setResultHeight((h) => {
-                    if (h > 0) {
-                      prevResultHeight.current = h;
-                      return 0;
-                    }
-                    return prevResultHeight.current || DEFAULT_RESULT_HEIGHT;
-                  });
-                }}
-                onNewTab={addFile}
-                onCloseTab={() => {
-                  requestCloseFile(activeTabId);
-                }}
-                onToggleQueryHistory={() => {
-                  setShowHistory((p) => !p);
-                  setShowShortcuts(false);
-                  setShowConnectionModal(false);
-                }}
-                onToggleShortcuts={() => {
-                  setShowShortcuts((p) => !p);
-                  setShowHistory(false);
-                  setShowConnectionModal(false);
-                }}
-                onToggleConnectionModal={() => {
-                  setShowConnectionModal((p) => !p);
-                  setShowShortcuts(false);
-                  setShowHistory(false);
-                }}
-                onPrevTab={() => {
-                  const idx = files.findIndex((f) => f.id === activeTabId);
-                  const prev = (idx - 1 + files.length) % files.length;
-                  setActiveTab(files[prev].id);
-                }}
-                onNextTab={() => {
-                  const idx = files.findIndex((f) => f.id === activeTabId);
-                  const next = (idx + 1) % files.length;
-                  setActiveTab(files[next].id);
-                }}
-                onRestoreTab={restoreLastClosedTab}
-              />
-
-              {/* Resize Handle */}
-              {resultHeight > 0 && (
-                <div
-                  onMouseDown={handleMouseDown}
-                  className={`flex items-center justify-center h-2 cursor-row-resize shrink-0 transition-colors ${
-                    isDragging
-                      ? "bg-(--color-accent)"
-                      : "bg-(--color-border) hover:bg-(--color-accent)/50"
-                  }`}
-                >
-                  <GripHorizontal size={14} className="text-(--color-text-muted)" />
-                </div>
-              )}
-
-              {/* Result Panel */}
-              {resultHeight > 0 && (
-                <div
-                  className="shrink-0 bg-(--color-bg-secondary) border-t border-(--color-border) overflow-hidden"
-                  style={{ height: resultHeight }}
-                >
-                  <ResultTable 
-                    result={activeResult} 
-                    onClose={handleCloseResultPanel}
-                    onMaximizeToggle={handleToggleMaximizeResultPanel}
-                    isMaximized={isResultMaximized}
+              {activeGames[activeFile.id] === 'bounce' ? (
+                <BounceGame
+                  onClose={() => {
+                    setActiveGames((prev) => ({ ...prev, [activeFile.id]: null }));
+                  }}
+                  theme={theme}
+                />
+              ) : activeGames[activeFile.id] === 'snake' ? (
+                <SnakeGame
+                  onClose={() => {
+                    setActiveGames((prev) => ({ ...prev, [activeFile.id]: null }));
+                  }}
+                />
+              ) : (
+                <>
+                  <SqlEditor
+                    ref={editorRef}
+                    onCursorPositionChange={setCursorPosition}
+                    theme={theme}
+                    onFocusSchemaSearch={handleFocusSchemaSearch}
+                    onFocusFileSearch={handleFocusFileSearch}
+                    onToggleCommandPalette={() => setShowCommandPalette((p) => !p)}
+                    onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
+                    onToggleResultPanel={() => {
+                      setResultHeight((h) => {
+                        if (h > 0) {
+                          prevResultHeight.current = h;
+                          return 0;
+                        }
+                        return prevResultHeight.current || DEFAULT_RESULT_HEIGHT;
+                      });
+                    }}
+                    onNewTab={addFile}
+                    onCloseTab={() => {
+                      requestCloseFile(activeTabId);
+                    }}
+                    onToggleQueryHistory={() => {
+                      setShowHistory((p) => !p);
+                      setShowShortcuts(false);
+                      setShowConnectionModal(false);
+                    }}
+                    onToggleShortcuts={() => {
+                      setShowShortcuts((p) => !p);
+                      setShowHistory(false);
+                      setShowConnectionModal(false);
+                    }}
+                    onToggleConnectionModal={() => {
+                      setShowConnectionModal((p) => !p);
+                      setShowShortcuts(false);
+                      setShowHistory(false);
+                    }}
+                    onPrevTab={() => {
+                      const idx = files.findIndex((f) => f.id === activeTabId);
+                      const prev = (idx - 1 + files.length) % files.length;
+                      setActiveTab(files[prev].id);
+                    }}
+                    onNextTab={() => {
+                      const idx = files.findIndex((f) => f.id === activeTabId);
+                      const next = (idx + 1) % files.length;
+                      setActiveTab(files[next].id);
+                    }}
+                    onSwitchToTab={(index) => {
+                      if (index < files.length) {
+                        setActiveTab(files[index].id);
+                      }
+                    }}
+                    onRestoreTab={restoreLastClosedTab}
+                    onTriggerBounce={handleTriggerBounce}
+                    onTriggerSnake={handleTriggerSnake}
                   />
-                </div>
+
+                  {/* Resize Handle */}
+                  {resultHeight > 0 && (
+                    <div
+                      onMouseDown={handleMouseDown}
+                      className={`flex items-center justify-center h-2 cursor-row-resize shrink-0 transition-colors ${
+                        isDragging
+                          ? "bg-(--color-accent)"
+                          : "bg-(--color-border) hover:bg-(--color-accent)/50"
+                      }`}
+                    >
+                      <GripHorizontal size={14} className="text-(--color-text-muted)" />
+                    </div>
+                  )}
+
+                  {/* Result Panel */}
+                  {resultHeight > 0 && (
+                    <div
+                      className="shrink-0 bg-(--color-bg-secondary) border-t border-(--color-border) overflow-hidden"
+                      style={{ height: resultHeight }}
+                    >
+                      <ResultTable 
+                        result={activeResult} 
+                        onClose={handleCloseResultPanel}
+                        onMaximizeToggle={handleToggleMaximizeResultPanel}
+                        isMaximized={isResultMaximized}
+                      />
+                    </div>
+                  )}
+                </>
               )}
             </>
           ) : (
