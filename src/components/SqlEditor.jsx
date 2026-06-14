@@ -1321,6 +1321,12 @@ const SqlEditor = forwardRef(function SqlEditor({
       }]);
       editor.focus();
     },
+    triggerCommandPalette: () => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      editor.focus();
+      editor.trigger('keyboard', 'editor.action.quickCommand');
+    },
   }));
 
   // Close glyph popup on outside click or Escape

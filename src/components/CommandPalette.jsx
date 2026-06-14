@@ -114,6 +114,17 @@ export default function CommandPalette({
       action: () => editorRef?.current?.run(),
     },
     {
+      id: "editor-command-palette",
+      name: "Show SQL Editor Command Palette",
+      category: "Editor",
+      shortcut: "F1",
+      action: () => {
+        setTimeout(() => {
+          editorRef?.current?.triggerCommandPalette();
+        }, 50);
+      },
+    },
+    {
       id: "format-sql",
       name: "Format SQL",
       category: "Editor",
