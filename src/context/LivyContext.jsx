@@ -162,12 +162,13 @@ export function LivyProvider({ children }) {
     try {
       const session = await livyApi.getSession(id);
       dispatch({ type: "SET_SESSION", payload: session });
+      fetchSessions();
     } catch (err) {
       dispatch({ type: "SET_ERROR", payload: err.message });
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
-  }, []);
+  }, [fetchSessions]);
 
   // Start session
   const startSession = useCallback(async (name = "") => {
@@ -176,12 +177,13 @@ export function LivyProvider({ children }) {
     try {
       const session = await livyApi.createSession(state.sessionConf, name, state.sessionJars);
       dispatch({ type: "SET_SESSION", payload: session });
+      fetchSessions();
     } catch (err) {
       dispatch({ type: "SET_ERROR", payload: err.message });
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
-  }, [state.sessionConf, state.sessionJars]);
+  }, [state.sessionConf, state.sessionJars, fetchSessions]);
 
   // Stop session
   const stopSession = useCallback(async () => {
@@ -190,12 +192,13 @@ export function LivyProvider({ children }) {
     try {
       await livyApi.deleteSession(state.sessionId);
       dispatch({ type: "CLEAR_SESSION" });
+      fetchSessions();
     } catch (err) {
       dispatch({ type: "SET_ERROR", payload: err.message });
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
-  }, [state.sessionId]);
+  }, [state.sessionId, fetchSessions]);
 
   // Auto-refresh session state on mount if sessionId exists
   useEffect(() => {
@@ -213,13 +216,14 @@ export function LivyProvider({ children }) {
         dispatch({ type: "SET_SESSION", payload: session });
         if (session.state !== SESSION_STATES.STARTING) {
           clearInterval(interval);
+          fetchSessions();
         }
       } catch {
         clearInterval(interval);
       }
     }, 2000);
     return () => clearInterval(interval);
-  }, [state.sessionState, state.sessionId]);
+  }, [state.sessionState, state.sessionId, fetchSessions]);
 
   const value = {
     ...state,

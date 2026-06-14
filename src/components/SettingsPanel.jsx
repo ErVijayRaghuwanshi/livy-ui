@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   Server,
   Plus,
   Trash2,
-  Check,
   Loader2,
   Play,
   Square,
@@ -16,32 +15,33 @@ import {
   ChevronDown,
   ChevronRight,
   Link,
+  Settings2,
 } from "lucide-react";
 import { useLivy } from "../context/LivyContext";
 import { SESSION_STATES } from "../utils/constants";
 
 const stateColors = {
-  [SESSION_STATES.NOT_STARTED]: "bg-gray-500",
-  [SESSION_STATES.STARTING]: "bg-yellow-500 animate-pulse",
-  [SESSION_STATES.IDLE]: "bg-green-500",
-  [SESSION_STATES.BUSY]: "bg-blue-500 animate-pulse",
-  [SESSION_STATES.ERROR]: "bg-red-500",
-  [SESSION_STATES.DEAD]: "bg-red-700",
-  [SESSION_STATES.KILLED]: "bg-red-700",
+  [SESSION_STATES.NOT_STARTED]: "bg-slate-500",
+  [SESSION_STATES.STARTING]: "bg-amber-500 animate-pulse",
+  [SESSION_STATES.IDLE]: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]",
+  [SESSION_STATES.BUSY]: "bg-sky-500 animate-pulse shadow-[0_0_8px_rgba(56,189,248,0.5)]",
+  [SESSION_STATES.ERROR]: "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]",
+  [SESSION_STATES.DEAD]: "bg-rose-700",
+  [SESSION_STATES.KILLED]: "bg-rose-800",
   [SESSION_STATES.SHUTTING_DOWN]: "bg-orange-500 animate-pulse",
-  [SESSION_STATES.SUCCESS]: "bg-green-500",
+  [SESSION_STATES.SUCCESS]: "bg-emerald-500",
 };
 
 const statusBadgeStyles = {
-  [SESSION_STATES.NOT_STARTED]: "bg-gray-500/10 text-gray-400 border border-gray-500/20",
-  [SESSION_STATES.STARTING]: "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 animate-pulse",
-  [SESSION_STATES.IDLE]: "bg-green-500/10 text-green-500 border border-green-500/20",
-  [SESSION_STATES.BUSY]: "bg-blue-500/10 text-blue-500 border border-blue-500/20",
-  [SESSION_STATES.ERROR]: "bg-red-500/10 text-red-500 border border-red-500/20",
-  [SESSION_STATES.DEAD]: "bg-red-950/20 text-red-400 border border-red-850/20",
-  [SESSION_STATES.KILLED]: "bg-red-950/20 text-red-400 border border-red-850/20",
-  [SESSION_STATES.SHUTTING_DOWN]: "bg-orange-500/10 text-orange-500 border border-orange-500/20 animate-pulse",
-  [SESSION_STATES.SUCCESS]: "bg-green-500/10 text-green-500 border border-green-500/20",
+  [SESSION_STATES.NOT_STARTED]: "bg-slate-500/10 text-slate-400 border border-slate-500/20",
+  [SESSION_STATES.STARTING]: "bg-amber-500/10 text-amber-500 border border-amber-500/20 animate-pulse",
+  [SESSION_STATES.IDLE]: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+  [SESSION_STATES.BUSY]: "bg-sky-500/10 text-sky-400 border border-sky-500/20",
+  [SESSION_STATES.ERROR]: "bg-rose-500/10 text-rose-400 border border-rose-500/20",
+  [SESSION_STATES.DEAD]: "bg-rose-950/20 text-rose-400 border border-rose-800/20",
+  [SESSION_STATES.KILLED]: "bg-rose-950/20 text-rose-400 border border-rose-800/20",
+  [SESSION_STATES.SHUTTING_DOWN]: "bg-orange-500/10 text-orange-400 border border-orange-500/20 animate-pulse",
+  [SESSION_STATES.SUCCESS]: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
 };
 
 export default function SettingsPanel({
@@ -52,7 +52,6 @@ export default function SettingsPanel({
 }) {
   const {
     hosts,
-    activeHost,
     activeHostId,
     selectHost,
     removeHost,
@@ -81,9 +80,28 @@ export default function SettingsPanel({
   const [newSessionName, setNewSessionName] = useState("");
   const [repoStats] = useState({ stars: 0, forks: 0, version: "v1.4.5" });
 
-  // Auto-fetch sessions when host changes or at load
+  // Auto-fetch sessions when host changes or at load, and poll every 15 seconds ONLY when window is active and focused
   useEffect(() => {
     fetchSessions();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchSessions();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible" && document.hasFocus()) {
+        fetchSessions();
+      }
+    }, 15000);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [activeHostId, fetchSessions]);
 
   const toggleSection = (section) => {
@@ -109,15 +127,15 @@ export default function SettingsPanel({
   return (
     <div className="flex flex-col h-full bg-(--color-bg-secondary) select-none overflow-y-auto">
       {/* 1. LIVY HOSTS SECTION */}
-      <div className="flex flex-col border-b border-(--color-border)">
+      <div className="flex flex-col border-b border-(--color-border)/60">
         <div
           onClick={() => toggleSection("hosts")}
-          className="flex items-center justify-between px-3 py-2 bg-(--color-bg-secondary) hover:bg-(--color-bg-tertiary)/15 cursor-pointer select-none transition-colors duration-150"
+          className="flex items-center justify-between px-3.5 py-2.5 bg-(--color-bg-secondary) hover:bg-(--color-bg-tertiary)/15 cursor-pointer select-none transition-colors duration-150"
         >
-          <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
             <ChevronRight
-              size={14}
-              className={`text-(--color-text-muted) transition-transform duration-205 ease-in-out ${
+              size={13}
+              className={`text-(--color-text-muted) transition-transform duration-200 ease-in-out ${
                 expandedSections.hosts ? "rotate-90" : ""
               }`}
             />
@@ -130,15 +148,15 @@ export default function SettingsPanel({
               e.stopPropagation();
               setShowConnectionModal(true);
             }}
-            className="p-1 rounded-md hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors dg-spring-btn"
-            title="Add Host"
+            className="p-1 rounded-md hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-all duration-150 dg-spring-btn"
+            title="Manage Connections"
           >
-            <Plus size={13} />
+            <Settings2 size={13} />
           </button>
         </div>
 
         {expandedSections.hosts && (
-          <div className="flex flex-col py-2 px-3 border-t border-(--color-border)/35 bg-(--color-bg-secondary)/15 gap-1.5 max-h-[160px] overflow-y-auto">
+          <div className="flex flex-col py-2 px-3 border-t border-(--color-border)/20 bg-(--color-bg-secondary)/10 gap-1.5">
             {hosts.map((h) => {
               const isSelected = h.id === activeHostId;
               return (
@@ -147,7 +165,7 @@ export default function SettingsPanel({
                   onClick={() => selectHost(h.id)}
                   className={`group flex items-center justify-between px-2.5 py-2 text-xs rounded-lg cursor-pointer transition-all duration-200 border ${
                     isSelected
-                      ? "bg-gradient-to-r from-(--color-accent)/10 to-(--color-accent)/2 border-(--color-accent)/30 text-(--color-text-primary) font-medium shadow-xs shadow-(--color-accent)/5"
+                      ? "bg-gradient-to-r from-(--color-accent)/10 to-(--color-accent)/2 border-(--color-accent)/30 text-(--color-text-primary) font-medium shadow-xs"
                       : "text-(--color-text-secondary) hover:bg-(--color-bg-tertiary)/30 border-transparent hover:text-(--color-text-primary)"
                   }`}
                 >
@@ -159,8 +177,8 @@ export default function SettingsPanel({
                       }
                     />
                     <div className="flex flex-col truncate">
-                      <span className="truncate">{h.name}</span>
-                      <span className="text-[10px] text-(--color-text-muted) font-mono truncate mt-0.5">
+                      <span className="truncate leading-tight">{h.name}</span>
+                      <span className="text-[9px] text-(--color-text-muted) font-mono truncate mt-0.5">
                         {h.url}
                       </span>
                     </div>
@@ -193,15 +211,15 @@ export default function SettingsPanel({
       </div>
 
       {/* 2. LIVY SESSIONS SECTION */}
-      <div className="flex flex-col border-b border-(--color-border)">
+      <div className="flex flex-col border-b border-(--color-border)/60">
         <div
           onClick={() => toggleSection("sessions")}
-          className="flex items-center justify-between px-3 py-2 bg-(--color-bg-secondary) hover:bg-(--color-bg-tertiary)/15 cursor-pointer select-none transition-colors duration-150"
+          className="flex items-center justify-between px-3.5 py-2.5 bg-(--color-bg-secondary) hover:bg-(--color-bg-tertiary)/15 cursor-pointer select-none transition-colors duration-150"
         >
-          <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
             <ChevronRight
-              size={14}
-              className={`text-(--color-text-muted) transition-transform duration-205 ease-in-out ${
+              size={13}
+              className={`text-(--color-text-muted) transition-transform duration-200 ease-in-out ${
                 expandedSections.sessions ? "rotate-90" : ""
               }`}
             />
@@ -215,7 +233,7 @@ export default function SettingsPanel({
               fetchSessions();
             }}
             disabled={sessionsLoading}
-            className="p-1 rounded-md hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors disabled:opacity-40 dg-spring-btn"
+            className="p-1 rounded-md hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-all duration-150 disabled:opacity-40 dg-spring-btn"
             title="Refresh active sessions list"
           >
             <RefreshCw size={12} className={sessionsLoading ? "animate-spin" : ""} />
@@ -223,72 +241,72 @@ export default function SettingsPanel({
         </div>
 
         {expandedSections.sessions && (
-          <div className="flex flex-col py-3 px-3 border-t border-(--color-border)/35 bg-(--color-bg-secondary)/15 gap-3.5">
+          <div className="flex flex-col py-3.5 px-3.5 border-t border-(--color-border)/20 bg-(--color-bg-secondary)/10 gap-4">
             {/* Active Session Info Card */}
-            <div className="flex flex-col gap-2 bg-(--color-bg-primary)/50 border border-(--color-border)/50 p-3 rounded-xl shadow-xs">
+            <div className="flex flex-col gap-2.5 bg-(--color-bg-primary)/40 border border-(--color-border)/40 p-3.5 rounded-xl shadow-xs">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="relative flex h-2 w-2 shrink-0 items-center justify-center">
                     {(isActive || isStarting) && (
-                      <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping ${stateColors[sessionState] || "bg-gray-500"}`} />
+                      <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping ${stateColors[sessionState] || "bg-slate-500"}`} />
                     )}
-                    <span className={`relative inline-flex rounded-full h-2 w-2 ${stateColors[sessionState] || "bg-gray-500"}`} />
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${stateColors[sessionState] || "bg-slate-500"}`} />
                   </div>
                   <span className="text-xs font-semibold truncate text-(--color-text-primary)">
                     {sessionLabel}
                   </span>
                 </div>
                 
-                <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full tracking-wide shrink-0 ${
-                  statusBadgeStyles[sessionState] || "bg-gray-500/10 text-gray-400 border border-gray-500/20"
+                <span className={`text-[8px] font-bold uppercase px-2 py-0.5 rounded-full tracking-wider shrink-0 ${
+                  statusBadgeStyles[sessionState] || "bg-slate-500/10 text-slate-400 border border-slate-500/20"
                 }`}>
                   {sessionState}
                 </span>
               </div>
               
               {appId && (
-                <div className="text-[10px] text-(--color-text-muted) font-mono truncate bg-(--color-bg-primary)/40 px-2 py-1 rounded-md border border-(--color-border)/30">
-                  App: <span className="text-(--color-accent) font-semibold select-all">{appId}</span>
+                <div className="text-[9px] text-(--color-text-muted) font-mono truncate bg-(--color-bg-primary)/60 px-2.5 py-1 rounded-lg border border-(--color-border)/25">
+                  App ID: <span className="text-(--color-accent) font-semibold select-all">{appId}</span>
                 </div>
               )}
 
               {/* Session Controls */}
-              <div className="flex items-center gap-2 mt-1.5 border-t border-(--color-border)/20 pt-2.5 justify-end">
+              <div className="flex items-center gap-2 mt-1 border-t border-(--color-border)/15 pt-2.5 justify-end">
                 {isStarting ? (
                   <button
                     disabled
-                    className="flex-1 flex items-center justify-center h-8 px-3 rounded-lg bg-(--color-warning)/10 border border-(--color-warning)/20 text-(--color-warning) text-xs"
+                    className="flex-1 flex items-center justify-center h-8 px-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-semibold"
                   >
-                    <Loader2 size={13} className="animate-spin mr-1" />
+                    <Loader2 size={13} className="animate-spin mr-1.5" />
                     Starting...
                   </button>
                 ) : isActive ? (
                   <button
                     onClick={stopSession}
                     disabled={loading}
-                    className="flex-1 flex items-center justify-center h-8 gap-1.5 px-3 bg-(--color-error)/10 border border-(--color-error)/30 text-(--color-error) hover:bg-(--color-error)/20 hover:border-(--color-error)/50 text-xs rounded-lg transition-all disabled:opacity-40 cursor-pointer shadow-xs font-semibold dg-spring-btn"
-                    title="Stop Session"
+                    className="flex-1 flex items-center justify-center h-8 gap-1.5 px-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/40 text-xs rounded-lg transition-all disabled:opacity-40 cursor-pointer shadow-xs font-semibold dg-spring-btn"
+                    title="Stop Active Session"
                   >
-                    {loading ? <Loader2 size={12} className="animate-spin" /> : <Square size={12} className="fill-current" />}
-                    Stop
+                    {loading ? <Loader2 size={12} className="animate-spin" /> : <Square size={11} className="fill-current" />}
+                    Stop Session
                   </button>
                 ) : (
                   <button
                     onClick={() => startSession()}
                     disabled={loading}
-                    className="flex-1 flex items-center justify-center h-8 gap-1.5 px-3 bg-(--color-success)/10 border border-(--color-success)/30 text-(--color-success) hover:bg-(--color-success)/20 hover:border-(--color-success)/50 text-xs rounded-lg transition-all disabled:opacity-40 cursor-pointer shadow-xs font-semibold dg-spring-btn"
-                    title="Start Session"
+                    className="flex-1 flex items-center justify-center h-8 gap-1.5 px-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/40 text-xs rounded-lg transition-all disabled:opacity-40 cursor-pointer shadow-xs font-semibold dg-spring-btn"
+                    title="Start New Session"
                   >
-                    {loading ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} className="fill-current" />}
-                    Start
+                    {loading ? <Loader2 size={12} className="animate-spin" /> : <Play size={11} className="fill-current" />}
+                    Start Session
                   </button>
                 )}
 
                 <button
                   onClick={refreshSession}
                   disabled={loading || sessionId === null}
-                  className="flex items-center justify-center w-8 h-8 rounded-lg bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-muted) hover:text-(--color-text-primary) hover:border-(--color-accent) active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-40 shadow-xs dg-spring-btn"
-                  title="Refresh Session"
+                  className="flex items-center justify-center w-8 h-8 rounded-lg bg-(--color-bg-primary)/40 border border-(--color-border)/40 text-(--color-text-muted) hover:text-(--color-text-primary) hover:border-(--color-accent) active:scale-95 transition-all duration-150 cursor-pointer disabled:opacity-40 shadow-xs dg-spring-btn"
+                  title="Refresh Session Status"
                 >
                   <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
                 </button>
@@ -296,22 +314,22 @@ export default function SettingsPanel({
             </div>
 
             {/* Create New Session Form */}
-            <div className="flex flex-col gap-1.5 border-t border-(--color-border)/20 pt-3">
-              <span className="text-[10px] text-(--color-text-muted) uppercase tracking-wider font-semibold">
-                Create Session
+            <div className="flex flex-col gap-1.5 border-t border-(--color-border)/15 pt-3">
+              <span className="text-[9px] text-(--color-text-muted) uppercase tracking-wider font-bold">
+                Create Session Profile
               </span>
               <div className="flex gap-2">
                 <input
                   value={newSessionName}
                   onChange={(e) => setNewSessionName(e.target.value)}
-                  placeholder="Session name"
-                  className="flex-1 min-w-0 bg-(--color-bg-primary)/60 border border-(--color-border) rounded-lg px-2.5 py-1.5 text-xs text-(--color-text-primary) outline-none focus:border-(--color-accent) focus:ring-1 focus:ring-(--color-accent)/20 placeholder:text-(--color-text-muted) transition-all"
+                  placeholder="Optional session name..."
+                  className="flex-1 min-w-0 bg-(--color-bg-primary)/40 border border-(--color-border)/50 rounded-lg px-2.5 py-1.5 text-xs text-(--color-text-primary) outline-none focus:border-(--color-accent) focus:ring-1 focus:ring-(--color-accent)/20 placeholder:text-(--color-text-muted)/80 transition-all font-medium"
                   onKeyDown={(e) => e.key === "Enter" && handleCreateSession()}
                 />
                 <button
                   onClick={handleCreateSession}
                   disabled={loading}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-(--color-accent) hover:bg-(--color-accent-hover) text-white rounded-lg text-xs font-semibold transition-all active:scale-95 disabled:opacity-40 cursor-pointer dg-spring-btn"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-(--color-accent) hover:bg-(--color-accent-hover) text-white rounded-lg text-xs font-semibold transition-all active:scale-95 disabled:opacity-40 cursor-pointer dg-spring-btn"
                 >
                   {loading ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
                   Create
@@ -320,19 +338,19 @@ export default function SettingsPanel({
             </div>
 
             {/* Active Sessions List on Host */}
-            <div className="flex flex-col gap-1.5 border-t border-(--color-border)/20 pt-3">
-              <span className="text-[10px] text-(--color-text-muted) uppercase tracking-wider font-semibold">
-                Sessions on Host
+            <div className="flex flex-col gap-2 border-t border-(--color-border)/15 pt-3">
+              <span className="text-[9px] text-(--color-text-muted) uppercase tracking-wider font-bold">
+                Sessions on Cluster
               </span>
-              <div className="max-h-[140px] overflow-y-auto flex flex-col gap-1.5 pr-0.5">
+              <div className="flex flex-col gap-1.5">
                 {sessionsLoading && sessions.length === 0 ? (
-                  <div className="flex items-center justify-center gap-1.5 py-4 text-(--color-text-muted)">
+                  <div className="flex items-center justify-center gap-2 py-4 text-(--color-text-muted)">
                     <Loader2 size={12} className="animate-spin" />
-                    <span className="text-[11px]">Loading sessions...</span>
+                    <span className="text-[11px] font-medium">Loading sessions...</span>
                   </div>
                 ) : sessions.length === 0 ? (
                   <div className="py-4 text-center text-[11px] text-(--color-text-muted) italic">
-                    No active sessions
+                    No active sessions detected
                   </div>
                 ) : (
                   sessions.map((s) => {
@@ -344,21 +362,21 @@ export default function SettingsPanel({
                     return (
                       <div
                         key={s.id}
-                        className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border transition-all ${
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-all ${
                           isCurrent
                             ? "bg-(--color-accent-hover)/10 border-(--color-accent)"
                             : sAlive
-                            ? "hover:bg-(--color-bg-tertiary)/45 border-transparent hover:border-(--color-border) cursor-pointer"
-                            : "border-transparent opacity-50 cursor-not-allowed"
+                            ? "hover:bg-(--color-bg-tertiary)/40 border-transparent hover:border-(--color-border)/40 cursor-pointer"
+                            : "border-transparent opacity-40 cursor-not-allowed"
                         }`}
                         onClick={() => !isCurrent && sAlive && attachSession(s.id)}
                       >
-                        <span className={`w-2 h-2 rounded-full ${stateColors[s.state] || "bg-gray-500"}`} />
+                        <span className={`w-2 h-2 rounded-full ${stateColors[s.state] || "bg-slate-500"}`} />
                         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                           <span className="text-xs font-semibold text-(--color-text-primary) truncate">
                             {s.name || `Session ${s.id}`}
                           </span>
-                          <span className="text-[9px] text-(--color-text-muted) font-mono">
+                          <span className="text-[9px] text-(--color-text-muted) font-mono uppercase tracking-wide">
                             #{s.id} · {s.state}
                           </span>
                         </div>
@@ -379,15 +397,15 @@ export default function SettingsPanel({
       </div>
 
       {/* 3. APPEARANCE SECTION */}
-      <div className="flex flex-col border-b border-(--color-border)">
+      <div className="flex flex-col border-b border-(--color-border)/60">
         <div
           onClick={() => toggleSection("appearance")}
-          className="flex items-center justify-between px-3 py-2 bg-(--color-bg-secondary) hover:bg-(--color-bg-tertiary)/15 cursor-pointer select-none transition-colors duration-150"
+          className="flex items-center justify-between px-3.5 py-2.5 bg-(--color-bg-secondary) hover:bg-(--color-bg-tertiary)/15 cursor-pointer select-none transition-colors duration-150"
         >
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <ChevronRight
-              size={14}
-              className={`text-(--color-text-muted) transition-transform duration-205 ease-in-out ${
+              size={13}
+              className={`text-(--color-text-muted) transition-transform duration-200 ease-in-out ${
                 expandedSections.appearance ? "rotate-90" : ""
               }`}
             />
@@ -398,13 +416,13 @@ export default function SettingsPanel({
         </div>
 
         {expandedSections.appearance && (
-          <div className="flex flex-col py-3 px-3 border-t border-(--color-border)/35 bg-(--color-bg-secondary)/15 gap-2">
-            <div className="flex items-center justify-between text-xs text-(--color-text-secondary)">
+          <div className="flex flex-col py-3 px-3.5 border-t border-(--color-border)/20 bg-(--color-bg-secondary)/10 gap-2">
+            <div className="flex items-center justify-between text-xs text-(--color-text-secondary) font-medium">
               <span>Color Theme</span>
-              <div className="flex p-0.5 bg-(--color-bg-primary) border border-(--color-border) rounded-lg select-none">
+              <div className="flex p-0.5 bg-(--color-bg-primary)/60 border border-(--color-border)/50 rounded-lg select-none">
                 <button
                   onClick={() => theme === "dark" && toggleTheme()}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md transition-all duration-200 cursor-pointer dg-spring-btn ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all duration-150 cursor-pointer dg-spring-btn ${
                     theme === "light"
                       ? "bg-(--color-accent) text-white shadow-xs"
                       : "text-(--color-text-muted) hover:text-(--color-text-secondary)"
@@ -415,7 +433,7 @@ export default function SettingsPanel({
                 </button>
                 <button
                   onClick={() => theme === "light" && toggleTheme()}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md transition-all duration-200 cursor-pointer dg-spring-btn ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all duration-150 cursor-pointer dg-spring-btn ${
                     theme === "dark"
                       ? "bg-(--color-accent) text-white shadow-xs"
                       : "text-(--color-text-muted) hover:text-(--color-text-secondary)"
@@ -431,15 +449,15 @@ export default function SettingsPanel({
       </div>
 
       {/* 4. ABOUT SECTION */}
-      <div className="flex flex-col">
+      <div className="flex flex-col border-b border-(--color-border)/60">
         <div
           onClick={() => toggleSection("about")}
-          className="flex items-center justify-between px-3 py-2 bg-(--color-bg-secondary) hover:bg-(--color-bg-tertiary)/15 cursor-pointer select-none transition-colors duration-150"
+          className="flex items-center justify-between px-3.5 py-2.5 bg-(--color-bg-secondary) hover:bg-(--color-bg-tertiary)/15 cursor-pointer select-none transition-colors duration-150"
         >
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <ChevronRight
-              size={14}
-              className={`text-(--color-text-muted) transition-transform duration-205 ease-in-out ${
+              size={13}
+              className={`text-(--color-text-muted) transition-transform duration-200 ease-in-out ${
                 expandedSections.about ? "rotate-90" : ""
               }`}
             />
@@ -450,15 +468,15 @@ export default function SettingsPanel({
         </div>
 
         {expandedSections.about && (
-          <div className="flex flex-col py-3 px-3 border-t border-(--color-border)/35 bg-(--color-bg-secondary)/15 gap-2.5 text-xs">
-            <div className="flex flex-col gap-1.5 text-(--color-text-secondary) bg-(--color-bg-primary)/40 border border-(--color-border)/40 p-2.5 rounded-lg">
+          <div className="flex flex-col py-3.5 px-3.5 border-t border-(--color-border)/20 bg-(--color-bg-secondary)/10 gap-3 text-xs">
+            <div className="flex flex-col gap-2 text-(--color-text-secondary) bg-(--color-bg-primary)/40 border border-(--color-border)/40 p-3 rounded-lg">
               <div className="flex items-center justify-between">
                 <span>Application</span>
                 <span className="font-semibold text-(--color-text-primary)">Livy SQL Editor</span>
               </div>
               <div className="flex items-center justify-between">
                 <span>Version</span>
-                <span className="font-mono text-(--color-accent) font-semibold px-2 py-0.5 bg-(--color-accent)/10 border border-(--color-accent)/20 rounded-md">
+                <span className="font-mono text-(--color-accent) font-bold px-2 py-0.5 bg-(--color-accent)/10 border border-(--color-accent)/20 rounded-md text-[10px]">
                   {repoStats.version}
                 </span>
               </div>
@@ -468,13 +486,13 @@ export default function SettingsPanel({
               href="https://github.com/ErVijayRaghuwanshi/livy-ui"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between p-2.5 border border-(--color-border)/40 rounded-lg hover:bg-(--color-bg-tertiary)/30 text-(--color-text-secondary) hover:text-(--color-text-primary) hover:border-(--color-accent)/30 transition-all dg-spring-btn"
+              className="flex items-center justify-between p-2.5 border border-(--color-border)/40 rounded-lg hover:bg-(--color-bg-tertiary)/30 text-(--color-text-secondary) hover:text-(--color-text-primary) hover:border-(--color-accent)/30 transition-all dg-spring-btn font-medium"
             >
               <div className="flex items-center gap-2">
                 <Github size={13} />
                 <span className="text-[11px] font-semibold">GitHub Repository</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <span className="flex items-center gap-0.5 text-[10px]">
                   <Star size={10} className="fill-current text-yellow-500" /> {repoStats.stars}
                 </span>
@@ -488,9 +506,9 @@ export default function SettingsPanel({
       </div>
 
       {error && (
-        <div className="m-3 p-3 bg-red-500/5 border-l-3 border-red-500 border border-red-500/10 rounded-r-lg text-xs leading-relaxed max-w-[calc(100%-24px)] break-words animate-in fade-in duration-200">
+        <div className="m-3 p-3 bg-rose-500/5 border-l-2 border-rose-500 border border-rose-500/10 rounded-r-lg text-xs leading-relaxed max-w-[calc(100%-24px)] break-words animate-in fade-in duration-200">
           <div className="flex items-start gap-2">
-            <span className="font-semibold text-red-500 shrink-0">Livy Error:</span>
+            <span className="font-semibold text-rose-500 shrink-0">Livy Error:</span>
             <span className="text-(--color-text-secondary) flex-1">{error}</span>
           </div>
         </div>
