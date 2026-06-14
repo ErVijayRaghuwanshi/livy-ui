@@ -350,10 +350,15 @@ export default function App() {
 
     const onMouseMove = (moveEvent) => {
       const deltaX = moveEvent.clientX - startX;
-      // Constraint to [180, 600] pixels
-      const newWidth = Math.min(Math.max(startWidth + deltaX, 180), 600);
-      setSidebarWidth(newWidth);
-      localStorage.setItem("livy-sidebar-width", newWidth.toString());
+      const targetWidth = startWidth + deltaX;
+      if (targetWidth < 80) {
+        setSidebarCollapsed(true);
+      } else {
+        setSidebarCollapsed(false);
+        const newWidth = Math.min(Math.max(targetWidth, 180), 600);
+        setSidebarWidth(newWidth);
+        localStorage.setItem("livy-sidebar-width", newWidth.toString());
+      }
     };
 
     const onMouseUp = () => {
@@ -378,9 +383,15 @@ export default function App() {
 
     const onMouseMove = (moveEvent) => {
       const deltaX = moveEvent.clientX - startX;
-      const newWidth = Math.min(Math.max(startWidth + deltaX, 180), 600);
-      setSidebarWidth(newWidth);
-      localStorage.setItem("livy-sidebar-width", newWidth.toString());
+      const targetWidth = startWidth + deltaX;
+      if (targetWidth < 80) {
+        setSidebarCollapsed(true);
+      } else {
+        setSidebarCollapsed(false);
+        const newWidth = Math.min(Math.max(targetWidth, 180), 600);
+        setSidebarWidth(newWidth);
+        localStorage.setItem("livy-sidebar-width", newWidth.toString());
+      }
 
       const deltaY = startY - moveEvent.clientY;
       const newHeight = Math.min(Math.max(startHeight + deltaY, 100), window.innerHeight - 200);
