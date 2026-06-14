@@ -207,8 +207,10 @@ body {
 /* Sleek Resizable Sidebar split handle bar */
 .dg-sidebar-resize-handle {
   width: 4px;
+  margin-left: -2px;
+  margin-right: -2px;
   cursor: col-resize;
-  background-color: var(--color-border);
+  background-color: transparent;
   transition: background-color 0.15s ease, opacity 0.15s ease;
   position: relative;
   z-index: 40;

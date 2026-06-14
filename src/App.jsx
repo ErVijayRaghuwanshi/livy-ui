@@ -559,10 +559,10 @@ export default function App() {
                   {resultHeight > 0 && (
                     <div
                       onMouseDown={handleMouseDown}
-                      className={`relative flex items-center justify-center h-2 cursor-row-resize shrink-0 transition-colors ${
+                      className={`relative h-[4px] -mb-[4px] cursor-row-resize shrink-0 z-30 transition-colors ${
                         isDragging || isCornerHovered
                           ? "bg-(--color-accent)"
-                          : "bg-(--color-border) hover:bg-(--color-accent)/50"
+                          : "bg-transparent hover:bg-(--color-accent)/50"
                       }`}
                     >
                       {/* Corner Resizer (Intersection of sidebar and results handles) */}
@@ -571,11 +571,10 @@ export default function App() {
                           onMouseDown={handleCornerMouseDown}
                           onMouseEnter={() => setIsCornerHovered(true)}
                           onMouseLeave={() => setIsCornerHovered(false)}
-                          className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 -ml-[10px] cursor-nesw-resize z-50 bg-transparent"
+                          className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 -ml-[10px] cursor-all-scroll z-50 bg-transparent"
                           title="Drag to resize sidebar width and results height simultaneously"
                         />
                       )}
-                      <GripHorizontal size={14} className="text-(--color-text-muted)" />
                     </div>
                   )}
 
