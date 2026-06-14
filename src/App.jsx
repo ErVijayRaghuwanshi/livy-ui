@@ -129,15 +129,19 @@ export default function App() {
     const handleKeyDown = (e) => {
       const ctrl = e.ctrlKey || e.metaKey;
 
-      // Ctrl+P / Cmd+P or Ctrl+Shift+P / Cmd+Shift+P — Toggle Command Palette
-      if (ctrl && !e.altKey && (e.key.toLowerCase() === "p" || e.code === "KeyP")) {
+      // Ctrl+P / Cmd+P — Toggle Custom Command Palette
+      if (ctrl && !e.altKey && !e.shiftKey && (e.key.toLowerCase() === "p" || e.code === "KeyP")) {
         e.preventDefault();
-        if (e.shiftKey) {
-          setCommandPaletteInitialQuery(">");
-        } else {
-          setCommandPaletteInitialQuery("");
-        }
+        setCommandPaletteInitialQuery("");
         setShowCommandPalette((p) => !p);
+        return;
+      }
+
+      // Ctrl+Shift+P / Cmd+Shift+P — Trigger Monaco Editor Command Palette
+      if (ctrl && !e.altKey && e.shiftKey && (e.key.toLowerCase() === "p" || e.code === "KeyP")) {
+        e.preventDefault();
+        setShowCommandPalette(false);
+        editorRef.current?.triggerCommandPalette();
         return;
       }
 
