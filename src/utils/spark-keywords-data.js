@@ -205,6 +205,114 @@ const RAW_KEYWORDS = [
   'ARRAY',
   'MAP',
   'STRUCT',
+
+  /* =====================
+     DELTA LAKE / CLONES / TIME TRAVEL
+     ===================== */
+  'OPTIMIZE',
+  'ZORDER',
+  'VACUUM',
+  'RETAIN',
+  'DRY',
+  'RUN',
+  'HISTORY',
+  'CLONE',
+  'SHALLOW',
+  'DEEP',
+  'RESTORE',
+  'GENERATE',
+  'SYMLINK_FORMAT_MANIFEST',
+  
+  /* =====================
+     SPARK SPECIFIC CLAUSES
+     ===================== */
+  'LATERAL',
+  'PIVOT',
+  'UNPIVOT',
+  'WINDOW',
+  'SORT',
+  'DISTRIBUTE',
+  'CLUSTER',
+  'REDUCE',
+  'TRANSFORM',
+  'SORTED',
+  'DISTRIBUTED',
+  'REDUCED',
+
+  /* =====================
+     DDL / FILE STRUCTURE EXTENSIONS
+     ===================== */
+  'REPLACE',
+  'PURGE',
+  'RESTRICT',
+  'FORMAT',
+  'DELIMITED',
+  'FIELDS',
+  'TERMINATED',
+  'COLLECTION',
+  'ITEMS',
+  'KEYS',
+  'LINES',
+  'INPUTFORMAT',
+  'OUTPUTFORMAT',
+
+  /* =====================
+     METADATA / STATS / MANAGEMENT
+     ===================== */
+  'MSCK',
+  'REPAIR',
+  'RECOVER',
+  'PARTITIONS',
+  'COMPUTE',
+  'STATISTICS',
+  'METADATA',
+  'SYNC',
+  'EXPORT',
+  'IMPORT',
+  'DATA',
+  'LOCAL',
+  'INPATH',
+
+  /* =====================
+     TIME TRAVEL & ASOF
+     ===================== */
+  'ASOF',
+  'SYSTEM_TIME',
+  'SYSTEM_VERSION',
+  'VERSION',
+
+  /* =====================
+     FILE FORMATS
+     ===================== */
+  'DELTA',
+  'ICEBERG',
+  'HUDI',
+  'XML',
+  'TEXT',
+  'BINARYFILE',
+
+  /* =====================
+     SPARK SQL DATA TYPES & DATE PARTS
+     ===================== */
+  'TINYINT',
+  'SMALLINT',
+  'CHAR',
+  'VARCHAR',
+  'BINARY',
+  'VOID',
+  'INTERVAL',
+  'YEAR',
+  'MONTH',
+  'DAY',
+  'HOUR',
+  'MINUTE',
+  'SECOND',
+
+  /* =====================
+     SET OPERATIONS EXTENSIONS
+     ===================== */
+  'EXCEPT ALL',
+  'INTERSECT ALL',
 ];
 
 export const SPARK_SQL_KEYWORDS = Array.from(new Set(RAW_KEYWORDS));

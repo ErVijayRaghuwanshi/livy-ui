@@ -3178,5 +3178,23 @@ export const SPARK_FUNCTIONS_DATA = [
     "usage": "~ expr",
     "description": "~ expr - Returns the result of bitwise NOT of expr.",
     "category": "Built-in"
+  },
+  {
+    "name": "gcd",
+    "usage": "gcd(expr1, expr2)",
+    "description": "gcd(expr1, expr2) - Returns the greatest common divisor of expr1 and expr2. Arguments must be integral values.",
+    "category": "Math"
+  },
+  {
+    "name": "lcm",
+    "usage": "lcm(expr1, expr2)",
+    "description": "lcm(expr1, expr2) - Returns the least common multiple of expr1 and expr2. Arguments must be integral values.",
+    "category": "Math"
+  },
+  {
+    "name": "try_to_binary",
+    "usage": "try_to_binary(expr[, fmt])",
+    "description": "try_to_binary(expr[, fmt]) - Converts the string expr to binary using the specified format, returning NULL on error.",
+    "category": "String"
   }
 ];
