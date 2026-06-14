@@ -15,6 +15,7 @@ export default function CommandPalette({
   editorRef,
   onTriggerBounce,
   onTriggerSnake,
+  initialSearch = "",
 }) {
   const {
     files,
@@ -46,13 +47,13 @@ export default function CommandPalette({
   // Auto-focus input when opened
   useEffect(() => {
     if (isOpen) {
-      setSearch("");
+      setSearch(initialSearch);
       setSelectedIndex(0);
       setTimeout(() => {
         inputRef.current?.focus();
       }, 50);
     }
-  }, [isOpen]);
+  }, [isOpen, initialSearch]);
 
   // Scroll active item into view
   useEffect(() => {

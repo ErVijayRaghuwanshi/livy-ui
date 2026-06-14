@@ -56,6 +56,7 @@ export default function App() {
     return localStorage.getItem("livy-active-sidebar-tab") || "files";
   });
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [commandPaletteInitialQuery, setCommandPaletteInitialQuery] = useState("");
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem(SIDEBAR_CACHE_KEY);
@@ -128,9 +129,14 @@ export default function App() {
     const handleKeyDown = (e) => {
       const ctrl = e.ctrlKey || e.metaKey;
 
-      // Ctrl+P / Cmd+P — Toggle Command Palette
-      if (ctrl && !e.altKey && !e.shiftKey && (e.key.toLowerCase() === "p" || e.code === "KeyP")) {
+      // Ctrl+P / Cmd+P or Ctrl+Shift+P / Cmd+Shift+P — Toggle Command Palette
+      if (ctrl && !e.altKey && (e.key.toLowerCase() === "p" || e.code === "KeyP")) {
         e.preventDefault();
+        if (e.shiftKey) {
+          setCommandPaletteInitialQuery(">");
+        } else {
+          setCommandPaletteInitialQuery("");
+        }
         setShowCommandPalette((p) => !p);
         return;
       }
@@ -431,6 +437,7 @@ export default function App() {
       <CommandPalette
         isOpen={showCommandPalette}
         onClose={() => setShowCommandPalette(false)}
+        initialSearch={commandPaletteInitialQuery}
         toggleTheme={toggleTheme}
         setSidebarCollapsed={setSidebarCollapsed}
         setShowShortcuts={setShowShortcuts}
@@ -442,7 +449,10 @@ export default function App() {
       />
       <ConnectionModal isOpen={showConnectionModal} onClose={() => setShowConnectionModal(false)} />
       <TitleBar
-        onOpenCommandPalette={() => setShowCommandPalette(true)}
+        onOpenCommandPalette={() => {
+          setCommandPaletteInitialQuery("");
+          setShowCommandPalette(true);
+        }}
       />
 
       <div className={`flex flex-1 min-h-0 ${isSidebarDragging ? "select-none" : ""}`}>
