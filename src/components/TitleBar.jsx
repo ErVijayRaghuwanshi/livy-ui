@@ -1,9 +1,9 @@
-import { Zap, Search, HelpCircle } from "lucide-react";
+import { Zap, Search } from "lucide-react";
 import { useLivy } from "../context/LivyContext";
 
 const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 
-export default function TitleBar({ onOpenCommandPalette, onShowShortcuts }) {
+export default function TitleBar({ onOpenCommandPalette }) {
   const { activeHost, sessionState } = useLivy();
 
   const stateColors = {
@@ -53,15 +53,6 @@ export default function TitleBar({ onOpenCommandPalette, onShowShortcuts }) {
             {activeHost.name}
           </span>
         </div>
-
-        {/* Keyboard Shortcuts Quick trigger */}
-        <button
-          onClick={onShowShortcuts}
-          className="flex items-center justify-center p-1 rounded hover:bg-(--color-bg-secondary) text-(--color-text-muted) hover:text-(--color-text-secondary) transition-colors cursor-pointer"
-          title="Keyboard Shortcuts"
-        >
-          <HelpCircle size={14} />
-        </button>
       </div>
     </div>
   );

@@ -443,7 +443,6 @@ export default function App() {
       <ConnectionModal isOpen={showConnectionModal} onClose={() => setShowConnectionModal(false)} />
       <TitleBar
         onOpenCommandPalette={() => setShowCommandPalette(true)}
-        onShowShortcuts={() => setShowShortcuts(true)}
       />
 
       <div className={`flex flex-1 min-h-0 ${isSidebarDragging ? "select-none" : ""}`}>
