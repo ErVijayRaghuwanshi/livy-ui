@@ -81,6 +81,7 @@ export default function App() {
     return 240; // Default width
   });
   const [isSidebarDragging, setIsSidebarDragging] = useState(false);
+  const [isCornerHovered, setIsCornerHovered] = useState(false);
 
   const editorRef = useRef(null);
   const sidebarTabsRef = useRef(null);
@@ -355,6 +356,38 @@ export default function App() {
     document.addEventListener("mouseup", onMouseUp);
   };
 
+  const handleCornerMouseDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsSidebarDragging(true);
+    setIsDragging(true);
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = sidebarWidth;
+    const startHeight = resultHeight;
+
+    const onMouseMove = (moveEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      const newWidth = Math.min(Math.max(startWidth + deltaX, 180), 600);
+      setSidebarWidth(newWidth);
+      localStorage.setItem("livy-sidebar-width", newWidth.toString());
+
+      const deltaY = startY - moveEvent.clientY;
+      const newHeight = Math.min(Math.max(startHeight + deltaY, 100), window.innerHeight - 200);
+      setResultHeight(newHeight);
+    };
+
+    const onMouseUp = () => {
+      setIsSidebarDragging(false);
+      setIsDragging(false);
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  };
+
   const handleSidebarDoubleClick = () => {
     setSidebarWidth(240);
     localStorage.setItem("livy-sidebar-width", "240");
@@ -440,7 +473,7 @@ export default function App() {
           <div
             onMouseDown={handleSidebarMouseDown}
             onDoubleClick={handleSidebarDoubleClick}
-            className={`dg-sidebar-resize-handle ${isSidebarDragging ? "is-dragging" : ""}`}
+            className={`dg-sidebar-resize-handle ${isSidebarDragging || isCornerHovered ? "is-dragging" : ""}`}
             title="Drag to resize, double-click to reset"
           />
         )}
@@ -526,12 +559,22 @@ export default function App() {
                   {resultHeight > 0 && (
                     <div
                       onMouseDown={handleMouseDown}
-                      className={`flex items-center justify-center h-2 cursor-row-resize shrink-0 transition-colors ${
-                        isDragging
+                      className={`relative flex items-center justify-center h-2 cursor-row-resize shrink-0 transition-colors ${
+                        isDragging || isCornerHovered
                           ? "bg-(--color-accent)"
                           : "bg-(--color-border) hover:bg-(--color-accent)/50"
                       }`}
                     >
+                      {/* Corner Resizer (Intersection of sidebar and results handles) */}
+                      {!sidebarCollapsed && (
+                        <div
+                          onMouseDown={handleCornerMouseDown}
+                          onMouseEnter={() => setIsCornerHovered(true)}
+                          onMouseLeave={() => setIsCornerHovered(false)}
+                          className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 -ml-[10px] cursor-nesw-resize z-50 bg-transparent"
+                          title="Drag to resize sidebar width and results height simultaneously"
+                        />
+                      )}
                       <GripHorizontal size={14} className="text-(--color-text-muted)" />
                     </div>
                   )}
