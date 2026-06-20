@@ -93,12 +93,20 @@ export default function App() {
   }, []);
 
   const handleFocusSchemaSearch = useCallback(() => {
-    sidebarTabsRef.current?.focusSchemaSearch();
-  }, []);
+    setSidebarCollapsed(false);
+    setActiveSidebarTab("schema");
+    setTimeout(() => {
+      sidebarTabsRef.current?.focusSchemaSearch();
+    }, 50);
+  }, [setActiveSidebarTab, setSidebarCollapsed]);
 
   const handleFocusFileSearch = useCallback(() => {
-    sidebarTabsRef.current?.focusFileSearch();
-  }, []);
+    setSidebarCollapsed(false);
+    setActiveSidebarTab("files");
+    setTimeout(() => {
+      sidebarTabsRef.current?.focusFileSearch();
+    }, 50);
+  }, [setActiveSidebarTab, setSidebarCollapsed]);
 
   // Persist sidebar collapsed state
   useEffect(() => {
@@ -200,8 +208,8 @@ export default function App() {
         return;
       }
 
-      // Ctrl+H / Cmd+H — toggle query history
-      if (ctrl && !e.altKey && !e.shiftKey && (e.key.toLowerCase() === "h" || e.code === "KeyH")) {
+      // Ctrl+H — toggle query history (on Mac, Cmd+H hides the window, so we must use Ctrl+H)
+      if (e.ctrlKey && !e.altKey && !e.shiftKey && (e.key.toLowerCase() === "h" || e.code === "KeyH")) {
         e.preventDefault();
         setShowHistory((p) => !p);
 

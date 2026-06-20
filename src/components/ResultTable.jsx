@@ -464,9 +464,26 @@ function ActiveResultView({ result, onClose, onMaximizeToggle, isMaximized, cont
 }
 
 export default function ResultTable({ onClose, onMaximizeToggle, isMaximized }) {
-  const { activeFileResultsList, activeResultId, selectResult, deleteResult, clearFileResults, createResultSession, activeTabId } = useSqlFiles();
+  const { activeFileResultsList, activeResultId, selectResult, deleteResult, renameResult, clearFileResults, createResultSession, activeTabId } = useSqlFiles();
   const activeViewRef = useRef(null);
   const [activeWidth, setActiveWidth] = useState(500);
+
+  const [renamingItemId, setRenamingItemId] = useState(null);
+  const [renameItemValue, setRenameItemValue] = useState("");
+
+  const handleStartRenameItem = useCallback((e, item, defaultName) => {
+    e.stopPropagation();
+    setRenamingItemId(item.id);
+    setRenameItemValue(item.customName || item.commentName || defaultName);
+  }, []);
+
+  const handleFinishRenameItem = useCallback((id) => {
+    const trimmed = renameItemValue.trim();
+    if (trimmed) {
+      renameResult(activeTabId, id, trimmed);
+    }
+    setRenamingItemId(null);
+  }, [renameItemValue, activeTabId, renameResult]);
 
   useEffect(() => {
     const el = activeViewRef.current;
@@ -624,6 +641,11 @@ export default function ResultTable({ onClose, onMaximizeToggle, isMaximized }) 
           <div className="flex-1 overflow-y-auto py-1">
             {list.map((item, idx) => {
               const isActive = item.id === activeResultId;
+              const defaultName = `Run #${idx + 1}`;
+              const commentName = item.commentName;
+              const displayName = item.customName || commentName || item.sql || "Empty query";
+              const isCustomOrComment = !!(item.customName || commentName);
+
               return (
                 <div
                   key={item.id}
@@ -633,6 +655,7 @@ export default function ResultTable({ onClose, onMaximizeToggle, isMaximized }) 
                       ? "bg-(--color-bg-tertiary) text-(--color-text-primary) border-(--color-accent)"
                       : "text-(--color-text-secondary) border-transparent hover:bg-(--color-bg-tertiary)/50 hover:text-(--color-text-primary)"
                   }`}
+                  onDoubleClick={(e) => handleStartRenameItem(e, item, defaultName)}
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     {/* Status Icon */}
@@ -642,29 +665,55 @@ export default function ResultTable({ onClose, onMaximizeToggle, isMaximized }) 
                     {item.status === "error" && <AlertCircle size={12} className="text-(--color-error) shrink-0" />}
                     {item.status === "cancelled" && <Ban size={12} className="text-(--color-text-muted) shrink-0" />}
 
-                    <div className="flex flex-col min-w-0 leading-tight">
+                    <div className="flex flex-col min-w-0 leading-tight flex-1">
                       <span className="font-semibold text-[9px] text-(--color-text-muted) flex items-center gap-1">
-                        <span>Run #{idx + 1}</span>
+                        <span>{defaultName}</span>
                         <span>•</span>
                         <span>{item.timestamp}</span>
                       </span>
-                      <span className="truncate text-[10.5px] font-mono mt-0.5" title={item.sql}>
-                        {item.sql || "Empty query"}
-                      </span>
+                      {renamingItemId === item.id ? (
+                        <input
+                          autoFocus
+                          value={renameItemValue}
+                          onChange={(e) => setRenameItemValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleFinishRenameItem(item.id);
+                            if (e.key === "Escape") setRenamingItemId(null);
+                          }}
+                          onBlur={() => handleFinishRenameItem(item.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-full bg-(--color-bg-primary) border border-(--color-accent) rounded px-1 py-0.5 text-[10.5px] text-(--color-text-primary) outline-none mt-0.5"
+                        />
+                      ) : (
+                        <span
+                          className={`truncate text-[10.5px] mt-0.5 ${
+                            isCustomOrComment 
+                              ? "font-sans font-medium text-(--color-text-primary)" 
+                              : "font-mono text-(--color-text-secondary)"
+                          }`}
+                          title={item.sql || "Empty query"}
+                        >
+                          {displayName}
+                        </span>
+                      )}
                     </div>
                   </div>
 
                   {/* Delete button, visible on hover */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteResult(activeTabId, item.id);
-                    }}
-                    className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-secondary) hover:text-red-500 transition-all cursor-pointer shrink-0 ml-1 flex items-center justify-center"
-                    title="Remove from history"
-                  >
-                    <X size={12} />
-                  </button>
+                  {renamingItemId !== item.id && (
+                    <div className="opacity-0 group-hover:opacity-100 flex items-center shrink-0 ml-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteResult(activeTabId, item.id);
+                        }}
+                        className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-secondary) hover:text-red-500 transition-all cursor-pointer flex items-center justify-center"
+                        title="Remove from history"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}

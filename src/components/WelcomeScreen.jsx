@@ -27,13 +27,13 @@ export default function WelcomeScreen({ onCreateFile, onFocusFiles, onFocusSchem
     {
       icon: History,
       label: "Query History",
-      shortcut: [mod, "H"],
+      shortcut: ["Ctrl", "H"],
       onClick: onShowHistory,
     },
     {
       icon: Keyboard,
       label: "Keyboard Shortcuts",
-      shortcut: [mod, "/"],
+      shortcut: ["?"],
       onClick: onShowShortcuts,
     },
   ];

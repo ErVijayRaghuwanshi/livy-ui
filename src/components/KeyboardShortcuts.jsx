@@ -23,7 +23,7 @@ const SHORTCUTS = [
   { keys: ["Alt+[", "Alt+PageUp", "Ctrl+Shift+Tab", `${mod}+Shift+[`], description: "Previous tab" },
   { keys: ["Alt+]", "Alt+PageDown", "Ctrl+Tab", `${mod}+Shift+]`], description: "Next tab" },
   { keys: ["Alt+1...9"], description: "Go to tab 1-9" },
-  { keys: [`${mod}+H`], description: "Query history" },
+  { keys: ["Ctrl+H"], description: "Query history" },
   { keys: [`${mod}+/`], description: "Toggle line comment" },
   { keys: ["?"], description: "Show keyboard shortcuts" },
   { keys: ["F2"], description: "Rename file (in File Explorer)" },

@@ -14,6 +14,33 @@ const defaultFile = {
   updatedAt: new Date().toISOString(),
 };
 
+function extractSqlComment(sql) {
+  if (!sql) return "";
+  const trimmed = sql.trim();
+  
+  // Try matching single-line comment "--"
+  if (trimmed.startsWith("--")) {
+    const firstLine = trimmed.split("\n")[0];
+    return firstLine.substring(2).trim();
+  }
+  
+  // Try matching multi-line comment "/* ... */"
+  if (trimmed.startsWith("/*")) {
+    const endIdx = trimmed.indexOf("*/");
+    if (endIdx !== -1) {
+      const commentContent = trimmed.substring(2, endIdx);
+      return commentContent
+        .split("\n")
+        .map(line => line.trim().replace(/^\*+\s*/, "").trim())
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+    }
+  }
+  
+  return "";
+}
+
 const storedFiles = getItem(STORAGE_KEYS.SQL_FILES, [defaultFile]).map(f => ({
   ...f,
   lastSavedContent: f.lastSavedContent || f.content
@@ -22,7 +49,7 @@ const storedOpenFiles = getItem(STORAGE_KEYS.OPEN_FILES, null);
 
 const initialState = {
   files: storedFiles,
-  openFiles: storedOpenFiles || storedFiles.map(f => f.id),
+  openFiles: storedOpenFiles || [],
   activeTabId: getItem(STORAGE_KEYS.ACTIVE_TAB, "default"),
   results: {},
   dirtyFiles: {},
@@ -132,6 +159,7 @@ function reducer(state, action) {
         id: executionId,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
         ...result,
+        commentName: result.sql ? extractSqlComment(result.sql) : "",
       };
       
       if (existingIdx >= 0) {
@@ -222,6 +250,23 @@ function reducer(state, action) {
           [fileId]: {
             list: [...fileResults.list, newSession],
             activeResultId: newSessionId
+          }
+        }
+      };
+    }
+    case "RENAME_RESULT": {
+      const { fileId, executionId, name } = action.payload;
+      const fileResults = state.results[fileId] || { list: [], activeResultId: null };
+      const newList = fileResults.list.map(item =>
+        item.id === executionId ? { ...item, customName: name } : item
+      );
+      return {
+        ...state,
+        results: {
+          ...state.results,
+          [fileId]: {
+            ...fileResults,
+            list: newList
           }
         }
       };
@@ -430,6 +475,7 @@ export function SqlFilesProvider({ children }) {
   const setResult = useCallback((id, result, executionId) => dispatch({ type: "SET_RESULT", payload: { id, result, executionId } }), []);
   const selectResult = useCallback((fileId, executionId) => dispatch({ type: "SELECT_RESULT", payload: { fileId, executionId } }), []);
   const deleteResult = useCallback((fileId, executionId) => dispatch({ type: "DELETE_RESULT", payload: { fileId, executionId } }), []);
+  const renameResult = useCallback((fileId, executionId, name) => dispatch({ type: "RENAME_RESULT", payload: { fileId, executionId, name } }), []);
   const clearFileResults = useCallback((fileId) => dispatch({ type: "CLEAR_FILE_RESULTS", payload: fileId }), []);
   const createResultSession = useCallback((fileId) => dispatch({ type: "CREATE_RESULT_SESSION", payload: fileId }), []);
   const openFile = useCallback((id) => dispatch({ type: "OPEN_FILE", payload: id }), []);
@@ -486,6 +532,7 @@ export function SqlFilesProvider({ children }) {
     setResult,
     selectResult,
     deleteResult,
+    renameResult,
     clearFileResults,
     createResultSession,
     openFile,

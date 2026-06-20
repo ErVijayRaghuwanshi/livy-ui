@@ -238,6 +238,11 @@ function registerSparkProviders(monaco, schemaDataRef) {
   return [completionProvider, hoverProvider];
 }
 
+function hasSqlCode(sql) {
+  if (!sql) return false;
+  return sql.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "").trim().length > 0;
+}
+
 function parseStatements(content) {
   if (!content) return [];
   const lines = content.split("\n");
@@ -247,16 +252,20 @@ function parseStatements(content) {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const trimmed = line.replace(/--.*$/, "").trim();
-    if (!currentSql && !trimmed) {
+
+    // Skip leading empty lines for a statement
+    if (!currentSql && line.trim() === "") {
       startLine = i + 2;
       continue;
     }
+
     currentSql += (currentSql ? "\n" : "") + line;
 
-    if (trimmed.endsWith(";")) {
-      const sql = currentSql.replace(/--.*$/gm, "").trim().replace(/;\s*$/, "").trim();
-      if (sql) {
+    // Detect if statement ends with semicolon by stripping single-line comments on this line
+    const trimmedLine = line.replace(/--.*$/, "").trim();
+    if (trimmedLine.endsWith(";")) {
+      const sql = currentSql.trim().replace(/;\s*$/, "").trim();
+      if (hasSqlCode(sql)) {
         statements.push({ sql, startLine, endLine: i + 1 });
       }
       currentSql = "";
@@ -265,8 +274,8 @@ function parseStatements(content) {
   }
 
   // Handle trailing statement without semicolon
-  const trailing = currentSql.replace(/--.*$/gm, "").trim().replace(/;\s*$/, "").trim();
-  if (trailing) {
+  const trailing = currentSql.trim().replace(/;\s*$/, "").trim();
+  if (hasSqlCode(trailing)) {
     statements.push({ sql: trailing, startLine, endLine: lines.length });
   }
 
@@ -787,7 +796,7 @@ const SqlEditor = forwardRef(function SqlEditor({
     editor.addAction({
       id: "toggle-query-history-action",
       label: "Toggle Query History",
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH],
+      keybindings: [monaco.KeyMod.WinCtrl | monaco.KeyCode.KeyH],
       run: () => {
         onToggleQueryHistoryRef.current?.();
       },

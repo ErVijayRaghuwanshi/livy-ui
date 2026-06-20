@@ -11,6 +11,8 @@ function ensureExtension(name) {
   return name + ".sql";
 }
 
+const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+
 export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRef }) {
   const { files, openFiles, activeTabId, setActiveTab, addFile, closeFile, renameFile, reorderFiles, dirtyFiles, promptCloseFileId, setPromptCloseFileId, requestCloseFile, previewTabId, promotePreviewTab } = useSqlFiles();
   const [running, setRunning] = useState(false);
@@ -117,7 +119,7 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
                 ? "bg-(--color-success)/10 text-(--color-success) border-(--color-success)/30 hover:border-(--color-success)/55 hover:bg-(--color-success)/15 cursor-pointer shadow-xs"
                 : "bg-transparent text-(--color-text-muted) border-(--color-border)/50 opacity-40 cursor-not-allowed pointer-events-none"
             }`}
-            title="Run SQL (Ctrl+Enter)"
+            title={`Run SQL (${isMac ? "⌘+Enter" : "Ctrl+Enter"})`}
           >
             <Play size={10} className={canRun ? "fill-current" : ""} />
           </button>
@@ -196,7 +198,7 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
       <button
         onClick={() => addFile()}
         className="flex items-center gap-1 px-2 sm:px-3 py-2 text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-primary)/50 transition-colors shrink-0"
-        title="New SQL File (Ctrl+Shift+N)"
+        title={`New SQL File (${isMac ? "⌘+⌥+N" : "Ctrl+Alt+N"})`}
       >
         <Plus size={14} />
       </button>
