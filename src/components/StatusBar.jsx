@@ -28,7 +28,7 @@ const stateColors = {
 };
 
 export default function StatusBar({ cursorPosition, onShowShortcuts, onShowHistory }) {
-  const { activeHost, sessionId, sessionState } = useLivy();
+  const { activeHost, sessionId, sessionState, isOnline, isServerReachable } = useLivy();
   const { activeResult, activeFile, autoSave, toggleAutoSave } = useSqlFiles();
 
   const rowCount = activeResult?.status === "ok" && activeResult?.data?.["application/json"]
@@ -51,6 +51,28 @@ export default function StatusBar({ cursorPosition, onShowShortcuts, onShowHisto
 
         {/* Host */}
         <span className="text-(--color-text-muted)/70">{activeHost.name}</span>
+
+        {/* Connection status */}
+        <div className="flex items-center gap-1.5" title={
+          !isOnline
+            ? "Browser Offline: running on cached PWA app shell"
+            : isServerReachable === false
+            ? "Livy Server down/unreachable"
+            : "Livy Server connected"
+        }>
+          <span className={`w-1.5 h-1.5 rounded-full ${
+            !isOnline
+              ? "bg-gray-500"
+              : isServerReachable === false
+              ? "bg-rose-500 animate-pulse"
+              : isServerReachable === null
+              ? "bg-amber-500 animate-pulse"
+              : "bg-green-500"
+          }`} />
+          <span className="text-[10px] text-(--color-text-muted)/70">
+            {!isOnline ? "Offline" : isServerReachable === false ? "Server Down" : "Connected"}
+          </span>
+        </div>
 
         {/* Row count */}
         {rowCount !== null && (

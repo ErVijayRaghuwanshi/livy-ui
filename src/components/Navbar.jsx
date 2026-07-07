@@ -14,6 +14,7 @@ import {
   Link,
   Sun,
   Moon,
+  WifiOff,
 } from "lucide-react";
 import { useLivy } from "../context/LivyContext";
 import { SESSION_STATES } from "../utils/constants";
@@ -47,6 +48,8 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
     refreshSession,
     fetchSessions,
     attachSession,
+    isOnline,
+    isServerReachable,
   } = useLivy();
 
   const [showSessionDropdown, setShowSessionDropdown] = useState(false);
@@ -145,7 +148,22 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
 
         {/* Right Section (Controls) */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {error && (
+          {/* Offline/Server Down Warning Badges */}
+          {!isOnline && (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-gray-500/10 border border-gray-500/25 rounded-md text-gray-400 select-none animate-pulse" title="Your browser is offline. Caching is enabled.">
+              <WifiOff size={11} className="shrink-0" />
+              <span className="font-semibold uppercase tracking-wider text-[9px] hidden md:inline">Browser Offline</span>
+            </div>
+          )}
+
+          {isOnline && isServerReachable === false && (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-rose-500/10 border border-rose-500/25 rounded-md text-rose-400 select-none animate-pulse" title="Livy backend server is down or unreachable. Check connection.">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+              <span className="font-semibold uppercase tracking-wider text-[9px] hidden md:inline">Server Down</span>
+            </div>
+          )}
+
+          {error && isServerReachable !== false && (
             <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-(--color-error)/10 border border-(--color-error)/20 rounded-lg text-xs text-(--color-error) max-w-48 select-none" title={error}>
               <span className="w-1.5 h-1.5 rounded-full bg-(--color-error) animate-pulse shrink-0" />
               <span className="truncate">{error}</span>
@@ -163,12 +181,28 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
           <button
             onClick={() => setShowConnectionModal(true)}
             className="flex items-center h-8 gap-1.5 px-2.5 bg-(--color-bg-primary) rounded-lg border border-(--color-border) hover:border-(--color-accent) hover:text-(--color-text-primary) active:scale-95 transition-all duration-200 cursor-pointer shadow-xs group"
-            title="Manage Livy Hosts (Cmd+.)"
+            title={
+              !isOnline
+                ? "Browser is Offline"
+                : isServerReachable === false
+                ? "Livy Server is Unreachable (Down)"
+                : isServerReachable === null
+                ? "Checking connection to Livy server..."
+                : `Connected to Livy host (Active: ${activeHost.name})`
+            }
           >
             <div className="relative flex items-center justify-center shrink-0">
               <Server size={13} className="text-(--color-text-muted) group-hover:text-(--color-accent) transition-colors" />
               {/* Connected pulse dot */}
-              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-(--color-success) border border-(--color-bg-primary)" />
+              <span className={`absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full border border-(--color-bg-primary) ${
+                !isOnline
+                  ? "bg-gray-500"
+                  : isServerReachable === false
+                  ? "bg-rose-500 animate-pulse"
+                  : isServerReachable === null
+                  ? "bg-amber-500 animate-pulse"
+                  : "bg-green-500"
+              }`} />
             </div>
             <span className="hidden sm:inline text-xs text-(--color-text-secondary) font-medium max-w-28 truncate group-hover:text-(--color-text-primary) transition-colors">
               {activeHost.name}

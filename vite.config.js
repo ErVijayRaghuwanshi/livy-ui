@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { VitePWA } from "vite-plugin-pwa";
 import http from "node:http";
 import https from "node:https";
 
@@ -67,5 +68,44 @@ function livyProxyPlugin() {
 
 export default defineConfig({
   base: '/livy-ui/',
-  plugins: [react(), tailwindcss(), livyProxyPlugin()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    livyProxyPlugin(),
+    VitePWA({
+      registerType: "autoUpdate",
+      includeAssets: ["favicon.svg", "robots.txt", "sitemap.xml", "pwa-192.png", "pwa-512.png"],
+      workbox: {
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024, // 6 MB
+      },
+      manifest: {
+        name: "Livy SQL UI",
+        short_name: "LivyUI",
+        description: "Modern, feature-rich SQL editor for Apache Spark via Apache Livy.",
+        theme_color: "#0f172a",
+        background_color: "#0f172a",
+        display: "standalone",
+        scope: "/livy-ui/",
+        start_url: "/livy-ui/",
+        icons: [
+          {
+            src: "pwa-192.png",
+            sizes: "192x192",
+            type: "image/png",
+          },
+          {
+            src: "pwa-512.png",
+            sizes: "512x512",
+            type: "image/png",
+          },
+          {
+            src: "favicon.svg",
+            sizes: "any",
+            type: "image/svg+xml",
+            purpose: "any maskable",
+          },
+        ],
+      },
+    }),
+  ],
 });

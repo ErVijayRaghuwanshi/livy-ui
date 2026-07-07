@@ -443,7 +443,7 @@ const SqlEditor = forwardRef(function SqlEditor({
     onTriggerSnakeRef.current = onTriggerSnake;
   });
 
-  const { sessionId, sessionState } = useLivy();
+  const { sessionId, sessionState, isOnline, isServerReachable } = useLivy();
   const schemaContext = useSchema();
   const schemaDataRef = useRef({ databases: [], tables: {}, columns: {} });
   const { addToast } = useToast();
@@ -471,7 +471,11 @@ const SqlEditor = forwardRef(function SqlEditor({
   }, []);
 
   const canRun =
-    sessionState === SESSION_STATES.IDLE && sessionId !== null && !running;
+    sessionState === SESSION_STATES.IDLE &&
+    sessionId !== null &&
+    !running &&
+    isOnline &&
+    isServerReachable !== false;
 
   // Persist word wrap preference
   useEffect(() => {

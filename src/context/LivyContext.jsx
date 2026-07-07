@@ -17,6 +17,8 @@ const initialState = {
   appId: null,
   error: null,
   loading: false,
+  isOnline: typeof window !== "undefined" ? window.navigator.onLine : true,
+  isServerReachable: null,
 };
 
 function reducer(state, action) {
@@ -43,6 +45,10 @@ function reducer(state, action) {
       return { ...state, sessions: action.payload };
     case "SET_SESSIONS_LOADING":
       return { ...state, sessionsLoading: action.payload };
+    case "SET_ONLINE":
+      return { ...state, isOnline: action.payload };
+    case "SET_SERVER_REACHABLE":
+      return { ...state, isServerReachable: action.payload };
     default:
       return state;
   }
@@ -105,6 +111,23 @@ export function LivyProvider({ children }) {
     dispatch({ type: "SET_ACTIVE_HOST", payload: hostId });
   }, []);
 
+  // Server Reachability Checker
+  const checkServerReachability = useCallback(async () => {
+    if (typeof window !== "undefined" && !window.navigator.onLine) {
+      dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
+      return false;
+    }
+    try {
+      await livyApi.listSessions();
+      dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
+      return true;
+    } catch (err) {
+      console.warn("Livy host reachability check failed:", err.message);
+      dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
+      return false;
+    }
+  }, []);
+
   // Refresh session
   const refreshSession = useCallback(async () => {
     if (state.sessionId === null) return;
@@ -112,9 +135,11 @@ export function LivyProvider({ children }) {
     try {
       const session = await livyApi.getSession(state.sessionId);
       dispatch({ type: "SET_SESSION", payload: session });
+      dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
     } catch (err) {
       dispatch({ type: "SET_ERROR", payload: err.message });
       dispatch({ type: "CLEAR_SESSION" });
+      dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
@@ -147,9 +172,11 @@ export function LivyProvider({ children }) {
         (s) => s.kind === "sql" || s.kind === "spark"
       );
       dispatch({ type: "SET_SESSIONS", payload: sqlSessions });
+      dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
     } catch (err) {
       console.error("Failed to fetch sessions:", err.message);
       dispatch({ type: "SET_SESSIONS", payload: [] });
+      dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
     } finally {
       dispatch({ type: "SET_SESSIONS_LOADING", payload: false });
     }
@@ -162,9 +189,11 @@ export function LivyProvider({ children }) {
     try {
       const session = await livyApi.getSession(id);
       dispatch({ type: "SET_SESSION", payload: session });
+      dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
       fetchSessions();
     } catch (err) {
       dispatch({ type: "SET_ERROR", payload: err.message });
+      dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
@@ -177,9 +206,11 @@ export function LivyProvider({ children }) {
     try {
       const session = await livyApi.createSession(state.sessionConf, name, state.sessionJars);
       dispatch({ type: "SET_SESSION", payload: session });
+      dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
       fetchSessions();
     } catch (err) {
       dispatch({ type: "SET_ERROR", payload: err.message });
+      dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
@@ -192,13 +223,53 @@ export function LivyProvider({ children }) {
     try {
       await livyApi.deleteSession(state.sessionId);
       dispatch({ type: "CLEAR_SESSION" });
+      dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
       fetchSessions();
     } catch (err) {
       dispatch({ type: "SET_ERROR", payload: err.message });
+      dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
   }, [state.sessionId, fetchSessions]);
+
+  // Network offline/online listeners & periodic checker
+  useEffect(() => {
+    const handleOnline = () => {
+      dispatch({ type: "SET_ONLINE", payload: true });
+      checkServerReachability();
+    };
+    const handleOffline = () => {
+      dispatch({ type: "SET_ONLINE", payload: false });
+      dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("online", handleOnline);
+      window.addEventListener("offline", handleOffline);
+    }
+
+    // Initial ping
+    checkServerReachability();
+
+    // Setup periodic polling for reachability (every 15 seconds)
+    const interval = setInterval(() => {
+      checkServerReachability();
+    }, 15000);
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("online", handleOnline);
+        window.removeEventListener("offline", handleOffline);
+      }
+      clearInterval(interval);
+    };
+  }, [checkServerReachability]);
+
+  // Re-check reachability when active host changes
+  useEffect(() => {
+    checkServerReachability();
+  }, [state.activeHostId, checkServerReachability]);
 
   // Auto-refresh session state on mount if sessionId exists
   useEffect(() => {
@@ -239,6 +310,7 @@ export function LivyProvider({ children }) {
     attachSession,
     setSessionConf,
     setSessionJars,
+    checkServerReachability,
     dispatch,
   };
 
