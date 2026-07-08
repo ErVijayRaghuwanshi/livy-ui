@@ -1,7 +1,7 @@
 export const DEFAULT_HOST = {
   id: "default",
   name: "docker-livy",
-  url: "http://livy:8998",
+  url: "http://localhost:8998",
 };
 
 export const SESSION_KIND = "sql";

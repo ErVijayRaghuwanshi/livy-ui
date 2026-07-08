@@ -11,12 +11,12 @@ export function getLivyTargetUrl() {
 
 export function createLivyClient() {
   const targetUrl = getLivyTargetUrl();
+  const cleanUrl = targetUrl.replace(/\/+$/, "");
 
   const client = axios.create({
-    baseURL: "/api",
+    baseURL: cleanUrl,
     headers: {
       "Content-Type": "application/json",
-      "X-Livy-Target": targetUrl,
     },
     timeout: 30000,
   });

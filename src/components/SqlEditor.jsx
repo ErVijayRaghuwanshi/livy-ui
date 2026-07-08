@@ -474,8 +474,7 @@ const SqlEditor = forwardRef(function SqlEditor({
     sessionState === SESSION_STATES.IDLE &&
     sessionId !== null &&
     !running &&
-    isOnline &&
-    isServerReachable !== false;
+    (isServerReachable === true || (isOnline && isServerReachable === null));
 
   // Persist word wrap preference
   useEffect(() => {

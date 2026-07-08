@@ -289,11 +289,10 @@ export default function ConnectionModal({ isOpen, onClose }) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-      const response = await fetch(`/api/sessions`, {
+      const response = await fetch(`${cleanUrl}/sessions`, {
         signal: controller.signal,
         headers: {
           "Accept": "application/json",
-          "X-Livy-Target": cleanUrl,
         }
       });
       

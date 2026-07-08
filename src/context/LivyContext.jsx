@@ -113,7 +113,9 @@ export function LivyProvider({ children }) {
 
   // Server Reachability Checker
   const checkServerReachability = useCallback(async () => {
-    if (typeof window !== "undefined" && !window.navigator.onLine) {
+    const currentHost = state.hosts.find((h) => h.id === state.activeHostId) || DEFAULT_HOST;
+    const isLocalhost = currentHost.url.includes("localhost") || currentHost.url.includes("127.0.0.1");
+    if (typeof window !== "undefined" && !window.navigator.onLine && !isLocalhost) {
       dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
       return false;
     }
@@ -126,7 +128,7 @@ export function LivyProvider({ children }) {
       dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
       return false;
     }
-  }, []);
+  }, [state.hosts, state.activeHostId]);
 
   // Refresh session
   const refreshSession = useCallback(async () => {

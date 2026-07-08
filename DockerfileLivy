@@ -4,7 +4,7 @@ FROM apache/spark:3.5.4
 USER root
 
 # Update package lists and install necessary packages
-RUN apt-get update && apt-get install -y wget unzip procps python3 openjdk-11-jdk-headless
+RUN apt-get update && apt-get install -y wget unzip procps python3 openjdk-11-jdk-headless nginx
 
 
 # Install Livy
@@ -52,15 +52,22 @@ RUN mkdir -p /opt/livy/logs && \
     mkdir -p /tmp/spark-events && \
     chown -R 185:185 /opt/livy /tmp/spark-events
 
-# Create startup script to run both Livy and Spark History Server
+# Copy Nginx configuration file
+COPY nginx-cors.conf /opt/nginx.conf
+RUN chown 185:185 /opt/nginx.conf
+
+# Create startup script to run both Livy, Nginx and Spark History Server
 RUN echo '#!/bin/bash\n\
 # Start Spark History Server in background\n\
 /opt/spark/sbin/start-history-server.sh &\n\
 \n\
+# Start Nginx CORS reverse proxy in background\n\
+nginx -c /opt/nginx.conf &\n\
+\n\
 # Start Livy server in foreground\n\
 /opt/livy/bin/livy-server\n\
 ' > /opt/start-services.sh && \
-chmod +x /opt/start-services.sh
+    chmod +x /opt/start-services.sh
 
 # Switch to spark user, which is the default user in the base image and has UID 185, this ensures that the Livy server runs with the same permissions as Spark and can access the necessary files and directories. It also avoids potential permission issues when running the container in environments with strict security policies.
 USER 185
