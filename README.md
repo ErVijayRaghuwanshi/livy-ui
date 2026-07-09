@@ -260,10 +260,11 @@ livy-ui/
 ├── DockerfileLivy              # Livy server Dockerfile
 ├── docker-compose.yml          # Compose: Livy server + Livy UI
 ├── livy.conf                   # Livy server configuration
+├── nginx-cors.conf             # Standalone Nginx configuration for Livy container CORS
 ├── .dockerignore
 ├── index.html
 ├── package.json
-├── vite.config.js              # Vite config + Livy proxy plugin
+├── vite.config.js              # Vite config + PWA options
 └── src/
     ├── main.jsx                # App entry point
     ├── App.jsx                 # Root layout with sidebar + resizable panels
@@ -279,7 +280,7 @@ livy-ui/
     │   ├── LivyContext.jsx     # Livy session, connection & config state
     │   └── SqlFilesContext.jsx # SQL files (tabs) state & persistence
     ├── services/
-    │   ├── axiosConfig.js      # Axios client with dynamic proxy headers
+    │   ├── axiosConfig.js      # Axios client configured for direct Livy API requests
     │   └── livyApi.js          # Livy REST API + runSql helper
     └── utils/
         ├── constants.js        # App constants & storage keys
@@ -289,16 +290,49 @@ livy-ui/
         └── spark_sql_snippets.js    # Interactive SQL snippet templates
 ```
 
-## How the Proxy Works
+## Architecture & CORS Handling
 
-Browser requests to Livy servers are blocked by CORS. This app solves it with a built-in Vite proxy plugin:
+When connecting a web application to a local or internal Apache Livy server, browsers enforce strict security limits:
+1. **Mixed Content Block**: A secure HTTPS site (like GitHub Pages) is not allowed to query an insecure HTTP endpoint (like a local server). This is bypassed by setting Chrome's site settings to **Allow Insecure Content** on the GitHub Pages domain.
+2. **CORS (Cross-Origin Resource Sharing)**: Browsers block a web app hosted on one domain (e.g., `https://ervijayraghuwanshi.github.io`) from querying another domain (e.g., `http://localhost:8998` or `http://10.29.93.216:8998`) unless the destination server explicitly returns CORS approval headers.
 
-1. All API calls go to `/api/*` on the Vite server
-2. The `X-Livy-Target` header specifies the actual Livy host URL
-3. The Vite plugin (`livyProxyPlugin`) forwards the request to the target host
-4. CORS headers are injected into the response
+To resolve these challenges without needing external proxies, the architecture is configured as follows:
 
-This works in both **dev** (`vite`) and **production** (`vite preview` / Docker).
+```mermaid
+sequenceDiagram
+    participant Browser as Client Browser
+    participant GH as GitHub Pages (Static UI)
+    participant Nginx as Container Nginx (Port 8998)
+    participant Livy as Container Livy (Port 8997)
+
+    Note over Browser,GH: PWA Caching / Offline Loading
+    Browser->>GH: Request UI Assets (Initial load)
+    GH-->>Browser: Return HTML/CSS/JS (Cached offline by SW)
+
+    Note over Browser,Nginx: Browser CORS Handshake
+    Browser->>Nginx: OPTIONS /sessions (with Origin header)
+    Nginx-->>Browser: 204 No Content (with CORS Allow Origin)
+
+    Note over Browser,Livy: Actual API Request
+    Browser->>Nginx: GET /sessions
+    Nginx->>Livy: Proxy to localhost:8997
+    Livy-->>Nginx: Return session list JSON
+    Nginx-->>Browser: Return JSON + CORS Allow Origin
+```
+
+### 1. Unified Livy + CORS Proxy Container
+Apache Livy has no native CORS configuration support. Instead of adding an extra Docker container, **Nginx is packaged directly inside the `livy-server` image**:
+- The embedded Livy JVM process is configured to bind internally to port `8997` (configured in [livy.conf](file:///Users/ervijay/Documents/Programs/Repo/livy-ui/livy.conf)).
+- A lightweight Nginx process (running in user-space under Spark user `185`) binds to public port `8998` (configured in `nginx-cors.conf`).
+- Nginx intercepts all traffic, automatically handles preflight `OPTIONS` requests, appends the appropriate `Access-Control-Allow-Origin` headers matching the client's origin, and proxies the requests to Livy on port `8997`.
+
+This means your local Livy server is natively CORS-compliant out of the box for any developer UI (GitHub Pages, local server, or local network IPs).
+
+### 2. Progressive Web App (PWA) & Offline Capabilities
+The UI uses `vite-plugin-pwa` with Workbox to cache all static pages, assets, and the Monaco SQL editor:
+- **Offline Mode**: If you disconnect from the internet/Wi-Fi and refresh the page, the application still loads and runs fully offline.
+- **Local Loopback Exception**: If you are disconnected from the network, the app recognizes if the target is `localhost` or `127.0.0.1` and bypasses the browser's global offline status check. You can continue running Spark queries against your local container offline.
+- **Installable**: The app can be installed directly onto your desktop or mobile home screen as a standalone application.
 
 ## Scripts
 
