@@ -15,6 +15,7 @@ services:
       - '15002:15002'    # Spark Connect Server port
       - '8998:8998'      # livy-next REST API (with built-in CORS)
     volumes:
+      - ./spark/data:/opt/spark/data
       - ./spark/data:/tmp/data
       - ./spark/work-dir:/opt/spark/work-dir
       - spark_event_logs:/opt/spark/event_logs
