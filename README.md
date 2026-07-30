@@ -6,11 +6,14 @@ A modern web-based SQL editor for [Apache Livy](https://livy.incubator.apache.or
 
 ## Features
 
+- **Progressive Web App (PWA)** — Installable web app with service worker asset caching, manifest icons, and offline loopback execution
+- **Connection Health & Reachability** — Real-time server status indicators (`Online`, `Offline`, `Server Down`) with periodic health checks
+- **Compute Resource Manager** — Fine-grained cluster configuration presets (memory, CPU cores, custom Spark submit options)
 - **Multi-tab SQL Editor** — Create, rename, and manage multiple SQL files with Monaco Editor
 - **Spark SQL Autocomplete** — Built-in completion for 300+ Spark SQL functions and keywords with documentation on hover
 - **Smart SQL Snippets** — Interactive boilerplate templates for common Spark SQL operations with tab-stop navigation
 - **Keyboard Shortcuts** — VS Code-style shortcuts for sidebar, result panel, tabs, and query execution
-- **Query Execution** — Run queries against any Livy server with live elapsed timer and cancel support
+- **Query Execution** — Run queries against any Livy server with live elapsed timer, cancellation, and comment-based run history titles
 - **Result Table** — Structured table display with column data types, row counts, and execution time
 - **EXPLAIN Plan Viewer** — Syntax-highlighted execution plan display for EXPLAIN queries
 - **Schema Explorer** — Collapsible left sidebar with lazy-loaded tree view of databases, tables, and columns
@@ -20,7 +23,7 @@ A modern web-based SQL editor for [Apache Livy](https://livy.incubator.apache.or
 - **HDFS / Parquet Support** — Query HDFS files directly using Spark SQL path-based table syntax
 - **Dark Theme** — Modern dark UI optimized for long coding sessions
 - **LocalStorage Persistence** — All hosts, SQL files, session config, and session info persist across browser reloads
-- **CORS Proxy** — Built-in dynamic proxy handles cross-origin requests to any Livy host
+- **CORS Proxy** — Embedded Nginx reverse proxy handles cross-origin requests to any Livy host on port 8998
 
 ## Tech Stack
 
@@ -212,7 +215,7 @@ The multi-stage Dockerfile fetches source directly from GitHub — no local chec
 docker build -t livy-ui .
 
 # Build from a specific branch
-docker build --build-arg GIT_BRANCH=feature/v1.3.0 -t livy-ui .
+docker build --build-arg GIT_BRANCH=feature/v1.4.7 -t livy-ui .
 
 # Run the container
 docker run -p 4173:4173 livy-ui
@@ -261,6 +264,9 @@ livy-ui/
 ├── docker-compose.yml          # Compose: Livy server + Livy UI
 ├── livy.conf                   # Livy server configuration
 ├── nginx-cors.conf             # Standalone Nginx configuration for Livy container CORS
+├── CHANGELOG.md                 # Version changelog history
+├── PRIVACY.md                   # Privacy policy & data handling documentation
+├── release-notes/               # Version release notes (v1.1.1 through v1.4.7)
 ├── .dockerignore
 ├── index.html
 ├── package.json

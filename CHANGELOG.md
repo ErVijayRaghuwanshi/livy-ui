@@ -2,6 +2,26 @@
 
 All notable changes to the Livy SQL Editor project will be documented in this file.
 
+## [v1.4.7] - 2026-07-30
+### Added
+* Progressive Web App (PWA) support with service worker asset caching, PWA manifests, and offline loopback execution capability.
+* Live connection health indicators on Navbar and Status Bar with server reachability checks and online/offline network listeners.
+* Embedded Nginx reverse proxy setup inside `DockerfileLivy` for native cross-origin resource sharing (CORS) header injection on port 8998.
+* Redesigned Compute Resource UI in Connection Manager modal supporting cluster presets, driver/executor memory, CPU cores, and Spark submit configurations.
+* SQL comment-based run history item naming (e.g. `-- Query Name`).
+* Direct Monaco Editor command palette mapping (`Cmd+Shift+P` / `Ctrl+Shift+P`).
+* VS Code-style sidebar snap-to-collapse when dragging below 80px and dual-border corner resizers.
+* Extended Spark SQL autocomplete catalog with 100+ new Spark SQL functions and keywords.
+* Privacy policy and security documentation (`PRIVACY.md`).
+
+### Fixed
+* Welcome Screen default state when all open editor tabs are closed.
+* Keybinding conflicts between Monaco built-in palette shortcuts and browser commands.
+
+[Details in Release Notes](release-notes/v1.4.7.md)
+
+---
+
 ## [v1.4.6] - 2026-06-09
 ### Added
 * Monaco model-based document swapping to preserve undo/redo history stacks, selection ranges, and scroll positions across tab switches.
