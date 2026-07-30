@@ -6,38 +6,20 @@ services:
       dockerfile: Dockerfile.spark
     container_name: spark-master
     hostname: spark-master
-    environment:
-      - SPARK_PUBLIC_DNS=localhost
+    user: "root"
     ports:
       - '7077:7077'
       - '8080:8080'      # Spark Master UI
       - '18080:18080'    # Spark History Server UI
+      - '15002:15002'    # Spark Connect Server port
+      - '8998:8998'      # livy-next REST API (with built-in CORS)
     volumes:
-      - ./spark/data:/opt/spark/data
+      - ./spark/data:/tmp/data
       - ./spark/work-dir:/opt/spark/work-dir
-      - ./spark/spark-events:/tmp/spark-events  # Persistent storage for Spark event logs
-    networks:
-      - data-platform
-
-  livy:
-    build:
-      context: ./spark
-      dockerfile: Dockerfile.livy
-    container_name: livy-server
-    hostname: livy-server
-    environment:
-      - SPARK_MASTER=spark://spark-master:7077
-      - SPARK_PUBLIC_DNS=localhost
-    ports:
-      - '8998:8998'        # Livy API & Nginx CORS Proxy
-      - '4040-4050:4040-4050'  # Map range for Spark driver UIs
-    volumes:
-      - ./spark/data:/opt/spark/data
-      - ./spark/work-dir:/opt/spark/work-dir
-      - ./spark/livy.conf:/opt/livy/conf/livy.conf
-      - ./spark/spark-events:/tmp/spark-events
-    depends_on:
-      - spark
+      - spark_event_logs:/opt/spark/event_logs
+      - spark_ivy_cache:/tmp/.ivy
+      - spark_warehouse:/opt/spark/warehouse
+      - spark_metastore:/opt/spark/metastore
     networks:
       - data-platform
 
@@ -52,7 +34,7 @@ services:
     ports:
       - '4173:4173'
     depends_on:
-      - livy
+      - spark
     networks:
       - data-platform
 
@@ -64,3 +46,9 @@ networks:
   data-platform:
     driver: bridge
     name: data-platform
+
+volumes:
+  spark_event_logs:
+  spark_ivy_cache:
+  spark_warehouse:
+  spark_metastore:

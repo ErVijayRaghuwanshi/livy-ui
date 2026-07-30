@@ -240,11 +240,10 @@ docker compose down
 
 | Service | Container | Ports | Description |
 |---------|-----------|-------|-------------|
-| `spark` | `spark-master` | `7077`, `8080`, `18080` | Apache Spark 3.5.4 Master & History Server |
-| `livy` | `livy-server` | `8998`, `4040-4050` | Apache Livy 0.8.0 + Nginx CORS reverse proxy |
+| `spark` | `spark-master` | `7077`, `8080`, `18080`, `15002`, `8998` | Hardened Spark Master, History Server, Spark Connect & `livy-next` REST API |
 | `livy-ui` | `livy-ui` | `4173` | Livy UI web application |
 
-After starting, open [http://localhost:4173](http://localhost:4173) for the UI, [http://localhost:8998](http://localhost:8998) for Livy, and [http://localhost:8080](http://localhost:8080) for the Spark Master UI.
+After starting, open [http://localhost:4173](http://localhost:4173) for the UI, [http://localhost:8998](http://localhost:8998) for `livy-next`, and [http://localhost:8080](http://localhost:8080) for the Spark Master UI.
 
 #### Customizing the Compose Build
 
@@ -261,7 +260,7 @@ args:
 ```
 livy-ui/
 ├── Dockerfile                  # Multi-stage frontend UI build
-├── docker-compose.yml          # Compose: Spark master + Livy server + Livy UI
+├── docker-compose.yml          # Compose: Spark master (with livy-next) + Livy UI
 ├── index.html
 ├── package.json
 ├── vite.config.js              # Vite config + PWA options
@@ -269,15 +268,15 @@ livy-ui/
 ├── PRIVACY.md                   # Privacy policy & data handling documentation
 ├── release-notes/               # Version release notes (v1.1.1 through v1.4.7)
 ├── src/                        # React 19 + Vite 7 Frontend application code
-└── spark/                      # Backend sidecar directory (Spark + Livy)
-    ├── Dockerfile.spark        # Spark Master & History Server Dockerfile
-    ├── Dockerfile.livy         # Livy Server + Nginx CORS Dockerfile
-    ├── start-spark.sh          # Spark Master startup script
-    ├── start-livy.sh           # Livy Server startup script
-    ├── livy.conf               # Livy server configuration
-    ├── nginx-cors.conf         # Standalone Nginx configuration for Livy container CORS
+└── spark/                      # Backend sidecar directory (Spark + livy-next)
+    ├── Dockerfile.spark        # Unified Spark + livy-next Dockerfile
+    ├── start-spark.sh          # Startup script (HistoryServer, SparkConnect, livy-next, Master)
+    ├── bin/
+    │   └── livy-next           # Pre-built livy-next binary with native CORS
+    ├── conf/
+    │   └── spark-defaults.conf # Declarative packages (Delta, Kafka, Avro, Sedona, Postgres)
     ├── data/                   # Mounted data files
-    ├── jars/                   # Custom connector JARs (Kafka, Postgres, Delta, Sedona)
+    ├── jars/                   # Custom connector JARs
     ├── spark-events/           # Persistent Spark History event logs
     └── work-dir/               # Spark working directory
     ├── main.jsx                # App entry point
