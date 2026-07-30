@@ -1,19 +1,17 @@
 FROM apache/spark:3.5.4
 
-# Install dependencies as root
 USER root
 
-# Update package lists and install necessary packages
-RUN apt-get update && apt-get install -y wget unzip procps python3 openjdk-11-jdk-headless nginx
+# Install system dependencies & Nginx
+RUN apt-get update && apt-get install -y wget unzip procps python3 openjdk-11-jdk-headless nginx && rm -rf /var/lib/apt/lists/*
 
-
-# Install Livy
+# Install Livy 0.8.0
 RUN wget https://archive.apache.org/dist/incubator/livy/0.8.0-incubating/apache-livy-0.8.0-incubating_2.12-bin.zip -O /tmp/livy.zip && \
     unzip /tmp/livy.zip -d /opt/ && \
     mv /opt/apache-livy-0.8.0-incubating_2.12-bin /opt/livy && \
     rm /tmp/livy.zip
 
-# Remove duplicate jars
+# Remove duplicate jars in Livy repl
 RUN cd /opt/livy/repl_2.12-jars && \
     for jar in *.jar; do \
         if [ -f "/opt/livy/rsc-jars/$jar" ]; then \
@@ -27,8 +25,8 @@ https://repo1.maven.org/maven2/org/apache/spark/spark-sql-kafka-0-10_2.12/3.5.4/
 wget -P /opt/spark/jars/ \
 https://repo1.maven.org/maven2/org/apache/spark/spark-token-provider-kafka-0-10_2.12/3.5.4/spark-token-provider-kafka-0-10_2.12-3.5.4.jar && \
 wget -P /opt/spark/jars/ \
-https://repo1.maven.org/maven2/org/apache/kafka/kafka-clients/3.5.1/kafka-clients-3.5.1.jar
-RUN wget -P /opt/spark/jars/ \
+https://repo1.maven.org/maven2/org/apache/kafka/kafka-clients/3.5.1/kafka-clients-3.5.1.jar && \
+wget -P /opt/spark/jars/ \
 https://repo1.maven.org/maven2/org/apache/commons/commons-pool2/2.12.0/commons-pool2-2.12.0.jar
 
 # Add PostgreSQL driver
@@ -40,12 +38,11 @@ https://repo1.maven.org/maven2/io/delta/delta-spark_2.12/3.2.0/delta-spark_2.12-
 wget -P /opt/spark/jars/ \
 https://repo1.maven.org/maven2/io/delta/delta-storage/3.2.0/delta-storage-3.2.0.jar
 
-# Add sedona jars (Updated to 1.7.0 to support shapefile data sources)
+# Add Sedona jars
 RUN wget -P /opt/spark/jars/ \
 https://repo1.maven.org/maven2/org/apache/sedona/sedona-spark-shaded-3.5_2.12/1.7.0/sedona-spark-shaded-3.5_2.12-1.7.0.jar && \
 wget -P /opt/spark/jars/ \
 https://repo1.maven.org/maven2/org/datasyslab/geotools-wrapper/1.7.0-28.5/geotools-wrapper-1.7.0-28.5.jar
-
 
 # Create directories for Livy logs and Spark event logs
 RUN mkdir -p /opt/livy/logs && \
@@ -56,28 +53,16 @@ RUN mkdir -p /opt/livy/logs && \
 COPY nginx-cors.conf /opt/nginx.conf
 RUN chown 185:185 /opt/nginx.conf
 
-# Create startup script to run both Livy, Nginx and Spark History Server
-RUN echo '#!/bin/bash\n\
-# Start Spark History Server in background\n\
-/opt/spark/sbin/start-history-server.sh &\n\
-\n\
-# Start Nginx CORS reverse proxy in background\n\
-nginx -c /opt/nginx.conf &\n\
-\n\
-# Start Livy server in foreground\n\
-/opt/livy/bin/livy-server\n\
-' > /opt/start-services.sh && \
-    chmod +x /opt/start-services.sh
+COPY start-livy.sh /opt/start-livy.sh
+RUN chmod +x /opt/start-livy.sh && chown 185:185 /opt/start-livy.sh
 
-# Switch to spark user, which is the default user in the base image and has UID 185, this ensures that the Livy server runs with the same permissions as Spark and can access the necessary files and directories. It also avoids potential permission issues when running the container in environments with strict security policies.
 USER 185
 
 ENV SPARK_HOME=/opt/spark
 ENV LIVY_HOME=/opt/livy
 ENV PYSPARK_PYTHON=python3
 ENV PYSPARK_DRIVER_PYTHON=python3
-ENV SPARK_HISTORY_OPTS="-Dspark.history.fs.logDirectory=/tmp/spark-events -Dspark.history.ui.port=18080"
 
-EXPOSE 8998 4040-4050 18080
+EXPOSE 8998 4040-4050
 
-CMD ["/opt/start-services.sh"]
+CMD ["/opt/start-livy.sh"]

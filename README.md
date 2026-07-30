@@ -240,10 +240,11 @@ docker compose down
 
 | Service | Container | Ports | Description |
 |---------|-----------|-------|-------------|
-| `livy` | `livy-server` | `8998`, `4040-4050` | Apache Livy server with Spark |
+| `spark` | `spark-master` | `7077`, `8080`, `18080` | Apache Spark 3.5.4 Master & History Server |
+| `livy` | `livy-server` | `8998`, `4040-4050` | Apache Livy 0.8.0 + Nginx CORS reverse proxy |
 | `livy-ui` | `livy-ui` | `4173` | Livy UI web application |
 
-After starting, open [http://localhost:4173](http://localhost:4173) for the UI and [http://localhost:8998](http://localhost:8998) for the Livy REST API.
+After starting, open [http://localhost:4173](http://localhost:4173) for the UI, [http://localhost:8998](http://localhost:8998) for Livy, and [http://localhost:8080](http://localhost:8080) for the Spark Master UI.
 
 #### Customizing the Compose Build
 
@@ -252,26 +253,33 @@ You can override the Git repo and branch in `docker-compose.yml` under `livy-ui.
 ```yaml
 args:
   GIT_REPO: https://github.com/ErVijayRaghuwanshi/livy-ui.git
-  GIT_BRANCH: main
+  GIT_BRANCH: feature/v1.5.0
 ```
 
 ## Project Structure
 
 ```
 livy-ui/
-├── Dockerfile                  # Multi-stage build (git-fetch → build → production)
-├── DockerfileLivy              # Livy server Dockerfile
-├── docker-compose.yml          # Compose: Livy server + Livy UI
-├── livy.conf                   # Livy server configuration
-├── nginx-cors.conf             # Standalone Nginx configuration for Livy container CORS
-├── CHANGELOG.md                 # Version changelog history
-├── PRIVACY.md                   # Privacy policy & data handling documentation
-├── release-notes/               # Version release notes (v1.1.1 through v1.4.7)
-├── .dockerignore
+├── Dockerfile                  # Multi-stage frontend UI build
+├── docker-compose.yml          # Compose: Spark master + Livy server + Livy UI
 ├── index.html
 ├── package.json
 ├── vite.config.js              # Vite config + PWA options
-└── src/
+├── CHANGELOG.md                 # Version changelog history
+├── PRIVACY.md                   # Privacy policy & data handling documentation
+├── release-notes/               # Version release notes (v1.1.1 through v1.4.7)
+├── src/                        # React 19 + Vite 7 Frontend application code
+└── spark/                      # Backend sidecar directory (Spark + Livy)
+    ├── Dockerfile.spark        # Spark Master & History Server Dockerfile
+    ├── Dockerfile.livy         # Livy Server + Nginx CORS Dockerfile
+    ├── start-spark.sh          # Spark Master startup script
+    ├── start-livy.sh           # Livy Server startup script
+    ├── livy.conf               # Livy server configuration
+    ├── nginx-cors.conf         # Standalone Nginx configuration for Livy container CORS
+    ├── data/                   # Mounted data files
+    ├── jars/                   # Custom connector JARs (Kafka, Postgres, Delta, Sedona)
+    ├── spark-events/           # Persistent Spark History event logs
+    └── work-dir/               # Spark working directory
     ├── main.jsx                # App entry point
     ├── App.jsx                 # Root layout with sidebar + resizable panels
     ├── index.css               # Tailwind v4 + CSS variables (dark theme)
