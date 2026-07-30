@@ -1,8 +1,8 @@
-FROM apache/spark:3.5.4
+FROM apache/spark:4.1.2
 
 USER root
 
-# Install required Python packages for PySpark, Spark Connect, and Data Science
+# Install required Python packages for PySpark Declarative Pipelines (SDP), Spark Connect, and Data Science
 RUN pip3 install --no-cache-dir \
     "pyyaml" \
     "pandas>=2.2.0" \
