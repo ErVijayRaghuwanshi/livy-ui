@@ -2,6 +2,16 @@
 
 All notable changes to the Livy SQL Editor project will be documented in this file.
 
+## [Unreleased]
+### Added
+* Decoupled backend architecture housing Spark and `livy-next` inside a dedicated `spark/` sidecar directory.
+* Unified Spark container image (`spark/Dockerfile.spark`) with built-in `livy-next` REST API on port 8998 and native CORS (`--cors-allowed-origins "*"`).
+* Declarative Spark package management via `spark/conf/spark-defaults.conf` (Delta Lake, Kafka, Avro, Apache Sedona, PostgreSQL).
+* Installed PySpark Data Science libraries (`pandas`, `pyarrow`, `grpcio`, `protobuf`, `redis`, `neo4j`) inside the Spark container.
+* Streamlined 2-service Docker Compose orchestration (`spark` and `livy-ui`).
+
+---
+
 ## [v1.4.7] - 2026-07-30
 ### Added
 * Progressive Web App (PWA) support with service worker asset caching, PWA manifests, and offline loopback execution capability.

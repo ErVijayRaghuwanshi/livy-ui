@@ -23,7 +23,7 @@ A modern web-based SQL editor for [Apache Livy](https://livy.incubator.apache.or
 - **HDFS / Parquet Support** — Query HDFS files directly using Spark SQL path-based table syntax
 - **Dark Theme** — Modern dark UI optimized for long coding sessions
 - **LocalStorage Persistence** — All hosts, SQL files, session config, and session info persist across browser reloads
-- **CORS Proxy** — Embedded Nginx reverse proxy handles cross-origin requests to any Livy host on port 8998
+- **Native CORS Support** — Built-in `livy-next` REST API handles cross-origin requests (`--cors-allowed-origins "*"`) on port 8998 without requiring external proxy containers
 
 ## Tech Stack
 
@@ -315,31 +315,31 @@ To resolve these challenges without needing external proxies, the architecture i
 sequenceDiagram
     participant Browser as Client Browser
     participant GH as GitHub Pages (Static UI)
-    participant Nginx as Container Nginx (Port 8998)
-    participant Livy as Container Livy (Port 8997)
+    participant LivyNext as livy-next REST API (Port 8998)
+    participant Spark as Spark Connect (Port 15002)
 
     Note over Browser,GH: PWA Caching / Offline Loading
     Browser->>GH: Request UI Assets (Initial load)
     GH-->>Browser: Return HTML/CSS/JS (Cached offline by SW)
 
-    Note over Browser,Nginx: Browser CORS Handshake
-    Browser->>Nginx: OPTIONS /sessions (with Origin header)
-    Nginx-->>Browser: 204 No Content (with CORS Allow Origin)
+    Note over Browser,LivyNext: Browser CORS Handshake
+    Browser->>LivyNext: OPTIONS /sessions (with Origin header)
+    LivyNext-->>Browser: 204 No Content (Access-Control-Allow-Origin: *)
 
-    Note over Browser,Livy: Actual API Request
-    Browser->>Nginx: GET /sessions
-    Nginx->>Livy: Proxy to localhost:8997
-    Livy-->>Nginx: Return session list JSON
-    Nginx-->>Browser: Return JSON + CORS Allow Origin
+    Note over Browser,Spark: Actual API Execution
+    Browser->>LivyNext: GET/POST /sessions
+    LivyNext->>Spark: Execute via Spark Connect (sc://spark-master:15002)
+    Spark-->>LivyNext: Return Execution Results
+    LivyNext-->>Browser: Return JSON + CORS Approval Headers
 ```
 
-### 1. Unified Livy + CORS Proxy Container
-Apache Livy has no native CORS configuration support. Instead of adding an extra Docker container, **Nginx is packaged directly inside the `livy-server` image**:
-- The embedded Livy JVM process is configured to bind internally to port `8997` (configured in [livy.conf](file:///Users/ervijay/Documents/Programs/Repo/livy-ui/livy.conf)).
-- A lightweight Nginx process (running in user-space under Spark user `185`) binds to public port `8998` (configured in `nginx-cors.conf`).
-- Nginx intercepts all traffic, automatically handles preflight `OPTIONS` requests, appends the appropriate `Access-Control-Allow-Origin` headers matching the client's origin, and proxies the requests to Livy on port `8997`.
+### 1. Unified Spark + `livy-next` Container
+The backend runs `livy-next` directly on port `8998` with `--cors-allowed-origins "*"`:
+- `livy-next` handles browser preflight `OPTIONS` requests natively without requiring external proxying (like Nginx) or extra sidecars.
+- It connects directly to Spark Connect (`sc://spark-master:15002`), ensuring fast, lightweight execution of Spark SQL sessions.
+- Spark packages (`Delta Lake`, `Kafka`, `Avro`, `Apache Sedona`, `PostgreSQL`) are declaratively resolved via `spark/conf/spark-defaults.conf`.
 
-This means your local Livy server is natively CORS-compliant out of the box for any developer UI (GitHub Pages, local server, or local network IPs).
+This means your local Spark server is natively CORS-compliant out of the box for any developer UI (GitHub Pages, local server, or local network IPs).
 
 ### 2. Progressive Web App (PWA) & Offline Capabilities
 The UI uses `vite-plugin-pwa` with Workbox to cache all static pages, assets, and the Monaco SQL editor:

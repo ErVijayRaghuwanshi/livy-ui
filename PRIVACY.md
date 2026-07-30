@@ -17,9 +17,8 @@ graph TD
     end
 
     subgraph UserInfra["User's Private Network / Host"]
-        Nginx["Container Nginx CORS Proxy <br> (Port 8998)"]
-        Livy["Apache Livy Server <br> (Port 8997)"]
-        Spark["Spark Catalog & Cluster"]
+        LivyNext["livy-next REST API <br> (Port 8998 with Native CORS)"]
+        Spark["Spark Catalog & Cluster <br> (Spark Connect Port 15002)"]
     end
 
     subgraph PublicInternet["Public Web"]
@@ -30,9 +29,8 @@ graph TD
     UI <-->|1. Read/Write State Local Only| LS
     UI <-->|2. Fetch Cached Assets| SW
     GH -.->|3. Initial Code Download Only| UI
-    UI ==>|4. Direct Encrypted/LAN API Calls| Nginx
-    Nginx <-->|5. Internal Proxy| Livy
-    Livy <-->|6. Spark SQL Execution| Spark
+    UI ==>|4. Direct Encrypted/LAN API Calls| LivyNext
+    LivyNext <-->|5. Spark Connect SQL Execution| Spark
 
     %% Styling
     style LS fill:#f9f,stroke:#333,stroke-width:2px
