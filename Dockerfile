@@ -10,6 +10,9 @@ RUN npm run build
 FROM caddy:2-alpine
 COPY --from=build /app/dist /srv
 
+# Configure Caddy for SPA fallback routing on port 4173
+RUN printf ':4173 {\n  root * /srv\n  file_server\n  try_files {path} {path}/ /index.html\n}\n' > /etc/caddy/Caddyfile
+
 EXPOSE 4173
 
-CMD ["caddy", "file-server", "--root", "/srv", "--listen", ":4173", "--try-files", "{path}", "{path}/", "/index.html"]
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
