@@ -4,6 +4,7 @@ services:
     build:
       context: ./spark
       dockerfile: Dockerfile.spark
+    image: livy-spark:4.1.2
     container_name: spark-master
     hostname: spark-master
     user: "root"
@@ -30,6 +31,7 @@ services:
       args:
         GIT_REPO: https://github.com/ErVijayRaghuwanshi/livy-ui.git
         GIT_BRANCH: feature/v1.5.0
+    image: livy-ui:latest
     container_name: livy-ui
     ports:
       - '4173:4173'
