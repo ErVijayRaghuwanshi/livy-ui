@@ -1,16 +1,15 @@
-# Stage 1: Build
+# Stage 1: Build static web assets
 FROM node:22-alpine AS build
 WORKDIR /app
-COPY package.json ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci
 COPY . .
 RUN npm run build
 
-# Stage 2: Production
-FROM node:22-alpine
-WORKDIR /app
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/node_modules ./node_modules
-COPY package.json vite.config.js ./
+# Stage 2: Production (Lightweight Caddy Web Server ~30MB)
+FROM caddy:2-alpine
+COPY --from=build /app/dist /srv
+
 EXPOSE 4173
-CMD ["npx", "vite", "preview", "--host", "0.0.0.0", "--port", "4173"]
+
+CMD ["caddy", "file-server", "--root", "/srv", "--listen", ":4173", "--try-files", "{path}", "{path}/", "/index.html"]
