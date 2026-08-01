@@ -1,6 +1,7 @@
 import { createContext, useContext, useReducer, useCallback, useEffect } from "react";
 import { getItem, setItem, removeItem } from "../utils/localStorage";
 import { STORAGE_KEYS, DEFAULT_HOST, SESSION_STATES } from "../utils/constants";
+import { useSettings } from "./SettingsContext";
 import * as livyApi from "../services/livyApi";
 
 const LivyContext = createContext(null);
@@ -56,11 +57,25 @@ function reducer(state, action) {
 
 export function LivyProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const { settings, updateSetting } = useSettings();
 
-  // Persist hosts
+  // Sync state.hosts when settings["livy.hosts"] changes (e.g. edited in settings.json)
+  useEffect(() => {
+    const settingHosts = settings["livy.hosts"];
+    if (Array.isArray(settingHosts) && settingHosts.length > 0) {
+      if (JSON.stringify(settingHosts) !== JSON.stringify(state.hosts)) {
+        dispatch({ type: "SET_HOSTS", payload: settingHosts });
+      }
+    }
+  }, [settings, state.hosts]);
+
+  // Persist hosts and sync to settings
   useEffect(() => {
     setItem(STORAGE_KEYS.HOSTS, state.hosts);
-  }, [state.hosts]);
+    if (JSON.stringify(state.hosts) !== JSON.stringify(settings["livy.hosts"])) {
+      updateSetting("livy.hosts", state.hosts);
+    }
+  }, [state.hosts, updateSetting, settings]);
 
   // Persist active host
   useEffect(() => {

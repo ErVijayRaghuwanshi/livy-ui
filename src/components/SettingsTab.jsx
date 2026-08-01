@@ -16,13 +16,28 @@ import {
   ExternalLink,
   Sparkles,
   AlertTriangle,
+  Plus,
+  Trash2,
+  Wifi,
+  Edit2,
+  CheckCircle2,
+  XCircle,
+  Loader2,
 } from "lucide-react";
 import { useSettings, DEFAULT_SETTINGS } from "../context/SettingsContext";
 import { useLivy } from "../context/LivyContext";
+import { v4 as uuidv4 } from "uuid";
 
 export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal }) {
   const { settings, updateSetting, updateAllSettings, resetToDefaults } = useSettings();
-  const { hosts, activeHostId, selectHost } = useLivy();
+  const {
+    hosts,
+    activeHostId,
+    selectHost,
+    addHost,
+    removeHost,
+    updateHost,
+  } = useLivy();
 
   const [mode, setMode] = useState("ui"); // 'ui' | 'json'
   const [searchQuery, setSearchQuery] = useState("");
@@ -31,6 +46,14 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
   const [jsonError, setJsonError] = useState(null);
   const [isResetSuccess, setIsResetSuccess] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
+
+  // Host Manager Form State
+  const [newHostName, setNewHostName] = useState("");
+  const [newHostUrl, setNewHostUrl] = useState("http://localhost:8998");
+  const [editingHostId, setEditingHostId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [editUrl, setEditUrl] = useState("");
+  const [pingResults, setPingResults] = useState({}); // { [hostId]: 'loading' | 'online' | 'offline' }
 
   // Sync jsonText whenever settings change in UI mode
   useEffect(() => {
@@ -264,6 +287,15 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
       title: "Active Livy Host Endpoint",
       description: "The currently connected Apache Livy / livy-next REST server URL.",
       type: "hostSelector",
+      commonlyUsed: true,
+    },
+    {
+      key: "livy.hosts",
+      category: "connection",
+      breadcrumb: "Connection & Hosts > Managed Clusters > Livy Hosts",
+      title: "Managed Livy Host Endpoints",
+      description: "Manage, ping, and configure Livy / livy-next cluster endpoints available to connect.",
+      type: "hostManager",
     },
     {
       key: "query.historyLimit",
@@ -284,6 +316,50 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
       type: "boolean",
     },
   ];
+
+  // Test Host Ping / Connection
+  const handleTestHost = async (host) => {
+    setPingResults((prev) => ({ ...prev, [host.id]: "loading" }));
+    try {
+      const res = await fetch(`${host.url.replace(/\/$/, "")}/sessions`, {
+        headers: { Accept: "application/json" },
+      });
+      if (res.ok) {
+        setPingResults((prev) => ({ ...prev, [host.id]: "online" }));
+      } else {
+        setPingResults((prev) => ({ ...prev, [host.id]: "offline" }));
+      }
+    } catch {
+      setPingResults((prev) => ({ ...prev, [host.id]: "offline" }));
+    }
+  };
+
+  // Add Host Form Handler
+  const handleAddHostSubmit = (e) => {
+    e.preventDefault();
+    const name = newHostName.trim() || "New Livy Cluster";
+    let url = newHostUrl.trim();
+    if (!url) return;
+    if (!/^https?:\/\//i.test(url)) {
+      url = "http://" + url;
+    }
+    const newHost = { id: uuidv4(), name, url };
+    addHost(newHost);
+    setNewHostName("");
+    setNewHostUrl("http://localhost:8998");
+  };
+
+  // Save Edit Host Handler
+  const handleSaveEditHost = (hostId) => {
+    const name = editName.trim();
+    let url = editUrl.trim();
+    if (!name || !url) return;
+    if (!/^https?:\/\//i.test(url)) {
+      url = "http://" + url;
+    }
+    updateHost(hostId, { name, url });
+    setEditingHostId(null);
+  };
 
   // Filter settings by search query and selected category
   const filteredDefinitions = useMemo(() => {
@@ -334,7 +410,7 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
             />
             <input
               type="text"
-              placeholder="Search settings (e.g. font, theme, spark, memory)..."
+              placeholder="Search settings (e.g. font, theme, spark, host, memory)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-8 py-1 text-xs rounded bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-primary) placeholder-(--color-text-muted) focus:outline-none focus:border-(--color-accent) transition-colors"
@@ -535,13 +611,172 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
                               </option>
                             ))}
                           </select>
+                        </div>
+                      )}
 
-                          <button
-                            onClick={() => setShowConnectionModal(true)}
-                            className="px-3 py-1 text-xs font-medium rounded bg-(--color-accent) text-white hover:bg-(--color-accent)/90 transition-colors cursor-pointer"
+                      {/* Full Host Manager Section */}
+                      {def.type === "hostManager" && (
+                        <div className="space-y-4 pt-1">
+                          {/* Hosts List Table */}
+                          <div className="space-y-2">
+                            {hosts.map((host) => {
+                              const isActive = host.id === activeHostId;
+                              const isEditing = editingHostId === host.id;
+                              const pingState = pingResults[host.id];
+
+                              return (
+                                <div
+                                  key={host.id}
+                                  className={`flex flex-wrap items-center justify-between gap-3 p-3 rounded border ${
+                                    isActive
+                                      ? "bg-(--color-accent)/10 border-(--color-accent)/40"
+                                      : "bg-(--color-bg-primary) border-(--color-border)"
+                                  }`}
+                                >
+                                  {isEditing ? (
+                                    <div className="flex flex-1 items-center gap-2">
+                                      <input
+                                        type="text"
+                                        value={editName}
+                                        onChange={(e) => setEditName(e.target.value)}
+                                        placeholder="Host Name"
+                                        className="px-2 py-1 text-xs rounded bg-(--color-bg-secondary) border border-(--color-border) text-(--color-text-primary) outline-none"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={editUrl}
+                                        onChange={(e) => setEditUrl(e.target.value)}
+                                        placeholder="http://localhost:8998"
+                                        className="flex-1 px-2 py-1 text-xs rounded bg-(--color-bg-secondary) border border-(--color-border) text-(--color-text-primary) font-mono outline-none"
+                                      />
+                                      <button
+                                        onClick={() => handleSaveEditHost(host.id)}
+                                        className="px-2.5 py-1 text-xs rounded bg-emerald-600 text-white font-medium cursor-pointer"
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        onClick={() => setEditingHostId(null)}
+                                        className="px-2.5 py-1 text-xs rounded bg-(--color-bg-tertiary) text-(--color-text-muted) cursor-pointer"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div className="flex items-center gap-2.5 min-w-0">
+                                        <Server size={15} className="text-(--color-accent) shrink-0" />
+                                        <div className="min-w-0">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs font-semibold text-(--color-text-primary) truncate">
+                                              {host.name}
+                                            </span>
+                                            {isActive && (
+                                              <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                                Active Host
+                                              </span>
+                                            )}
+                                          </div>
+                                          <span className="text-[11px] font-mono text-(--color-text-muted) truncate block">
+                                            {host.url}
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      {/* Host Action Buttons */}
+                                      <div className="flex items-center gap-2">
+                                        {/* Test Ping Result Badge */}
+                                        {pingState === "loading" && (
+                                          <span className="flex items-center gap-1 text-[11px] text-amber-400">
+                                            <Loader2 size={12} className="animate-spin" /> Ping...
+                                          </span>
+                                        )}
+                                        {pingState === "online" && (
+                                          <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
+                                            <CheckCircle2 size={12} /> Connected
+                                          </span>
+                                        )}
+                                        {pingState === "offline" && (
+                                          <span className="flex items-center gap-1 text-[11px] text-rose-400 font-medium">
+                                            <XCircle size={12} /> Unreachable
+                                          </span>
+                                        )}
+
+                                        <button
+                                          onClick={() => handleTestHost(host)}
+                                          className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-(--color-bg-secondary) hover:bg-(--color-bg-tertiary) border border-(--color-border) text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors cursor-pointer"
+                                          title="Test API Connection"
+                                        >
+                                          <Wifi size={12} /> Test
+                                        </button>
+
+                                        {!isActive && (
+                                          <button
+                                            onClick={() => {
+                                              selectHost(host.id);
+                                              updateSetting("livy.activeHostUrl", host.url);
+                                            }}
+                                            className="px-2 py-1 text-xs rounded bg-(--color-accent)/10 hover:bg-(--color-accent)/20 text-(--color-accent) border border-(--color-accent)/30 transition-colors cursor-pointer"
+                                          >
+                                            Select
+                                          </button>
+                                        )}
+
+                                        <button
+                                          onClick={() => {
+                                            setEditingHostId(host.id);
+                                            setEditName(host.name);
+                                            setEditUrl(host.url);
+                                          }}
+                                          className="p-1 rounded text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary) cursor-pointer"
+                                          title="Edit Host"
+                                        >
+                                          <Edit2 size={13} />
+                                        </button>
+
+                                        {host.id !== "default" && (
+                                          <button
+                                            onClick={() => removeHost(host.id)}
+                                            className="p-1 rounded text-(--color-text-muted) hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer"
+                                            title="Delete Host"
+                                          >
+                                            <Trash2 size={13} />
+                                          </button>
+                                        )}
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Add Host Inline Form */}
+                          <form
+                            onSubmit={handleAddHostSubmit}
+                            className="flex flex-wrap items-center gap-2 pt-2 border-t border-(--color-border)"
                           >
-                            Manage Connection Hosts...
-                          </button>
+                            <input
+                              type="text"
+                              placeholder="Host Name (e.g. Staging Spark Cluster)"
+                              value={newHostName}
+                              onChange={(e) => setNewHostName(e.target.value)}
+                              className="px-3 py-1.5 text-xs rounded bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-primary) outline-none focus:border-(--color-accent)"
+                            />
+                            <input
+                              type="text"
+                              placeholder="http://localhost:8998"
+                              value={newHostUrl}
+                              onChange={(e) => setNewHostUrl(e.target.value)}
+                              className="flex-1 min-w-48 px-3 py-1.5 text-xs rounded bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-primary) font-mono outline-none focus:border-(--color-accent)"
+                            />
+                            <button
+                              type="submit"
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded bg-(--color-accent) text-white hover:bg-(--color-accent)/90 transition-colors cursor-pointer"
+                            >
+                              <Plus size={13} /> Add Host
+                            </button>
+                          </form>
                         </div>
                       )}
                     </div>

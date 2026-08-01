@@ -30,6 +30,13 @@ export const DEFAULT_SETTINGS = {
 
   // Connection & Host Settings
   "livy.activeHostUrl": "http://localhost:8998",
+  "livy.hosts": [
+    {
+      id: "default",
+      name: "Local Livy Cluster",
+      url: "http://localhost:8998",
+    },
+  ],
 
   // Execution & History Limits
   "query.historyLimit": 50,
