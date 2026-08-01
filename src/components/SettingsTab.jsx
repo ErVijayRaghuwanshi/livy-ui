@@ -55,13 +55,20 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
   const [editUrl, setEditUrl] = useState("");
   const [pingResults, setPingResults] = useState({}); // { [hostId]: 'loading' | 'online' | 'offline' }
 
+  const combinedSettings = useMemo(() => {
+    return {
+      ...settings,
+      "livy.hosts": hosts,
+    };
+  }, [settings, hosts]);
+
   // Sync jsonText whenever settings change in UI mode
   useEffect(() => {
     if (mode === "ui") {
-      setJsonText(JSON.stringify(settings, null, 2));
+      setJsonText(JSON.stringify(combinedSettings, null, 2));
       setJsonError(null);
     }
-  }, [settings, mode]);
+  }, [combinedSettings, mode]);
 
   // Handle JSON Editor changes
   const handleJsonChange = useCallback(
@@ -70,7 +77,8 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
       try {
         const parsed = JSON.parse(value || "{}");
         if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-          updateAllSettings(parsed);
+          const { "livy.hosts": jsonHosts, ...otherSettings } = parsed;
+          updateAllSettings(otherSettings);
           setJsonError(null);
         } else {
           setJsonError("JSON content must be a valid key-value object.");
