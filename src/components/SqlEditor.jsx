@@ -1450,7 +1450,7 @@ const SqlEditor = forwardRef(function SqlEditor({
           onMount={handleEditorMount}
           options={{
             fontSize: settings["editor.fontSize"] || 14,
-            fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
+            fontFamily: settings["editor.fontFamily"] || "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
             glyphMargin: true,
             glyphMarginWidth: 16,
             lineNumbersMinChars: 2,
@@ -1461,6 +1461,7 @@ const SqlEditor = forwardRef(function SqlEditor({
             automaticLayout: true,
             tabSize: settings["editor.tabSize"] || 2,
             cursorBlinking: settings["editor.cursorBlinking"] || "smooth",
+            renderWhitespace: settings["editor.renderWhitespace"] || "selection",
             suggestOnTriggerCharacters: true,
             quickSuggestions: true,
             wordBasedSuggestions: "off",

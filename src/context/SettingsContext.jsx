@@ -9,6 +9,7 @@ export const DEFAULT_SETTINGS = {
 
   // Editor Preferences
   "editor.fontSize": 14,
+  "editor.fontFamily": "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
   "editor.tabSize": 2,
   "editor.wordWrap": "on",
   "editor.lineNumbers": "on",
@@ -16,6 +17,7 @@ export const DEFAULT_SETTINGS = {
   "editor.autoSave": "off",
   "editor.cursorBlinking": "smooth",
   "editor.formatOnSave": false,
+  "editor.renderWhitespace": "selection",
 
   // Spark & Compute Cluster Configurations
   "spark.defaultMaster": "local[*]",
@@ -23,12 +25,15 @@ export const DEFAULT_SETTINGS = {
   "spark.executor.cores": 2,
   "spark.driver.memory": "2g",
   "spark.sql.shuffle.partitions": 16,
+  "spark.dynamicAllocation.enabled": "false",
+  "spark.sql.warehouse.dir": "file:/opt/spark/warehouse",
 
   // Connection & Host Settings
   "livy.activeHostUrl": "http://localhost:8998",
 
   // Execution & History Limits
   "query.historyLimit": 50,
+  "query.autoFormatOnRun": false,
 };
 
 const SettingsContext = createContext(null);

@@ -12,6 +12,9 @@ import {
   RotateCcw,
   Check,
   AlertCircle,
+  ChevronRight,
+  ExternalLink,
+  Sparkles,
 } from "lucide-react";
 import { useSettings, DEFAULT_SETTINGS } from "../context/SettingsContext";
 import { useLivy } from "../context/LivyContext";
@@ -22,10 +25,10 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
 
   const [mode, setMode] = useState("ui"); // 'ui' | 'json'
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState("all");
+  const [activeCategory, setActiveCategory] = useState("commonlyUsed");
   const [jsonText, setJsonText] = useState(() => JSON.stringify(settings, null, 2));
   const [jsonError, setJsonError] = useState(null);
-  const [isSavedSuccess, setIsSavedSuccess] = useState(false);
+  const [isResetSuccess, setIsResetSuccess] = useState(false);
 
   // Sync jsonText whenever settings change in UI mode
   useEffect(() => {
@@ -55,9 +58,9 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
   );
 
   const categories = [
-    { id: "all", label: "All Settings", icon: Sliders },
-    { id: "appearance", label: "Appearance", icon: Palette },
-    { id: "editor", label: "Editor", icon: FileCode },
+    { id: "commonlyUsed", label: "Commonly Used", icon: Sparkles },
+    { id: "editor", label: "Text Editor", icon: FileCode },
+    { id: "workbench", label: "Workbench", icon: Palette },
     { id: "compute", label: "Spark & Compute", icon: Zap },
     { id: "connection", label: "Connection & Hosts", icon: Server },
     { id: "history", label: "Execution & History", icon: History },
@@ -66,10 +69,12 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
   const settingDefinitions = [
     {
       key: "workbench.colorTheme",
-      category: "appearance",
+      category: "workbench",
+      breadcrumb: "Workbench > Appearance > Color Theme",
       title: "Color Theme",
       description: "Specifies the visual theme for the workbench interface and Monaco Editor.",
       type: "select",
+      commonlyUsed: true,
       options: [
         { label: "Dark Modern", value: "dark" },
         { label: "Light Modern", value: "light" },
@@ -84,16 +89,27 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
     {
       key: "editor.fontSize",
       category: "editor",
+      breadcrumb: "Text Editor > Font > Font Size",
       title: "Font Size",
       description: "Controls the font size in pixels for the SQL Monaco Editor.",
       type: "number",
+      commonlyUsed: true,
       min: 10,
       max: 32,
+    },
+    {
+      key: "editor.fontFamily",
+      category: "editor",
+      breadcrumb: "Text Editor > Font > Font Family",
+      title: "Font Family",
+      description: "Controls the font family list for code rendering.",
+      type: "text",
     },
     {
       key: "editor.tabSize",
       category: "editor",
       title: "Tab Size",
+      breadcrumb: "Text Editor > Formatting > Tab Size",
       description: "The number of spaces a tab is equal to when editing SQL code.",
       type: "select",
       options: [
@@ -104,9 +120,11 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
     {
       key: "editor.wordWrap",
       category: "editor",
+      breadcrumb: "Text Editor > Display > Word Wrap",
       title: "Word Wrap",
       description: "Controls how lines should wrap in the Monaco SQL Editor.",
       type: "select",
+      commonlyUsed: true,
       options: [
         { label: "Off (Horizontal Scroll)", value: "off" },
         { label: "On (Wrap long lines)", value: "on" },
@@ -115,6 +133,7 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
     {
       key: "editor.lineNumbers",
       category: "editor",
+      breadcrumb: "Text Editor > Display > Line Numbers",
       title: "Line Numbers",
       description: "Controls the display of line numbers in the editor gutter.",
       type: "select",
@@ -126,6 +145,7 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
     {
       key: "editor.minimap.enabled",
       category: "editor",
+      breadcrumb: "Text Editor > Display > Minimap",
       title: "Minimap Enabled",
       description: "Controls whether the code outline minimap is shown on the right side of the editor.",
       type: "boolean",
@@ -133,9 +153,11 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
     {
       key: "editor.autoSave",
       category: "editor",
+      breadcrumb: "Text Editor > Files > Auto Save",
       title: "Auto Save",
       description: "Automatically save dirty SQL tab files as you type.",
       type: "select",
+      commonlyUsed: true,
       options: [
         { label: "Off (Manual Cmd+S)", value: "off" },
         { label: "On (Auto-save changes)", value: "on" },
@@ -144,6 +166,7 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
     {
       key: "editor.cursorBlinking",
       category: "editor",
+      breadcrumb: "Text Editor > Cursor > Cursor Blinking",
       title: "Cursor Blinking",
       description: "Control the animation style of the editor cursor.",
       type: "select",
@@ -154,22 +177,40 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
       ],
     },
     {
+      key: "editor.renderWhitespace",
+      category: "editor",
+      breadcrumb: "Text Editor > Display > Render Whitespace",
+      title: "Render Whitespace",
+      description: "Controls how the editor renders whitespace characters.",
+      type: "select",
+      options: [
+        { label: "Selection", value: "selection" },
+        { label: "All", value: "all" },
+        { label: "None", value: "none" },
+      ],
+    },
+    {
       key: "spark.defaultMaster",
       category: "compute",
+      breadcrumb: "Spark & Compute > Cluster > Default Master URL",
       title: "Default Spark Master",
       description: "The default Spark Master connection string used when starting new Livy sessions.",
       type: "text",
+      commonlyUsed: true,
     },
     {
       key: "spark.executor.memory",
       category: "compute",
+      breadcrumb: "Spark & Compute > Resource Allocation > Executor Memory",
       title: "Executor Memory",
       description: "Amount of memory to allocate per Spark executor process (e.g. 1g, 2g, 4g).",
       type: "text",
+      commonlyUsed: true,
     },
     {
       key: "spark.executor.cores",
       category: "compute",
+      breadcrumb: "Spark & Compute > Resource Allocation > Executor Cores",
       title: "Executor Cores",
       description: "Number of CPU cores to allocate per Spark executor.",
       type: "number",
@@ -179,6 +220,7 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
     {
       key: "spark.driver.memory",
       category: "compute",
+      breadcrumb: "Spark & Compute > Resource Allocation > Driver Memory",
       title: "Driver Memory",
       description: "Amount of memory to allocate for the Spark driver process.",
       type: "text",
@@ -186,6 +228,7 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
     {
       key: "spark.sql.shuffle.partitions",
       category: "compute",
+      breadcrumb: "Spark & Compute > Performance > Shuffle Partitions",
       title: "Spark SQL Shuffle Partitions",
       description: "Default number of partitions to use when shuffling data for joins or aggregations.",
       type: "number",
@@ -193,8 +236,29 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
       max: 1000,
     },
     {
+      key: "spark.dynamicAllocation.enabled",
+      category: "compute",
+      breadcrumb: "Spark & Compute > Scaling > Dynamic Allocation",
+      title: "Dynamic Allocation",
+      description: "Enable dynamic resource allocation to scale executors up or down based on workload.",
+      type: "select",
+      options: [
+        { label: "Disabled (Fixed Executors)", value: "false" },
+        { label: "Enabled (Autoscaling)", value: "true" },
+      ],
+    },
+    {
+      key: "spark.sql.warehouse.dir",
+      category: "compute",
+      breadcrumb: "Spark & Compute > Storage > Warehouse Directory",
+      title: "Warehouse Directory",
+      description: "Directory location for managed database and table files.",
+      type: "text",
+    },
+    {
       key: "livy.activeHostUrl",
       category: "connection",
+      breadcrumb: "Connection & Hosts > Livy Server > Active Host Endpoint",
       title: "Active Livy Host Endpoint",
       description: "The currently connected Apache Livy / livy-next REST server URL.",
       type: "hostSelector",
@@ -202,110 +266,103 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
     {
       key: "query.historyLimit",
       category: "history",
+      breadcrumb: "Execution & History > Query History > Max Retention",
       title: "Query History Max Retention",
       description: "Maximum number of executed SQL statements retained in the Query History panel.",
       type: "number",
       min: 10,
       max: 500,
     },
+    {
+      key: "query.autoFormatOnRun",
+      category: "history",
+      breadcrumb: "Execution & History > Query Execution > Auto Format",
+      title: "Auto-Format SQL On Run",
+      description: "Automatically format SQL query code when submitting for execution.",
+      type: "boolean",
+    },
   ];
 
   // Filter settings by search query and selected category
   const filteredDefinitions = useMemo(() => {
     return settingDefinitions.filter((def) => {
-      const matchesCategory = activeCategory === "all" || def.category === activeCategory;
+      const matchesCategory =
+        activeCategory === "commonlyUsed" ? def.commonlyUsed : def.category === activeCategory;
       const query = searchQuery.trim().toLowerCase();
       if (!query) return matchesCategory;
       const matchesSearch =
         def.title.toLowerCase().includes(query) ||
         def.key.toLowerCase().includes(query) ||
         def.description.toLowerCase().includes(query) ||
-        def.category.toLowerCase().includes(query);
-      return matchesCategory && matchesSearch;
+        def.breadcrumb.toLowerCase().includes(query);
+      return matchesSearch;
     });
   }, [activeCategory, searchQuery]);
 
   const handleReset = () => {
     resetToDefaults();
-    setIsSavedSuccess(true);
-    setTimeout(() => setIsSavedSuccess(false), 2000);
+    setIsResetSuccess(true);
+    setTimeout(() => setIsResetSuccess(false), 2000);
+  };
+
+  const handleEditInJson = () => {
+    setMode("json");
   };
 
   return (
     <div className="flex flex-col h-full w-full bg-(--color-bg-primary) text-(--color-text-primary) overflow-hidden select-none">
-      {/* Settings Header Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-(--color-border) bg-(--color-bg-secondary)/30 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Sliders size={20} className="text-(--color-accent)" />
-            <h1 className="text-lg font-semibold tracking-tight">Settings</h1>
-          </div>
-          <span className="text-xs px-2 py-0.5 rounded bg-(--color-bg-tertiary) text-(--color-text-muted) border border-(--color-border)">
-            {mode === "ui" ? "UI Mode" : "settings.json"}
-          </span>
+      {/* VS Code Settings Header Toolbar */}
+      <div className="flex items-center justify-between gap-4 px-6 py-3 border-b border-(--color-border) bg-(--color-bg-secondary)/30 shrink-0">
+        <div className="flex items-center gap-2">
+          <Sliders size={18} className="text-(--color-accent)" />
+          <h1 className="text-sm font-semibold tracking-tight">Settings</h1>
         </div>
 
-        {/* Search Bar & View Mode Toggle */}
-        <div className="flex items-center gap-3">
-          {mode === "ui" && (
-            <div className="relative w-64 md:w-80">
-              <Search
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-(--color-text-muted)"
-              />
-              <input
-                type="text"
-                placeholder="Search settings (e.g. font, theme, spark)..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-md bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-primary) placeholder-(--color-text-muted) focus:outline-none focus:border-(--color-accent) transition-colors"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-(--color-text-muted) hover:text-(--color-text-primary)"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Mode Switcher Buttons */}
-          <div className="flex items-center bg-(--color-bg-secondary) rounded-md border border-(--color-border) p-0.5">
-            <button
-              onClick={() => setMode("ui")}
-              className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded transition-all cursor-pointer ${
-                mode === "ui"
-                  ? "bg-(--color-accent) text-white shadow-xs"
-                  : "text-(--color-text-muted) hover:text-(--color-text-primary)"
-              }`}
-              title="Form UI View"
-            >
-              <Sliders size={13} />
-              UI
-            </button>
-            <button
-              onClick={() => setMode("json")}
-              className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded transition-all cursor-pointer ${
-                mode === "json"
-                  ? "bg-(--color-accent) text-white shadow-xs"
-                  : "text-(--color-text-muted) hover:text-(--color-text-primary)"
-              }`}
-              title="Open Settings (JSON)"
-            >
-              <Code size={13} />
-              JSON ({`{}`})
-            </button>
+        {/* Search Input Bar (VS Code Center Search) */}
+        {mode === "ui" && (
+          <div className="relative flex-1 max-w-xl mx-4">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-(--color-text-muted)"
+            />
+            <input
+              type="text"
+              placeholder="Search settings (e.g. font, theme, spark, memory)..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-8 py-1 text-xs rounded bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-primary) placeholder-(--color-text-muted) focus:outline-none focus:border-(--color-accent) transition-colors"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-(--color-text-muted) hover:text-(--color-text-primary)"
+              >
+                ✕
+              </button>
+            )}
           </div>
+        )}
 
-          {/* Reset Defaults Button */}
+        {/* Header Right Action Icons (VS Code {} icon button to open JSON) */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setMode((m) => (m === "ui" ? "json" : "ui"))}
+            className={`p-1.5 rounded transition-colors cursor-pointer border ${
+              mode === "json"
+                ? "bg-(--color-accent)/20 border-(--color-accent) text-(--color-accent)"
+                : "bg-(--color-bg-secondary) border-(--color-border) text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary)"
+            }`}
+            title={mode === "ui" ? "Open Settings (JSON)" : "Open Settings (UI)"}
+          >
+            <Code size={15} />
+          </button>
+
           <button
             onClick={handleReset}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-(--color-bg-secondary) hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) hover:text-(--color-text-primary) border border-(--color-border) transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded bg-(--color-bg-secondary) hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) hover:text-(--color-text-primary) border border-(--color-border) transition-colors cursor-pointer"
             title="Reset all settings to default values"
           >
-            <RotateCcw size={13} />
+            <RotateCcw size={12} />
             Reset Defaults
           </button>
         </div>
@@ -314,26 +371,29 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
       {/* Main Content Area */}
       {mode === "ui" ? (
         <div className="flex flex-1 min-h-0 overflow-hidden">
-          {/* Category Sidebar */}
+          {/* Left Category Sidebar */}
           <div className="w-56 shrink-0 border-r border-(--color-border) bg-(--color-bg-secondary)/10 p-3 overflow-y-auto hidden md:block">
             <div className="text-[11px] font-semibold text-(--color-text-muted) uppercase tracking-wider px-3 mb-2">
-              Categories
+              User Settings
             </div>
             <div className="space-y-0.5">
               {categories.map((cat) => {
                 const Icon = cat.icon;
-                const isActive = activeCategory === cat.id;
+                const isActive = activeCategory === cat.id && !searchQuery;
                 return (
                   <button
                     key={cat.id}
-                    onClick={() => setActiveCategory(cat.id)}
-                    className={`flex items-center gap-2.5 w-full px-3 py-2 text-xs rounded-md font-medium transition-colors text-left cursor-pointer ${
+                    onClick={() => {
+                      setActiveCategory(cat.id);
+                      setSearchQuery("");
+                    }}
+                    className={`flex items-center gap-2.5 w-full px-3 py-2 text-xs rounded font-medium transition-colors text-left cursor-pointer ${
                       isActive
                         ? "bg-(--color-bg-tertiary) text-(--color-accent) font-semibold"
                         : "text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-secondary)/40"
                     }`}
                   >
-                    <Icon size={15} />
+                    <Icon size={14} />
                     <span>{cat.label}</span>
                   </button>
                 );
@@ -342,11 +402,11 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
           </div>
 
           {/* Settings Options List */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            {isSavedSuccess && (
-              <div className="flex items-center gap-2 p-3 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs animate-in fade-in">
-                <Check size={16} />
-                <span>Settings have been reset to default values!</span>
+          <div className="flex-1 overflow-y-auto p-6 space-y-5">
+            {isResetSuccess && (
+              <div className="flex items-center gap-2 p-3 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs animate-in fade-in">
+                <Check size={15} />
+                <span>All settings have been reset to defaults!</span>
               </div>
             )}
 
@@ -364,36 +424,48 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
                 return (
                   <div
                     key={def.key}
-                    className="p-4 rounded-lg border border-(--color-border) bg-(--color-bg-secondary)/20 hover:border-(--color-border)/80 transition-all space-y-3"
+                    className="p-4 rounded-md border border-(--color-border) bg-(--color-bg-secondary)/20 hover:border-(--color-border)/80 transition-all space-y-2.5"
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h3 className="text-sm font-semibold text-(--color-text-primary)">
-                          {def.title}
-                        </h3>
-                        <code className="text-[11px] text-(--color-text-muted) font-mono bg-(--color-bg-tertiary) px-1.5 py-0.5 rounded mt-1 inline-block">
-                          {def.key}
-                        </code>
-                        <p className="text-xs text-(--color-text-muted) mt-1.5 leading-relaxed">
-                          {def.description}
-                        </p>
+                    {/* VS Code Breadcrumb Path */}
+                    <div className="flex items-center justify-between text-[11px] text-(--color-text-muted)">
+                      <div className="flex items-center gap-1 font-mono">
+                        <span>{def.breadcrumb}</span>
                       </div>
+
+                      {/* Edit in settings.json link */}
+                      <button
+                        onClick={handleEditInJson}
+                        className="flex items-center gap-1 text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"
+                        title={`Edit ${def.key} in settings.json`}
+                      >
+                        <Code size={12} />
+                        <span>Edit in settings.json</span>
+                      </button>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-semibold text-(--color-text-primary)">
+                        {def.title}
+                      </h3>
+                      <p className="text-xs text-(--color-text-muted) mt-1 leading-relaxed">
+                        {def.description}
+                      </p>
                     </div>
 
                     {/* Setting Value Input Controls */}
-                    <div className="pt-2 border-t border-(--color-border)/50">
+                    <div className="pt-2">
                       {def.type === "select" && (
                         <select
                           value={currentValue}
                           onChange={(e) => {
-                            const val = def.options[0]?.value === number ? parseInt(e.target.value, 10) : e.target.value;
+                            const val = typeof def.options[0]?.value === "number" ? parseInt(e.target.value, 10) : e.target.value;
                             if (def.onChange) {
                               def.onChange(val);
                             } else {
                               updateSetting(def.key, val);
                             }
                           }}
-                          className="px-3 py-1.5 text-xs rounded-md bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-primary) focus:outline-none focus:border-(--color-accent) cursor-pointer"
+                          className="px-3 py-1 text-xs rounded bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-primary) focus:outline-none focus:border-(--color-accent) cursor-pointer"
                         >
                           {def.options.map((opt) => (
                             <option key={opt.value} value={opt.value}>
@@ -410,7 +482,7 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
                           max={def.max}
                           value={currentValue}
                           onChange={(e) => updateSetting(def.key, parseInt(e.target.value, 10) || def.min)}
-                          className="w-32 px-3 py-1.5 text-xs rounded-md bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-primary) focus:outline-none focus:border-(--color-accent)"
+                          className="w-32 px-3 py-1 text-xs rounded bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-primary) focus:outline-none focus:border-(--color-accent)"
                         />
                       )}
 
@@ -419,7 +491,7 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
                           type="text"
                           value={currentValue}
                           onChange={(e) => updateSetting(def.key, e.target.value)}
-                          className="w-full md:w-96 px-3 py-1.5 text-xs rounded-md bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-primary) focus:outline-none focus:border-(--color-accent) font-mono"
+                          className="w-full md:w-96 px-3 py-1 text-xs rounded bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-primary) focus:outline-none focus:border-(--color-accent) font-mono"
                         />
                       )}
 
@@ -448,7 +520,7 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
                                 updateSetting("livy.activeHostUrl", selected.url);
                               }
                             }}
-                            className="px-3 py-1.5 text-xs rounded-md bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-primary) focus:outline-none focus:border-(--color-accent) cursor-pointer font-mono"
+                            className="px-3 py-1 text-xs rounded bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-primary) focus:outline-none focus:border-(--color-accent) cursor-pointer font-mono"
                           >
                             {hosts.map((h) => (
                               <option key={h.id} value={h.id}>
@@ -459,7 +531,7 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
 
                           <button
                             onClick={() => setShowConnectionModal(true)}
-                            className="px-3 py-1.5 text-xs font-medium rounded-md bg-(--color-accent) text-white hover:bg-(--color-accent)/90 transition-colors cursor-pointer"
+                            className="px-3 py-1 text-xs font-medium rounded bg-(--color-accent) text-white hover:bg-(--color-accent)/90 transition-colors cursor-pointer"
                           >
                             Manage Connection Hosts...
                           </button>
@@ -473,7 +545,7 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
           </div>
         </div>
       ) : (
-        /* JSON Mode (Monaco Editor settings.json) */
+        /* JSON Mode (settings.json Monaco Editor) */
         <div className="flex flex-col flex-1 min-h-0 relative">
           {jsonError && (
             <div className="flex items-center gap-2 px-4 py-2 bg-rose-500/10 border-b border-rose-500/30 text-rose-400 text-xs shrink-0 font-mono">
@@ -503,8 +575,8 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
             />
           </div>
 
-          <div className="flex items-center justify-between px-4 py-2 border-t border-(--color-border) bg-(--color-bg-secondary)/30 text-xs text-(--color-text-muted) font-mono shrink-0">
-            <span>File: settings.json</span>
+          <div className="flex items-center justify-between px-4 py-1.5 border-t border-(--color-border) bg-(--color-bg-secondary)/30 text-xs text-(--color-text-muted) font-mono shrink-0">
+            <span>settings.json</span>
             <span>Language: JSON</span>
           </div>
         </div>
