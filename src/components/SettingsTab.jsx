@@ -15,6 +15,7 @@ import {
   ChevronRight,
   ExternalLink,
   Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 import { useSettings, DEFAULT_SETTINGS } from "../context/SettingsContext";
 import { useLivy } from "../context/LivyContext";
@@ -29,6 +30,7 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
   const [jsonText, setJsonText] = useState(() => JSON.stringify(settings, null, 2));
   const [jsonError, setJsonError] = useState(null);
   const [isResetSuccess, setIsResetSuccess] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
 
   // Sync jsonText whenever settings change in UI mode
   useEffect(() => {
@@ -300,9 +302,14 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
   }, [activeCategory, searchQuery]);
 
   const handleReset = () => {
+    setShowResetModal(true);
+  };
+
+  const confirmReset = () => {
     resetToDefaults();
+    setShowResetModal(false);
     setIsResetSuccess(true);
-    setTimeout(() => setIsResetSuccess(false), 2000);
+    setTimeout(() => setIsResetSuccess(false), 3000);
   };
 
   const handleEditInJson = () => {
@@ -578,6 +585,42 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
           <div className="flex items-center justify-between px-4 py-1.5 border-t border-(--color-border) bg-(--color-bg-secondary)/30 text-xs text-(--color-text-muted) font-mono shrink-0">
             <span>settings.json</span>
             <span>Language: JSON</span>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Settings Confirmation Modal */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-(--color-bg-primary) border border-(--color-border) rounded-lg shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 shrink-0">
+                <AlertTriangle size={22} />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-(--color-text-primary)">
+                  Reset All Settings to Defaults?
+                </h3>
+                <p className="text-xs text-(--color-text-muted) mt-1 leading-relaxed">
+                  Are you sure you want to restore all user settings to default values? Your custom font sizes, theme choices, Spark cluster configurations, and query history limits will be restored.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-(--color-border)">
+              <button
+                onClick={() => setShowResetModal(false)}
+                className="px-3 py-1.5 text-xs font-medium rounded bg-(--color-bg-secondary) hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) hover:text-(--color-text-primary) border border-(--color-border) transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmReset}
+                className="px-3 py-1.5 text-xs font-medium rounded bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer shadow-xs"
+              >
+                Reset All Settings
+              </button>
+            </div>
           </div>
         </div>
       )}
