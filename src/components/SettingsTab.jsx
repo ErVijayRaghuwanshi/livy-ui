@@ -637,14 +637,23 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
                               return (
                                 <div
                                   key={host.id}
-                                  className={`flex flex-wrap items-center justify-between gap-3 p-3 rounded border ${
+                                  onClick={() => {
+                                    if (!isEditing && !isActive) {
+                                      selectHost(host.id);
+                                      updateSetting("livy.activeHostUrl", host.url);
+                                    }
+                                  }}
+                                  className={`flex flex-wrap items-center justify-between gap-3 p-3 rounded border transition-all ${
                                     isActive
-                                      ? "bg-(--color-accent)/10 border-(--color-accent)/40"
-                                      : "bg-(--color-bg-primary) border-(--color-border)"
+                                      ? "bg-(--color-accent)/10 border-(--color-accent)/40 shadow-xs"
+                                      : "bg-(--color-bg-primary) border-(--color-border) hover:border-(--color-accent)/50 hover:bg-(--color-bg-secondary)/40 cursor-pointer"
                                   }`}
                                 >
                                   {isEditing ? (
-                                    <div className="flex flex-1 items-center gap-2">
+                                    <div
+                                      className="flex flex-1 items-center gap-2"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
                                       <input
                                         type="text"
                                         value={editName}
@@ -674,7 +683,16 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
                                     </div>
                                   ) : (
                                     <>
-                                      <div className="flex items-center gap-2.5 min-w-0">
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        <div
+                                          className={`w-4 h-4 rounded-full flex items-center justify-center border transition-colors shrink-0 ${
+                                            isActive
+                                              ? "border-(--color-accent) bg-(--color-accent) text-white"
+                                              : "border-(--color-border) bg-(--color-bg-secondary)"
+                                          }`}
+                                        >
+                                          {isActive && <Check size={10} strokeWidth={3} />}
+                                        </div>
                                         <Server size={15} className="text-(--color-accent) shrink-0" />
                                         <div className="min-w-0">
                                           <div className="flex items-center gap-2">
@@ -713,27 +731,19 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
                                         )}
 
                                         <button
-                                          onClick={() => handleTestHost(host)}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleTestHost(host);
+                                          }}
                                           className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-(--color-bg-secondary) hover:bg-(--color-bg-tertiary) border border-(--color-border) text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors cursor-pointer"
                                           title="Test API Connection"
                                         >
                                           <Wifi size={12} /> Test
                                         </button>
 
-                                        {!isActive && (
-                                          <button
-                                            onClick={() => {
-                                              selectHost(host.id);
-                                              updateSetting("livy.activeHostUrl", host.url);
-                                            }}
-                                            className="px-2 py-1 text-xs rounded bg-(--color-accent)/10 hover:bg-(--color-accent)/20 text-(--color-accent) border border-(--color-accent)/30 transition-colors cursor-pointer"
-                                          >
-                                            Select
-                                          </button>
-                                        )}
-
                                         <button
-                                          onClick={() => {
+                                          onClick={(e) => {
+                                            e.stopPropagation();
                                             setEditingHostId(host.id);
                                             setEditName(host.name);
                                             setEditUrl(host.url);
@@ -746,7 +756,10 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
 
                                         {host.id !== "default" && (
                                           <button
-                                            onClick={() => removeHost(host.id)}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              removeHost(host.id);
+                                            }}
                                             className="p-1 rounded text-(--color-text-muted) hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer"
                                             title="Delete Host"
                                           >
