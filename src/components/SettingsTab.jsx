@@ -403,34 +403,36 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
   return (
     <div className="flex flex-col h-full w-full bg-(--color-bg-primary) text-(--color-text-primary) overflow-hidden select-none">
       {/* VS Code Settings Header Toolbar */}
-      <div className="flex items-center justify-between gap-4 px-6 py-3 border-b border-(--color-border) bg-(--color-bg-secondary)/30 shrink-0">
-        <div className="flex items-center gap-2">
+      <div className="relative flex items-center justify-between gap-4 px-6 py-3 border-b border-(--color-border) bg-(--color-bg-secondary)/30 shrink-0">
+        <div className="flex items-center gap-2 z-10">
           <Sliders size={18} className="text-(--color-accent)" />
           <h1 className="text-sm font-semibold tracking-tight">Settings</h1>
         </div>
 
-        {/* Search Input Bar (VS Code Center Search) */}
+        {/* Search Input Bar (Dead Centered Horizontally) */}
         {mode === "ui" && (
-          <div className="relative flex-1 max-w-xl mx-4">
-            <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-(--color-text-muted)"
-            />
-            <input
-              type="text"
-              placeholder="Search settings (e.g. font, theme, spark, host, memory)..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-8 py-1 text-xs rounded bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-primary) placeholder-(--color-text-muted) focus:outline-none focus:border-(--color-accent) transition-colors"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-(--color-text-muted) hover:text-(--color-text-primary)"
-              >
-                ✕
-              </button>
-            )}
+          <div className="absolute left-1/2 -translate-x-1/2 w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl px-4 z-10 pointer-events-auto">
+            <div className="relative w-full">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-(--color-text-muted)"
+              />
+              <input
+                type="text"
+                placeholder="Search settings (e.g. font, theme, spark, host, memory)..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-8 py-1 text-xs rounded bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-primary) placeholder-(--color-text-muted) focus:outline-none focus:border-(--color-accent) transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-(--color-text-muted) hover:text-(--color-text-primary)"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
         )}
 
