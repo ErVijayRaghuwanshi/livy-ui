@@ -300,6 +300,23 @@ export function LivyProvider({ children }) {
     return () => clearInterval(interval);
   }, [state.sessionState, state.sessionId, fetchSessions]);
 
+  // Kill any session by ID
+  const killSession = useCallback(async (id) => {
+    dispatch({ type: "SET_LOADING", payload: true });
+    try {
+      await livyApi.deleteSession(id);
+      if (state.sessionId === id) {
+        dispatch({ type: "CLEAR_SESSION" });
+      }
+      dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
+      fetchSessions();
+    } catch (err) {
+      dispatch({ type: "SET_ERROR", payload: err.message });
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
+  }, [state.sessionId, fetchSessions]);
+
   const value = {
     ...state,
     activeHost,
@@ -309,6 +326,7 @@ export function LivyProvider({ children }) {
     selectHost,
     startSession,
     stopSession,
+    killSession,
     refreshSession,
     fetchSessions,
     attachSession,

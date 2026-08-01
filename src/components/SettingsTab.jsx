@@ -23,6 +23,9 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
+  Activity,
+  RefreshCw,
+  Play,
 } from "lucide-react";
 import { useSettings, DEFAULT_SETTINGS } from "../context/SettingsContext";
 import { useLivy } from "../context/LivyContext";
@@ -32,11 +35,22 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
   const { settings, updateSetting, updateAllSettings, resetToDefaults } = useSettings();
   const {
     hosts,
+    activeHost,
     activeHostId,
     selectHost,
     addHost,
     removeHost,
     updateHost,
+    sessionId,
+    sessionState,
+    sessions,
+    sessionsLoading,
+    fetchSessions,
+    startSession,
+    stopSession,
+    killSession,
+    attachSession,
+    loading: livyLoading,
   } = useLivy();
 
   const [mode, setMode] = useState("ui"); // 'ui' | 'json'
@@ -54,6 +68,18 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
   const [editName, setEditName] = useState("");
   const [editUrl, setEditUrl] = useState("");
   const [pingResults, setPingResults] = useState({}); // { [hostId]: 'loading' | 'online' | 'offline' }
+
+  // Session Manager Form State
+  const [showCreateSessionForm, setShowCreateSessionForm] = useState(false);
+  const [newSessionName, setNewSessionName] = useState("Default SQL Session");
+  const [newSessionKind, setNewSessionKind] = useState("sql");
+
+  // Fetch active sessions when entering compute/connection category
+  useEffect(() => {
+    if (activeCategory === "compute" || activeCategory === "connection") {
+      fetchSessions();
+    }
+  }, [activeCategory, fetchSessions]);
 
   const combinedSettings = useMemo(() => {
     return {
@@ -223,6 +249,15 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
       ],
     },
     {
+      key: "livy.sessions",
+      category: "compute",
+      breadcrumb: "Spark & Compute > Sessions > Session Manager",
+      title: "Spark Session Manager",
+      description: "Create, view, attach to, or terminate active Spark / Livy sessions on the connected cluster.",
+      type: "sessionManager",
+      commonlyUsed: true,
+    },
+    {
       key: "spark.defaultMaster",
       category: "compute",
       breadcrumb: "Spark & Compute > Cluster > Default Master URL",
@@ -369,6 +404,13 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
     setEditingHostId(null);
   };
 
+  // Create Session Submit Handler
+  const handleCreateSessionSubmit = async (e) => {
+    e.preventDefault();
+    await startSession(newSessionName || "Spark Session");
+    setShowCreateSessionForm(false);
+  };
+
   // Filter settings by search query and selected category
   const filteredDefinitions = useMemo(() => {
     return settingDefinitions.filter((def) => {
@@ -437,7 +479,7 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
         )}
 
         {/* Header Right Action Icons (VS Code {} icon button to open JSON) */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 z-10">
           <button
             onClick={() => setMode((m) => (m === "ui" ? "json" : "ui"))}
             className={`p-1.5 rounded transition-colors cursor-pointer border ${
@@ -621,6 +663,184 @@ export default function SettingsTab({ theme, toggleTheme, setShowConnectionModal
                               </option>
                             ))}
                           </select>
+                        </div>
+                      )}
+
+                      {/* Spark Session Manager */}
+                      {def.type === "sessionManager" && (
+                        <div className="space-y-4 pt-1">
+                          {/* Session Manager Top Bar */}
+                          <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded border border-(--color-border) bg-(--color-bg-primary)">
+                            <div className="flex items-center gap-2">
+                              <Activity size={16} className="text-(--color-accent)" />
+                              <span className="text-xs font-semibold text-(--color-text-primary)">
+                                Connected Endpoint: <span className="font-mono text-(--color-accent)">{activeHost.name}</span> ({activeHost.url})
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => fetchSessions()}
+                                disabled={sessionsLoading}
+                                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded bg-(--color-bg-secondary) hover:bg-(--color-bg-tertiary) border border-(--color-border) text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors cursor-pointer disabled:opacity-50"
+                              >
+                                <RefreshCw size={12} className={sessionsLoading ? "animate-spin" : ""} />
+                                Refresh
+                              </button>
+
+                              <button
+                                onClick={() => setShowCreateSessionForm((prev) => !prev)}
+                                className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded bg-(--color-accent) text-white hover:bg-(--color-accent)/90 transition-colors cursor-pointer"
+                              >
+                                <Plus size={13} /> {showCreateSessionForm ? "Close Form" : "New Session"}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Inline Create Session Form */}
+                          {showCreateSessionForm && (
+                            <form
+                              onSubmit={handleCreateSessionSubmit}
+                              className="p-4 rounded border border-(--color-accent)/40 bg-(--color-accent)/5 space-y-3 animate-in fade-in"
+                            >
+                              <h4 className="text-xs font-semibold text-(--color-text-primary) flex items-center gap-1.5">
+                                <Play size={13} className="text-(--color-accent)" /> Create New Spark / Livy Session
+                              </h4>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-[11px] font-medium text-(--color-text-muted) mb-1">
+                                    Session Name
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={newSessionName}
+                                    onChange={(e) => setNewSessionName(e.target.value)}
+                                    placeholder="e.g. Analytics Session 1"
+                                    className="w-full px-3 py-1 text-xs rounded bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-primary) outline-none focus:border-(--color-accent)"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[11px] font-medium text-(--color-text-muted) mb-1">
+                                    Session Kind
+                                  </label>
+                                  <select
+                                    value={newSessionKind}
+                                    onChange={(e) => setNewSessionKind(e.target.value)}
+                                    className="w-full px-3 py-1 text-xs rounded bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-primary) outline-none focus:border-(--color-accent) cursor-pointer font-mono"
+                                  >
+                                    <option value="sql">sql (Spark SQL)</option>
+                                    <option value="pyspark">pyspark (Python Spark)</option>
+                                    <option value="spark">spark (Scala Spark)</option>
+                                  </select>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-end gap-2 pt-2 border-t border-(--color-border)/60">
+                                <button
+                                  type="button"
+                                  onClick={() => setShowCreateSessionForm(false)}
+                                  className="px-3 py-1 text-xs rounded bg-(--color-bg-secondary) text-(--color-text-muted) hover:text-(--color-text-primary) cursor-pointer"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="submit"
+                                  disabled={livyLoading}
+                                  className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded bg-(--color-accent) text-white hover:bg-(--color-accent)/90 transition-colors cursor-pointer disabled:opacity-50"
+                                >
+                                  {livyLoading ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
+                                  Start Session
+                                </button>
+                              </div>
+                            </form>
+                          )}
+
+                          {/* Active Sessions List */}
+                          {sessions.length === 0 ? (
+                            <div className="p-6 text-center rounded border border-dashed border-(--color-border) bg-(--color-bg-primary) text-(--color-text-muted) space-y-2">
+                              <Server size={24} className="mx-auto opacity-40" />
+                              <p className="text-xs font-medium">No active sessions found on this host.</p>
+                              <p className="text-[11px] text-(--color-text-muted)/80">
+                                Click "New Session" above or run a query to start an interactive Spark SQL session automatically.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {sessions.map((s) => {
+                                const isAttached = sessionId === s.id;
+                                return (
+                                  <div
+                                    key={s.id}
+                                    className={`flex flex-wrap items-center justify-between gap-3 p-3 rounded border ${
+                                      isAttached
+                                        ? "bg-emerald-500/10 border-emerald-500/40"
+                                        : "bg-(--color-bg-primary) border-(--color-border)"
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <div className="w-7 h-7 rounded bg-(--color-bg-secondary) border border-(--color-border) flex items-center justify-center font-mono text-xs font-bold text-(--color-text-primary) shrink-0">
+                                        #{s.id}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs font-semibold text-(--color-text-primary) font-mono">
+                                            {s.name || `Session #${s.id}`}
+                                          </span>
+                                          <span className="text-[10px] uppercase font-mono font-bold px-1.5 py-0.2 rounded bg-(--color-bg-tertiary) text-(--color-accent) border border-(--color-border)">
+                                            {s.kind || "sql"}
+                                          </span>
+                                          <span
+                                            className={`text-[10px] font-semibold px-1.5 py-0.2 rounded uppercase ${
+                                              s.state === "idle" || s.state === "busy"
+                                                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                                                : s.state === "starting"
+                                                ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                                                : "bg-rose-500/15 text-rose-400 border border-rose-500/30"
+                                            }`}
+                                          >
+                                            {s.state}
+                                          </span>
+                                          {isAttached && (
+                                            <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-emerald-500 text-white">
+                                              Attached (Active)
+                                            </span>
+                                          )}
+                                        </div>
+                                        <span className="text-[11px] font-mono text-(--color-text-muted) truncate block mt-0.5">
+                                          App ID: {s.appId || "Initializing / Local"}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                      {!isAttached ? (
+                                        <button
+                                          onClick={() => attachSession(s.id)}
+                                          className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-(--color-accent)/10 hover:bg-(--color-accent)/20 text-(--color-accent) border border-(--color-accent)/30 transition-colors cursor-pointer font-medium"
+                                        >
+                                          <Check size={12} /> Attach
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => stopSession()}
+                                          className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 transition-colors cursor-pointer font-medium"
+                                        >
+                                          Disconnect
+                                        </button>
+                                      )}
+
+                                      <button
+                                        onClick={() => killSession(s.id)}
+                                        className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition-colors cursor-pointer font-medium"
+                                        title="Terminate Session on Server"
+                                      >
+                                        <Trash2 size={12} /> Terminate
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       )}
 
