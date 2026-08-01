@@ -41,6 +41,14 @@ function extractSqlComment(sql) {
   return "";
 }
 
+export const SETTINGS_FILE_ID = "settings";
+export const SETTINGS_FILE = {
+  id: SETTINGS_FILE_ID,
+  name: "Settings",
+  isSpecial: true,
+  isReadOnly: true,
+};
+
 const storedFiles = getItem(STORAGE_KEYS.SQL_FILES, [defaultFile]).map(f => ({
   ...f,
   lastSavedContent: f.lastSavedContent || f.content
@@ -148,6 +156,14 @@ function reducer(state, action) {
     }
     case "SET_ACTIVE_TAB":
       return { ...state, activeTabId: action.payload };
+    case "OPEN_SETTINGS_TAB": {
+      const isOpen = state.openFiles.includes(SETTINGS_FILE_ID);
+      return {
+        ...state,
+        openFiles: isOpen ? state.openFiles : [...state.openFiles, SETTINGS_FILE_ID],
+        activeTabId: SETTINGS_FILE_ID,
+      };
+    }
     case "SET_RESULT": {
       const { id: fileId, result, executionId } = action.payload;
       const fileResults = state.results[fileId] || { list: [], activeResultId: null };
@@ -451,8 +467,9 @@ export function SqlFilesProvider({ children }) {
     }
   }, [state.previewTabId]);
 
+  const allFiles = [...state.files, SETTINGS_FILE];
   const activeFile = state.openFiles.includes(state.activeTabId)
-    ? state.files.find((f) => f.id === state.activeTabId)
+    ? allFiles.find((f) => f.id === state.activeTabId)
     : null;
 
   const [promptCloseFileId, setPromptCloseFileId] = useState(null);
@@ -479,6 +496,7 @@ export function SqlFilesProvider({ children }) {
   const clearFileResults = useCallback((fileId) => dispatch({ type: "CLEAR_FILE_RESULTS", payload: fileId }), []);
   const createResultSession = useCallback((fileId) => dispatch({ type: "CREATE_RESULT_SESSION", payload: fileId }), []);
   const openFile = useCallback((id) => dispatch({ type: "OPEN_FILE", payload: id }), []);
+  const openSettingsTab = useCallback(() => dispatch({ type: "OPEN_SETTINGS_TAB" }), []);
   const previewFile = useCallback((id) => dispatch({ type: "PREVIEW_FILE", payload: id }), []);
   const promotePreviewTab = useCallback((id) => dispatch({ type: "PROMOTE_PREVIEW_TAB", payload: id }), []);
   const closeFile = useCallback((id) => dispatch({ type: "CLOSE_FILE", payload: id }), []);
@@ -536,6 +554,7 @@ export function SqlFilesProvider({ children }) {
     clearFileResults,
     createResultSession,
     openFile,
+    openSettingsTab,
     closeFile,
     closeAllFiles,
     reorderFiles,

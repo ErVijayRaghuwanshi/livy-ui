@@ -16,13 +16,14 @@ import { ToastContainer } from "./components/Toast";
 import WelcomeScreen from "./components/WelcomeScreen";
 import BounceGame from "./components/BounceGame";
 import SnakeGame from "./components/SnakeGame";
+import SettingsTab from "./components/SettingsTab";
 
 const SIDEBAR_CACHE_KEY = "livy-ui-explorer-collapsed";
 const THEME_CACHE_KEY = "livy-ui-theme";
 const DEFAULT_RESULT_HEIGHT = 250;
 
 export default function App() {
-  const { activeFile, activeResult, files, activeTabId, setActiveTab, addFile, removeFile, saveFile, restoreLastClosedTab, closedTabsHistory, requestCloseFile } = useSqlFiles();
+  const { activeFile, activeResult, files, activeTabId, setActiveTab, addFile, removeFile, saveFile, restoreLastClosedTab, closedTabsHistory, requestCloseFile, openSettingsTab } = useSqlFiles();
 
   const [activeGames, setActiveGames] = useState({});
   const [pendingGame, setPendingGame] = useState(null); // 'bounce' | 'snake' | null
@@ -252,6 +253,13 @@ export default function App() {
       if (isRestoreTab) {
         e.preventDefault();
         restoreLastClosedTab();
+        return;
+      }
+
+      // Ctrl+, / Cmd+, — open Settings tab
+      if (ctrl && !e.altKey && !e.shiftKey && e.key === ",") {
+        e.preventDefault();
+        openSettingsTab();
         return;
       }
 
@@ -515,118 +523,122 @@ export default function App() {
           <TabBar sidebarCollapsed={sidebarCollapsed} setSidebarCollapsed={setSidebarCollapsed} editorRef={editorRef} />
           
           {activeFile ? (
-            <>
-              {activeGames[activeFile.id] === 'bounce' ? (
-                <BounceGame
-                  onClose={() => {
-                    setActiveGames((prev) => ({ ...prev, [activeFile.id]: null }));
-                  }}
+            activeFile.id === "settings" ? (
+              <SettingsTab
+                theme={theme}
+                toggleTheme={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+                setShowConnectionModal={setShowConnectionModal}
+              />
+            ) : activeGames[activeFile.id] === 'bounce' ? (
+              <BounceGame
+                onClose={() => {
+                  setActiveGames((prev) => ({ ...prev, [activeFile.id]: null }));
+                }}
+                theme={theme}
+              />
+            ) : activeGames[activeFile.id] === 'snake' ? (
+              <SnakeGame
+                onClose={() => {
+                  setActiveGames((prev) => ({ ...prev, [activeFile.id]: null }));
+                }}
+              />
+            ) : (
+              <>
+                <SqlEditor
+                  ref={editorRef}
+                  onCursorPositionChange={setCursorPosition}
                   theme={theme}
-                />
-              ) : activeGames[activeFile.id] === 'snake' ? (
-                <SnakeGame
-                  onClose={() => {
-                    setActiveGames((prev) => ({ ...prev, [activeFile.id]: null }));
-                  }}
-                />
-              ) : (
-                <>
-                  <SqlEditor
-                    ref={editorRef}
-                    onCursorPositionChange={setCursorPosition}
-                    theme={theme}
-                    onFocusSchemaSearch={handleFocusSchemaSearch}
-                    onFocusFileSearch={handleFocusFileSearch}
-                    onToggleCommandPalette={() => setShowCommandPalette((p) => !p)}
-                    onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
-                    onToggleResultPanel={() => {
-                      setResultHeight((h) => {
-                        if (h > 0) {
-                          prevResultHeight.current = h;
-                          return 0;
-                        }
-                        return prevResultHeight.current || DEFAULT_RESULT_HEIGHT;
-                      });
-                    }}
-                    onNewTab={addFile}
-                    onCloseTab={() => {
-                      requestCloseFile(activeTabId);
-                    }}
-                    onToggleQueryHistory={() => {
-                      setShowHistory((p) => !p);
-                      setShowShortcuts(false);
-                      setShowConnectionModal(false);
-                    }}
-                    onToggleShortcuts={() => {
-                      setShowShortcuts((p) => !p);
-                      setShowHistory(false);
-                      setShowConnectionModal(false);
-                    }}
-                    onToggleConnectionModal={() => {
-                      setShowConnectionModal((p) => !p);
-                      setShowShortcuts(false);
-                      setShowHistory(false);
-                    }}
-                    onPrevTab={() => {
-                      const idx = files.findIndex((f) => f.id === activeTabId);
-                      const prev = (idx - 1 + files.length) % files.length;
-                      setActiveTab(files[prev].id);
-                    }}
-                    onNextTab={() => {
-                      const idx = files.findIndex((f) => f.id === activeTabId);
-                      const next = (idx + 1) % files.length;
-                      setActiveTab(files[next].id);
-                    }}
-                    onSwitchToTab={(index) => {
-                      if (index < files.length) {
-                        setActiveTab(files[index].id);
+                  onFocusSchemaSearch={handleFocusSchemaSearch}
+                  onFocusFileSearch={handleFocusFileSearch}
+                  onToggleCommandPalette={() => setShowCommandPalette((p) => !p)}
+                  onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
+                  onToggleResultPanel={() => {
+                    setResultHeight((h) => {
+                      if (h > 0) {
+                        prevResultHeight.current = h;
+                        return 0;
                       }
-                    }}
-                    onRestoreTab={restoreLastClosedTab}
-                    onTriggerBounce={handleTriggerBounce}
-                    onTriggerSnake={handleTriggerSnake}
-                  />
+                      return prevResultHeight.current || DEFAULT_RESULT_HEIGHT;
+                    });
+                  }}
+                  onNewTab={addFile}
+                  onCloseTab={() => {
+                    requestCloseFile(activeTabId);
+                  }}
+                  onToggleQueryHistory={() => {
+                    setShowHistory((p) => !p);
+                    setShowShortcuts(false);
+                    setShowConnectionModal(false);
+                  }}
+                  onToggleShortcuts={() => {
+                    setShowShortcuts((p) => !p);
+                    setShowHistory(false);
+                    setShowConnectionModal(false);
+                  }}
+                  onToggleConnectionModal={() => {
+                    setShowConnectionModal((p) => !p);
+                    setShowShortcuts(false);
+                    setShowHistory(false);
+                  }}
+                  onPrevTab={() => {
+                    const idx = files.findIndex((f) => f.id === activeTabId);
+                    const prev = (idx - 1 + files.length) % files.length;
+                    setActiveTab(files[prev].id);
+                  }}
+                  onNextTab={() => {
+                    const idx = files.findIndex((f) => f.id === activeTabId);
+                    const next = (idx + 1) % files.length;
+                    setActiveTab(files[next].id);
+                  }}
+                  onSwitchToTab={(index) => {
+                    if (index < files.length) {
+                      setActiveTab(files[index].id);
+                    }
+                  }}
+                  onRestoreTab={restoreLastClosedTab}
+                  onTriggerBounce={handleTriggerBounce}
+                  onTriggerSnake={handleTriggerSnake}
+                />
 
-                  {/* Resize Handle */}
-                  {resultHeight > 0 && (
-                    <div
-                      onMouseDown={handleMouseDown}
-                      className={`relative h-[4px] -mb-[4px] cursor-row-resize shrink-0 z-30 transition-colors ${
-                        isDragging || isCornerHovered
-                          ? "bg-(--color-accent)"
-                          : "bg-transparent hover:bg-(--color-accent)/50"
-                      }`}
-                    >
-                      {/* Corner Resizer (Intersection of sidebar and results handles) */}
-                      {!sidebarCollapsed && (
-                        <div
-                          onMouseDown={handleCornerMouseDown}
-                          onMouseEnter={() => setIsCornerHovered(true)}
-                          onMouseLeave={() => setIsCornerHovered(false)}
-                          className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 -ml-[10px] cursor-all-scroll z-50 bg-transparent"
-                          title="Drag to resize sidebar width and results height simultaneously"
-                        />
-                      )}
-                    </div>
-                  )}
-
-                  {/* Result Panel */}
-                  {resultHeight > 0 && (
-                    <div
-                      className="shrink-0 bg-(--color-bg-secondary) border-t border-(--color-border) overflow-hidden"
-                      style={{ height: resultHeight }}
-                    >
-                      <ResultTable 
-                        result={activeResult} 
-                        onClose={handleCloseResultPanel}
-                        onMaximizeToggle={handleToggleMaximizeResultPanel}
-                        isMaximized={isResultMaximized}
+                {/* Resize Handle */}
+                {resultHeight > 0 && (
+                  <div
+                    onMouseDown={handleMouseDown}
+                    className={`relative h-[4px] -mb-[4px] cursor-row-resize shrink-0 z-30 transition-colors ${
+                      isDragging || isCornerHovered
+                        ? "bg-(--color-accent)"
+                        : "bg-transparent hover:bg-(--color-accent)/50"
+                    }`}
+                  >
+                    {/* Corner Resizer (Intersection of sidebar and results handles) */}
+                    {!sidebarCollapsed && (
+                      <div
+                        onMouseDown={handleCornerMouseDown}
+                        onMouseEnter={() => setIsCornerHovered(true)}
+                        onMouseLeave={() => setIsCornerHovered(false)}
+                        className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 -ml-[10px] cursor-all-scroll z-50 bg-transparent"
+                        title="Drag to resize sidebar width and results height simultaneously"
                       />
-                    </div>
-                  )}
-                </>
-              )}
-            </>
+                    )}
+                  </div>
+                )}
+
+                {/* Result Panel */}
+                {resultHeight > 0 && (
+                  <div
+                    className="shrink-0 bg-(--color-bg-secondary) border-t border-(--color-border) overflow-hidden"
+                    style={{ height: resultHeight }}
+                  >
+                    <ResultTable 
+                      result={activeResult} 
+                      onClose={handleCloseResultPanel}
+                      onMaximizeToggle={handleToggleMaximizeResultPanel}
+                      isMaximized={isResultMaximized}
+                    />
+                  </div>
+                )}
+              </>
+            )
           ) : (
             <WelcomeScreen
               onCreateFile={() => addFile()}

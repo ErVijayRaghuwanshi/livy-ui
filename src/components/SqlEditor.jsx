@@ -14,6 +14,7 @@ import { SPARK_SQL_KEYWORDS } from "../utils/spark-keywords-data";
 import { SPARK_SQL_SNIPPETS } from "../utils/spark_sql_snippets";
 import { useToast } from "./Toast";
 import { addHistoryEntry } from "./QueryHistory";
+import { useSettings } from "../context/SettingsContext";
 import { v4 as uuidv4 } from "uuid";
 
 // Configure Monaco to use local files instead of CDN
@@ -447,6 +448,7 @@ const SqlEditor = forwardRef(function SqlEditor({
   const schemaContext = useSchema();
   const schemaDataRef = useRef({ databases: [], tables: {}, columns: {} });
   const { addToast } = useToast();
+  const { settings } = useSettings();
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
   const viewStatesRef = useRef({});
@@ -1447,17 +1449,18 @@ const SqlEditor = forwardRef(function SqlEditor({
           theme={theme === "light" ? "light" : "vs-dark"}
           onMount={handleEditorMount}
           options={{
-            fontSize: 14,
+            fontSize: settings["editor.fontSize"] || 14,
             fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
             glyphMargin: true,
             glyphMarginWidth: 16,
             lineNumbersMinChars: 2,
-            minimap: { enabled: true },
-            lineNumbers: "on",
+            minimap: { enabled: settings["editor.minimap.enabled"] ?? true },
+            lineNumbers: settings["editor.lineNumbers"] || "on",
             scrollBeyondLastLine: false,
-            wordWrap: wordWrap ? "on" : "off",
+            wordWrap: settings["editor.wordWrap"] || (wordWrap ? "on" : "off"),
             automaticLayout: true,
-            tabSize: 2,
+            tabSize: settings["editor.tabSize"] || 2,
+            cursorBlinking: settings["editor.cursorBlinking"] || "smooth",
             suggestOnTriggerCharacters: true,
             quickSuggestions: true,
             wordBasedSuggestions: "off",

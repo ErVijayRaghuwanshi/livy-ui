@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Plus, X, FileCode, Play, Loader2 } from "lucide-react";
-import { useSqlFiles } from "../context/SqlFilesContext";
+import { Plus, X, FileCode, Play, Loader2, Settings } from "lucide-react";
+import { useSqlFiles, SETTINGS_FILE } from "../context/SqlFilesContext";
 
 function stripExtension(name) {
   return name.replace(/\.sql$/i, "");
@@ -40,7 +40,8 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
 
-  const openFilesData = openFiles.map(id => files.find(f => f.id === id)).filter(Boolean);
+  const allFiles = [...files, SETTINGS_FILE];
+  const openFilesData = openFiles.map(id => allFiles.find(f => f.id === id)).filter(Boolean);
 
   const handleStartRename = (file) => {
     setRenamingId(file.id);
@@ -138,6 +139,7 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
             onDragEnd={handleDragEnd}
             onClick={() => setActiveTab(file.id)}
             onDoubleClick={() => {
+              if (file.isSpecial) return;
               if (file.id === previewTabId) {
                 promotePreviewTab(file.id);
               } else {
@@ -152,7 +154,11 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
                 : "text-(--color-text-muted) hover:text-(--color-text-secondary) hover:bg-(--color-bg-primary)/50"
             }`}
           >
-            <FileCode size={13} className="shrink-0 text-(--color-accent)" />
+            {file.id === "settings" ? (
+              <Settings size={13} className="shrink-0 text-(--color-accent)" />
+            ) : (
+              <FileCode size={13} className="shrink-0 text-(--color-accent)" />
+            )}
 
             {renamingId === file.id ? (
               <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>

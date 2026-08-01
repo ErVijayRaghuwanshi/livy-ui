@@ -1,4 +1,5 @@
 import { Folder, Search, Database, Settings } from "lucide-react";
+import { useSqlFiles } from "../context/SqlFilesContext";
 
 const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 
@@ -8,6 +9,8 @@ export default function ActivityBar({
   sidebarCollapsed,
   setSidebarCollapsed,
 }) {
+  const { openSettingsTab, activeTabId } = useSqlFiles();
+
   const handleTabClick = (tab) => {
     if (sidebarCollapsed) {
       setActiveTab(tab);
@@ -76,15 +79,15 @@ export default function ActivityBar({
       <div className="flex flex-col items-center w-full">
         {/* Settings Tab */}
         <button
-          onClick={() => handleTabClick("settings")}
+          onClick={() => openSettingsTab()}
           className={`relative flex items-center justify-center w-9 h-9 rounded-lg transition-all duration-200 group cursor-pointer ${
-            !sidebarCollapsed && activeTab === "settings"
+            activeTabId === "settings"
               ? "text-(--color-accent) bg-(--color-bg-secondary)/50"
               : "text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-secondary)/30"
           }`}
-          title={isMac ? "Settings & Connection Manager (⌘.)" : "Settings & Connection Manager (Ctrl+.)"}
+          title={isMac ? "Preferences: Open Settings (⌘,)" : "Preferences: Open Settings (Ctrl+,)"}
         >
-          {!sidebarCollapsed && activeTab === "settings" && (
+          {activeTabId === "settings" && (
             <span className="absolute left-0 top-2 bottom-2 w-0.75 bg-(--color-accent) rounded-r-md" />
           )}
           <Settings size={18} className="transition-transform group-hover:rotate-45 duration-300" />

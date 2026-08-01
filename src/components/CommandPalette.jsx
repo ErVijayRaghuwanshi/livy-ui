@@ -27,6 +27,7 @@ export default function CommandPalette({
     closeAllFiles,
     setActiveTab,
     previewFile,
+    openSettingsTab,
   } = useSqlFiles();
 
   const [search, setSearch] = useState("");
@@ -152,6 +153,13 @@ export default function CommandPalette({
       category: "View",
       shortcut: isMac ? "⌘B" : "Ctrl+B",
       action: () => setSidebarCollapsed((p) => !p),
+    },
+    {
+      id: "open-settings",
+      name: "Preferences: Open Settings (UI / JSON)",
+      category: "Preferences",
+      shortcut: isMac ? "⌘," : "Ctrl+,",
+      action: () => openSettingsTab(),
     },
     {
       id: "toggle-theme",
