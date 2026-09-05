@@ -60,8 +60,18 @@ function registerSparkProviders(monaco, schemaDataRef) {
 
   // Completion provider for functions, keywords, snippets, and schema
   const completionProvider = monaco.languages.registerCompletionItemProvider("sql", {
-    triggerCharacters: [" ", "(", ",", "."],
-    provideCompletionItems: (model, position) => {
+    triggerCharacters: ["."],
+    provideCompletionItems: (model, position, completionContext) => {
+      const lineContent = model.getLineContent(position.lineNumber);
+      const textBeforeCursor = lineContent.substring(0, position.column - 1);
+      const trimmedBefore = textBeforeCursor.trimEnd();
+
+      // Don't auto-suggest if cursor is right after comma or open paren unless user explicitly invoked via Ctrl+Space
+      const isManualInvoke = completionContext && completionContext.triggerKind === 0;
+      if (!isManualInvoke && (trimmedBefore.endsWith(",") || trimmedBefore.endsWith("(") || trimmedBefore === "")) {
+        return { suggestions: [] };
+      }
+
       const word = model.getWordUntilPosition(position);
       const range = {
         startLineNumber: position.lineNumber,
@@ -70,7 +80,7 @@ function registerSparkProviders(monaco, schemaDataRef) {
         endColumn: word.endColumn,
       };
 
-      const context = getSqlContext(model, position);
+      const sqlContext = getSqlContext(model, position);
 
       const functionSuggestions = namedFunctions.map((fn) => ({
         label: fn.name,
@@ -126,7 +136,7 @@ function registerSparkProviders(monaco, schemaDataRef) {
         }
 
         // Table suggestions (show in table context or any context)
-        if (tables && Object.keys(tables).length > 0 && (context === 'table' || context === 'any')) {
+        if (tables && Object.keys(tables).length > 0 && (sqlContext === 'table' || sqlContext === 'any')) {
           Object.entries(tables).forEach(([db, tableList]) => {
             tableList.forEach((tbl) => {
               schemaSuggestions.push({
@@ -143,7 +153,7 @@ function registerSparkProviders(monaco, schemaDataRef) {
         }
 
         // Column suggestions (show in column context)
-        if (columns && Object.keys(columns).length > 0 && (context === 'column' || context === 'any')) {
+        if (columns && Object.keys(columns).length > 0 && (sqlContext === 'column' || sqlContext === 'any')) {
           Object.entries(columns).forEach(([key, columnList]) => {
             const [db, tbl] = key.split('.');
             columnList.forEach((col) => {
@@ -1551,7 +1561,13 @@ const SqlEditor = forwardRef(function SqlEditor({
             cursorBlinking: settings["editor.cursorBlinking"] || "smooth",
             renderWhitespace: settings["editor.renderWhitespace"] || "selection",
             suggestOnTriggerCharacters: true,
-            quickSuggestions: true,
+            acceptSuggestionOnEnter: "smart",
+            tabCompletion: "on",
+            quickSuggestions: {
+              other: true,
+              comments: false,
+              strings: false,
+            },
             wordBasedSuggestions: "off",
             padding: { top: 8 },
             renderLineHighlight: "all",
