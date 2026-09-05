@@ -20,6 +20,45 @@ import { v4 as uuidv4 } from "uuid";
 // Configure Monaco to use local files instead of CDN
 loader.config({ monaco });
 
+// Define authentic VS Code Dark Modern theme for Monaco
+monaco.editor.defineTheme("vscode-dark-modern", {
+  base: "vs-dark",
+  inherit: true,
+  rules: [
+    { token: "keyword", foreground: "ff7b72" },
+    { token: "keyword.sql", foreground: "ff7b72" },
+    { token: "operator.sql", foreground: "ff7b72" },
+    { token: "string", foreground: "a5d6ff" },
+    { token: "string.sql", foreground: "a5d6ff" },
+    { token: "string.quote", foreground: "a5d6ff" },
+    { token: "number", foreground: "79c0ff" },
+    { token: "number.sql", foreground: "79c0ff" },
+    { token: "comment", foreground: "8b949e", fontStyle: "italic" },
+    { token: "comment.sql", foreground: "8b949e", fontStyle: "italic" },
+    { token: "identifier", foreground: "cccccc" },
+    { token: "identifier.quote", foreground: "a5d6ff" },
+    { token: "delimiter", foreground: "cccccc" },
+    { token: "delimiter.sql", foreground: "cccccc" },
+    { token: "predefined.sql", foreground: "79c0ff" },
+    { token: "predefined", foreground: "79c0ff" },
+  ],
+  colors: {
+    "editor.background": "#1f1f1f",
+    "editor.foreground": "#cccccc",
+    "editorLineNumber.foreground": "#6e7681",
+    "editorLineNumber.activeForeground": "#cccccc",
+    "editor.lineHighlightBackground": "#282828",
+    "editor.lineHighlightBorder": "#00000000",
+    "editorCursor.foreground": "#aeafad",
+    "editorWhitespace.foreground": "#3b3a32",
+    "editorIndentGuide.background": "#363636",
+    "editorIndentGuide.activeBackground": "#505050",
+    "editor.selectionBackground": "#264f78",
+    "editor.inactiveSelectionBackground": "#3a3d41",
+    "minimap.background": "#1f1f1f",
+  },
+});
+
 // Helper to detect DDL operations that should trigger schema refresh
 function isDDLOperation(sql) {
   const ddlKeywords = /\b(CREATE\s+(TABLE|VIEW|DATABASE|SCHEMA|INDEX|FUNCTION)|DROP\s+(TABLE|VIEW|DATABASE|SCHEMA|INDEX|FUNCTION)|ALTER\s+TABLE|TRUNCATE\s+TABLE)\b/i;
@@ -1446,7 +1485,7 @@ const SqlEditor = forwardRef(function SqlEditor({
         <Editor
           height="100%"
           defaultLanguage="sql"
-          theme={theme === "light" ? "light" : "vs-dark"}
+          theme={theme === "light" ? "light" : "vscode-dark-modern"}
           onMount={handleEditorMount}
           options={{
             fontSize: settings["editor.fontSize"] || 14,

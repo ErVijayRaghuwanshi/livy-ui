@@ -1,40 +1,45 @@
 @import "tailwindcss";
 
 :root {
-  --color-bg-primary: #0f172a;
-  --color-bg-secondary: #1e293b;
-  --color-bg-tertiary: #334155;
-  --color-text-primary: #f1f5f9;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
-  --color-accent: #3b82f6;
-  --color-accent-hover: #2563eb;
-  --color-success: #22c55e;
-  --color-warning: #f59e0b;
-  --color-error: #ef4444;
-  --color-border: #334155;
+  --color-bg-workbench: #181818;
+  --color-bg-primary: #1f1f1f;
+  --color-bg-secondary: #181818;
+  --color-bg-tertiary: #2a2d2e;
+  --color-bg-elevated: #252526;
+  --color-text-primary: #cccccc;
+  --color-text-secondary: #9d9d9d;
+  --color-text-muted: #6e7681;
+  --color-accent: #0078d4;
+  --color-accent-hover: #026ec1;
+  --color-success: #89d185;
+  --color-warning: #cca700;
+  --color-error: #f14c4c;
+  --color-border: #2b2b2b;
+  --color-border-subtle: #222222;
 }
 
 .light {
-  --color-bg-primary: #f8fafc;
-  --color-bg-secondary: #ffffff;
-  --color-bg-tertiary: #e2e8f0;
-  --color-text-primary: #0f172a;
-  --color-text-secondary: #475569;
-  --color-text-muted: #94a3b8;
-  --color-accent: #2563eb;
-  --color-accent-hover: #1d4ed8;
-  --color-success: #16a34a;
-  --color-warning: #d97706;
-  --color-error: #dc2626;
-  --color-border: #cbd5e1;
+  --color-bg-workbench: #f8f8f8;
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f3f3f3;
+  --color-bg-tertiary: #e8e8e8;
+  --color-text-primary: #1f1f1f;
+  --color-text-secondary: #616161;
+  --color-text-muted: #848484;
+  --color-accent: #005fb8;
+  --color-accent-hover: #004b91;
+  --color-success: #107c41;
+  --color-warning: #b58105;
+  --color-error: #e51400;
+  --color-border: #e5e5e5;
+  --color-border-subtle: #eeeeee;
 }
 
 body {
   margin: 0;
   padding: 0;
   font-family: "Inter", system-ui, -apple-system, sans-serif;
-  background-color: var(--color-bg-primary);
+  background-color: var(--color-bg-workbench);
   color: var(--color-text-primary);
   overflow: hidden;
   height: 100vh;
@@ -44,25 +49,42 @@ body {
   height: 100vh;
   display: flex;
   flex-direction: column;
+  background-color: var(--color-bg-workbench);
 }
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-bg-secondary);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-bg-tertiary);
-  border-radius: 4px;
+  background: #424242;
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-muted);
+  background: #4f4f4f;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.light ::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.light ::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 
 /* Inline run button in Monaco glyph margin */
@@ -206,30 +228,28 @@ body {
 
 /* Sleek Resizable Sidebar split handle bar */
 .dg-sidebar-resize-handle {
-  width: 4px;
-  margin-left: -2px;
-  margin-right: -2px;
+  width: 2px;
+  margin: 0;
   cursor: col-resize;
   background-color: transparent;
-  transition: background-color 0.15s ease, opacity 0.15s ease;
   position: relative;
-  z-index: 40;
-}
-
-.dg-sidebar-resize-handle:hover,
-.dg-sidebar-resize-handle.is-dragging {
-  background-color: var(--color-accent);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  flex-shrink: 0;
 }
 
 /* Glassmorphic elevation card for premium overlays */
 .dg-glassmorphic {
-  background-color: rgba(30, 41, 59, 0.7) !important;
+  background-color: rgba(30, 30, 30, 0.8) !important;
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
 }
 
 .light .dg-glassmorphic {
-  background-color: rgba(255, 255, 255, 0.7) !important;
+  background-color: rgba(255, 255, 255, 0.8) !important;
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
 }

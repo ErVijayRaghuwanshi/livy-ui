@@ -362,10 +362,10 @@ export default function CommandPalette({
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/45 pt-[10vh] animate-in fade-in duration-100">
       <div
         ref={containerRef}
-        className="w-full max-w-[560px] mx-4 bg-(--color-bg-secondary)/95 backdrop-blur-md border border-(--color-border) rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[380px] animate-in slide-in-from-top-4 duration-200"
+        className="w-full max-w-[560px] mx-4 bg-(--color-bg-secondary) border border-(--color-border) rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[380px] animate-in slide-in-from-top-4 duration-200"
       >
         {/* Search input bar */}
-        <div className="flex items-center gap-2.5 px-3 py-2 border-b border-(--color-border)/80">
+        <div className="flex items-center gap-2.5 px-3.5 py-2.5 border-b border-(--color-border)">
           <Search size={14} className="text-(--color-text-muted) shrink-0" />
           <input
             ref={inputRef}
@@ -379,7 +379,7 @@ export default function CommandPalette({
         </div>
 
         {/* Dynamic Items list */}
-        <div ref={listRef} className="flex-1 overflow-y-auto py-1">
+        <div ref={listRef} className="flex-1 overflow-y-auto p-1">
           {filteredItems.length === 0 ? (
             <div className="px-5 py-6 text-center text-xs text-(--color-text-muted) italic">
               No matching commands or files found
@@ -400,10 +400,10 @@ export default function CommandPalette({
                   <div
                     onClick={() => handleSelect(item)}
                     onMouseEnter={() => setSelectedIndex(index)}
-                    className={`flex items-center justify-between px-3 py-2 text-xs cursor-pointer select-none transition-all ${
+                    className={`flex items-center justify-between px-3 py-1.5 text-xs cursor-pointer select-none rounded-md transition-all ${
                       isSelected
-                        ? "bg-(--color-accent)/15 text-(--color-text-primary) border-l-2 border-l-(--color-accent) is-selected"
-                        : "text-(--color-text-secondary) hover:bg-(--color-bg-tertiary)/15"
+                        ? "bg-(--color-accent)/20 text-(--color-text-primary) font-medium is-selected"
+                        : "text-(--color-text-secondary) hover:bg-(--color-bg-tertiary)/40"
                     }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">

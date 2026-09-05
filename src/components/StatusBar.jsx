@@ -36,7 +36,7 @@ export default function StatusBar({ cursorPosition, onShowShortcuts, onShowHisto
     : null;
 
   return (
-    <div className="flex items-center justify-between px-3 py-0.5 bg-(--color-bg-secondary) border-t border-(--color-border) shrink-0 text-[11px] text-(--color-text-muted) select-none">
+    <div className="flex items-center justify-between px-3 py-1 bg-(--color-bg-workbench) border-t border-(--color-border) shrink-0 text-[11px] text-(--color-text-muted) select-none">
       {/* Left */}
       <div className="flex items-center gap-3">
         {/* Session state */}

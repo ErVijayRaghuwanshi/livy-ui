@@ -82,7 +82,7 @@ const SidebarTabs = forwardRef(({
     return (
       <div
         style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
-        className="flex flex-col bg-(--color-bg-secondary) shrink-0 overflow-hidden border-r border-(--color-border) h-full"
+        className="flex flex-col bg-(--color-bg-secondary) rounded-xl border border-(--color-border) shadow-xs shrink-0 overflow-hidden h-full"
       >
         <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border) bg-(--color-bg-secondary)/10">
           <span className="text-[11px] font-bold text-(--color-text-primary) uppercase tracking-wider">
@@ -111,7 +111,7 @@ const SidebarTabs = forwardRef(({
     return (
       <div
         style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
-        className="flex flex-col bg-(--color-bg-secondary) shrink-0 overflow-hidden border-r border-(--color-border) h-full"
+        className="flex flex-col bg-(--color-bg-secondary) rounded-xl border border-(--color-border) shadow-xs shrink-0 overflow-hidden h-full"
       >
         <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border) bg-(--color-bg-secondary)/10">
           <span className="text-[11px] font-bold text-(--color-text-primary) uppercase tracking-wider">
@@ -135,7 +135,7 @@ const SidebarTabs = forwardRef(({
     return (
       <div
         style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
-        className="flex flex-col bg-(--color-bg-secondary) shrink-0 overflow-hidden border-r border-(--color-border) h-full"
+        className="flex flex-col bg-(--color-bg-secondary) rounded-xl border border-(--color-border) shadow-xs shrink-0 overflow-hidden h-full"
       >
         <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border) bg-(--color-bg-secondary)/10">
           <span className="text-[11px] font-bold text-(--color-text-primary) uppercase tracking-wider">
@@ -176,7 +176,7 @@ const SidebarTabs = forwardRef(({
   return (
     <div
       style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
-      className="flex flex-col bg-(--color-bg-secondary) shrink-0 overflow-hidden border-r border-(--color-border) h-full"
+      className="flex flex-col bg-(--color-bg-secondary) rounded-xl border border-(--color-border) shadow-xs shrink-0 overflow-hidden h-full"
     >
       <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border) bg-(--color-bg-secondary)/10">
         <span className="text-[11px] font-bold text-(--color-text-primary) uppercase tracking-wider">
@@ -202,11 +202,15 @@ const SidebarTabs = forwardRef(({
             <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wider truncate">
               Open Editors
             </span>
-            {openFilesData.length > 0 && (
+            {openFilesData.filter(f => dirtyFiles[f.id]).length > 0 ? (
+              <span className="ml-1 px-1.5 py-0.5 text-[9px] bg-[#0078d4] text-white rounded font-medium shrink-0">
+                {openFilesData.filter(f => dirtyFiles[f.id]).length} unsaved
+              </span>
+            ) : openFilesData.length > 0 ? (
               <span className="ml-1 px-1.5 py-0.2 text-[9px] bg-(--color-bg-tertiary) text-(--color-text-muted) rounded-full font-semibold shrink-0">
                 {openFilesData.length}
               </span>
-            )}
+            ) : null}
           </div>
           {openFilesData.length > 0 && (
             <button
@@ -245,7 +249,7 @@ const SidebarTabs = forwardRef(({
                       }`}
                     >
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <FileCode size={13} className={`shrink-0 ${isActive ? "text-(--color-accent)" : "text-(--color-text-muted)"}`} />
+                        <FileCode size={13} className={`shrink-0 ${isActive ? "text-[#ff7b72]" : "text-[#ff7b72]/60"}`} />
                         <span className={`truncate ${isActive ? "font-semibold text-(--color-text-primary)" : ""} ${file.id === previewTabId ? "italic text-(--color-text-secondary)/80" : ""}`}>
                           {file.name}
                         </span>
@@ -253,7 +257,7 @@ const SidebarTabs = forwardRef(({
                       
                       <div className="flex items-center justify-center w-4 h-4 ml-2" onClick={(e) => e.stopPropagation()}>
                         {isDirty && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-(--color-warning) group-hover:hidden dg-pulse-amber" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-white group-hover:hidden" />
                         )}
                         <button
                           onClick={() => requestCloseFile(file.id)}

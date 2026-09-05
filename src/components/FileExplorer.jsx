@@ -24,7 +24,7 @@ function ensureExtension(name) {
 }
 
 const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true }, ref) => {
-  const { files, openFiles, activeTabId, openFile, previewFile, removeFile, renameFile, addFile } = useSqlFiles();
+  const { files, openFiles, activeTabId, openFile, previewFile, removeFile, renameFile, addFile, dirtyFiles } = useSqlFiles();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFileId, setSelectedFileId] = useState(null);
   const [renamingId, setRenamingId] = useState(null);
@@ -243,11 +243,16 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true }, 
                     : ""
                 }`}
               >
-                {isFileOpen(file.id) ? (
-                  <FileCode size={14} className="shrink-0 text-(--color-accent)" />
-                ) : (
-                  <File size={14} className="shrink-0 text-(--color-text-muted)" />
-                )}
+                <FileCode
+                  size={14}
+                  className={`shrink-0 ${
+                    activeTabId === file.id
+                      ? "text-[#ff7b72]"
+                      : isFileOpen(file.id)
+                      ? "text-[#ff7b72]/85"
+                      : "text-[#ff7b72]/65"
+                  }`}
+                />
 
                 {renamingId === file.id ? (
                   <div className="flex items-center gap-1 flex-1" onClick={(e) => e.stopPropagation()}>
@@ -267,6 +272,9 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true }, 
                 ) : (
                   <>
                     <span className="flex-1 truncate">{file.name}</span>
+                    {dirtyFiles?.[file.id] && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0 mr-1 group-hover:hidden" />
+                    )}
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
                       <button
                         onClick={(e) => handleStartRename(file, e)}

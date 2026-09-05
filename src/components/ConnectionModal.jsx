@@ -957,7 +957,7 @@ export default function ConnectionModal({ isOpen, onClose }) {
                   </p>
 
                   <div className="relative">
-                    <pre className="p-3 bg-black/40 border border-(--color-border)/35 rounded-lg text-[10px] font-mono text-slate-300 select-all overflow-x-auto whitespace-pre leading-relaxed">
+                    <pre className="p-3 bg-black/40 border border-(--color-border)/35 rounded-lg text-[10px] font-mono text-(--color-text-primary) select-all overflow-x-auto whitespace-pre leading-relaxed">
 {`livy.server.access-control.allow-origin = *
 livy.server.access-control.allow-methods = GET, POST, OPTIONS, DELETE`}
                     </pre>
@@ -973,7 +973,7 @@ livy.server.access-control.allow-methods = GET, POST, OPTIONS, DELETE`}
                   <p className="text-[11px] text-(--color-text-secondary) mt-1">
                     After appending the properties, restart your Livy node service by executing:
                   </p>
-                  <pre className="p-2.5 bg-black/30 border border-(--color-border)/25 rounded-md text-[10px] font-mono text-slate-400">
+                  <pre className="p-2.5 bg-black/30 border border-(--color-border)/25 rounded-md text-[10px] font-mono text-(--color-text-secondary)">
                     sudo systemctl restart livy
                   </pre>
                 </div>

@@ -21,7 +21,7 @@ import { useLivy } from "../context/LivyContext";
 import { SESSION_STATES } from "../utils/constants";
 
 const stateColors = {
-  [SESSION_STATES.NOT_STARTED]: "bg-slate-500",
+  [SESSION_STATES.NOT_STARTED]: "bg-gray-500",
   [SESSION_STATES.STARTING]: "bg-amber-500 animate-pulse",
   [SESSION_STATES.IDLE]: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]",
   [SESSION_STATES.BUSY]: "bg-sky-500 animate-pulse shadow-[0_0_8px_rgba(56,189,248,0.5)]",
@@ -33,7 +33,7 @@ const stateColors = {
 };
 
 const statusBadgeStyles = {
-  [SESSION_STATES.NOT_STARTED]: "bg-slate-500/10 text-slate-400 border border-slate-500/20",
+  [SESSION_STATES.NOT_STARTED]: "bg-gray-500/10 text-gray-400 border border-gray-500/20",
   [SESSION_STATES.STARTING]: "bg-amber-500/10 text-amber-500 border border-amber-500/20 animate-pulse",
   [SESSION_STATES.IDLE]: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
   [SESSION_STATES.BUSY]: "bg-sky-500/10 text-sky-400 border border-sky-500/20",
@@ -248,9 +248,9 @@ export default function SettingsPanel({
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="relative flex h-2 w-2 shrink-0 items-center justify-center">
                     {(isActive || isStarting) && (
-                      <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping ${stateColors[sessionState] || "bg-slate-500"}`} />
+                      <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping ${stateColors[sessionState] || "bg-gray-500"}`} />
                     )}
-                    <span className={`relative inline-flex rounded-full h-2 w-2 ${stateColors[sessionState] || "bg-slate-500"}`} />
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${stateColors[sessionState] || "bg-gray-500"}`} />
                   </div>
                   <span className="text-xs font-semibold truncate text-(--color-text-primary)">
                     {sessionLabel}
@@ -258,7 +258,7 @@ export default function SettingsPanel({
                 </div>
                 
                 <span className={`text-[8px] font-bold uppercase px-2 py-0.5 rounded-full tracking-wider shrink-0 ${
-                  statusBadgeStyles[sessionState] || "bg-slate-500/10 text-slate-400 border border-slate-500/20"
+                  statusBadgeStyles[sessionState] || "bg-gray-500/10 text-gray-400 border border-gray-500/20"
                 }`}>
                   {sessionState}
                 </span>
@@ -371,7 +371,7 @@ export default function SettingsPanel({
                         }`}
                         onClick={() => !isCurrent && sAlive && attachSession(s.id)}
                       >
-                        <span className={`w-2 h-2 rounded-full ${stateColors[s.state] || "bg-slate-500"}`} />
+                        <span className={`w-2 h-2 rounded-full ${stateColors[s.state] || "bg-gray-500"}`} />
                         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                           <span className="text-xs font-semibold text-(--color-text-primary) truncate">
                             {s.name || `Session ${s.id}`}

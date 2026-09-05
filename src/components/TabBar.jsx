@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Plus, X, FileCode, Play, Loader2, Settings } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Plus, X, FileCode, Play, Loader2, Settings, MoreHorizontal } from "lucide-react";
 import { useSqlFiles, SETTINGS_FILE } from "../context/SqlFilesContext";
 
 function stripExtension(name) {
@@ -14,9 +14,23 @@ function ensureExtension(name) {
 const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 
 export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRef }) {
-  const { files, openFiles, activeTabId, setActiveTab, addFile, closeFile, renameFile, reorderFiles, dirtyFiles, promptCloseFileId, setPromptCloseFileId, requestCloseFile, previewTabId, promotePreviewTab } = useSqlFiles();
+  const { files, openFiles, activeTabId, setActiveTab, addFile, closeFile, renameFile, reorderFiles, dirtyFiles, promptCloseFileId, setPromptCloseFileId, requestCloseFile, previewTabId, promotePreviewTab, closeAllFiles, restoreLastClosedTab } = useSqlFiles();
   const [running, setRunning] = useState(false);
   const [canRun, setCanRun] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target)) {
+        setShowMoreMenu(false);
+      }
+    }
+    if (showMoreMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showMoreMenu]);
   
   useEffect(() => {
     const interval = setInterval(() => {
@@ -101,12 +115,12 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
   };
 
   return (
-    <div className="flex items-center bg-(--color-bg-secondary) border-b border-(--color-border) shrink-0 overflow-x-auto">
-      <div className="flex items-center gap-1.5 px-3 py-2 border-r border-(--color-border) shrink-0">
+    <div className="flex items-center bg-(--color-bg-workbench) border-b border-(--color-border) shrink-0 overflow-x-auto px-1.5 py-1 gap-1">
+      <div className="flex items-center gap-1 pr-1.5 border-r border-(--color-border)/60 shrink-0">
         {running ? (
           <button
             onClick={handleCancel}
-            className="group flex items-center justify-center w-5 h-5 rounded bg-(--color-error)/15 text-(--color-error) hover:bg-(--color-error)/25 active:scale-95 transition-all cursor-pointer select-none"
+            className="group flex items-center justify-center w-6 h-6 rounded-md bg-(--color-error)/15 text-(--color-error) hover:bg-(--color-error)/25 active:scale-95 transition-all cursor-pointer select-none"
             title="Cancel Query"
           >
             <Loader2 size={12} className="animate-spin text-(--color-error)" />
@@ -115,18 +129,18 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
           <button
             onClick={handleRun}
             disabled={!canRun}
-            className={`group flex items-center justify-center w-5 h-5 rounded transition-all border select-none active:scale-95 ${
+            className={`group flex items-center justify-center w-6 h-6 rounded-md transition-all border select-none active:scale-95 ${
               canRun
-                ? "bg-(--color-success)/10 text-(--color-success) border-(--color-success)/30 hover:border-(--color-success)/55 hover:bg-(--color-success)/15 cursor-pointer shadow-xs"
-                : "bg-transparent text-(--color-text-muted) border-(--color-border)/50 opacity-40 cursor-not-allowed pointer-events-none"
+                ? "bg-(--color-success)/10 text-(--color-success) border-(--color-success)/30 hover:border-(--color-success)/55 hover:bg-(--color-success)/20 cursor-pointer shadow-xs"
+                : "bg-transparent text-(--color-text-muted) border-transparent opacity-40 cursor-not-allowed pointer-events-none"
             }`}
             title={`Run SQL (${isMac ? "⌘+Enter" : "Ctrl+Enter"})`}
           >
-            <Play size={10} className={canRun ? "fill-current" : ""} />
+            <Play size={11} className={canRun ? "fill-current" : ""} />
           </button>
         )}
       </div>
-      <div className="flex items-center min-w-0">
+      <div className="flex items-center gap-1 min-w-0">
         {openFilesData.map((file, index) => (
           <div
             key={file.id}
@@ -146,18 +160,20 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
                 handleStartRename(file);
               }
             }}
-            className={`group flex items-center gap-1.5 px-2 sm:px-3 py-2 text-xs cursor-pointer border-r border-(--color-border) min-w-0 max-w-32 sm:max-w-48 transition-colors ${draggedIndex === index ? "opacity-50" : ""} ${
-              dragOverIndex === index ? "border-l-2 border-l-(--color-accent)" : ""
+            className={`group relative flex items-center gap-1.5 px-2.5 py-1 text-xs cursor-pointer rounded-md min-w-0 max-w-36 sm:max-w-48 transition-all ${
+              draggedIndex === index ? "opacity-50" : ""
+            } ${
+              dragOverIndex === index ? "ring-2 ring-(--color-accent)" : ""
             } ${
               file.id === activeTabId
-                ? "bg-(--color-bg-primary) text-(--color-text-primary) border-b-2 border-b-(--color-accent)"
-                : "text-(--color-text-muted) hover:text-(--color-text-secondary) hover:bg-(--color-bg-primary)/50"
+                ? "bg-(--color-bg-primary) text-(--color-text-primary) border border-(--color-border) shadow-xs font-medium"
+                : "text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-primary)/40 border border-transparent"
             }`}
           >
             {file.id === "settings" ? (
-              <Settings size={13} className="shrink-0 text-(--color-accent)" />
+              <Settings size={13} className={`shrink-0 ${file.id === activeTabId ? "text-(--color-accent)" : "text-(--color-text-muted)"}`} />
             ) : (
-              <FileCode size={13} className="shrink-0 text-(--color-accent)" />
+              <FileCode size={13} className={`shrink-0 ${file.id === activeTabId ? "text-[#ff7b72]" : "text-[#ff7b72]/60"}`} />
             )}
 
             {renamingId === file.id ? (
@@ -183,7 +199,7 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
 
             <div className="flex items-center ml-auto shrink-0 relative w-4 h-4 justify-center">
               {dirtyFiles[file.id] && (
-                <span className="w-1.5 h-1.5 rounded-full bg-(--color-warning) dg-pulse-amber group-hover:hidden transition-all" />
+                <span className="w-1.5 h-1.5 rounded-full bg-white group-hover:hidden transition-all" />
               )}
               <button
                 onClick={(e) => handleClose(e, file.id)}
@@ -203,11 +219,72 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
 
       <button
         onClick={() => addFile()}
-        className="flex items-center gap-1 px-2 sm:px-3 py-2 text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-primary)/50 transition-colors shrink-0"
+        className="flex items-center justify-center w-6 h-6 rounded-md text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary)/40 transition-colors shrink-0 ml-0.5"
         title={`New SQL File (${isMac ? "⌘+⌥+N" : "Ctrl+Alt+N"})`}
       >
-        <Plus size={14} />
+        <Plus size={13} />
       </button>
+
+      {/* Right Actions: More Actions (...) Ellipsis similar to VS Code */}
+      <div className="flex items-center ml-auto pl-2 pr-1 gap-1 relative shrink-0">
+        <button
+          onClick={() => setShowMoreMenu((prev) => !prev)}
+          className={`flex items-center justify-center w-6 h-6 rounded-md text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary)/60 transition-colors cursor-pointer ${
+            showMoreMenu ? "bg-(--color-bg-tertiary) text-(--color-text-primary)" : ""
+          }`}
+          title="More Actions..."
+        >
+          <MoreHorizontal size={14} />
+        </button>
+
+        {showMoreMenu && (
+          <div
+            ref={moreMenuRef}
+            className="absolute right-1 top-8 z-50 bg-(--color-bg-secondary) border border-(--color-border) rounded-lg shadow-2xl py-1 min-w-44 animate-in fade-in zoom-in-95 duration-100 select-none text-xs"
+          >
+            <button
+              onClick={() => {
+                setShowMoreMenu(false);
+                restoreLastClosedTab();
+              }}
+              className="flex items-center justify-between w-full px-3 py-1.5 text-left text-(--color-text-secondary) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer"
+            >
+              <span>Reopen Closed Tab</span>
+              <span className="text-[10px] text-(--color-text-muted) font-mono">{isMac ? "⌘⇧T" : "Ctrl+Shift+T"}</span>
+            </button>
+            <button
+              onClick={() => {
+                setShowMoreMenu(false);
+                closeAllFiles();
+              }}
+              className="flex items-center justify-between w-full px-3 py-1.5 text-left text-(--color-text-secondary) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer"
+            >
+              <span>Close All Tabs</span>
+            </button>
+            <div className="my-1 border-t border-(--color-border)" />
+            <button
+              onClick={() => {
+                setShowMoreMenu(false);
+                editorRef?.current?.format();
+              }}
+              className="flex items-center justify-between w-full px-3 py-1.5 text-left text-(--color-text-secondary) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer"
+            >
+              <span>Format Document</span>
+              <span className="text-[10px] text-(--color-text-muted) font-mono">{isMac ? "⌘⇧F" : "Ctrl+Shift+F"}</span>
+            </button>
+            <button
+              onClick={() => {
+                setShowMoreMenu(false);
+                editorRef?.current?.minify();
+              }}
+              className="flex items-center justify-between w-full px-3 py-1.5 text-left text-(--color-text-secondary) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer"
+            >
+              <span>Minify SQL</span>
+              <span className="text-[10px] text-(--color-text-muted) font-mono">{isMac ? "⌘⇧M" : "Ctrl+Shift+M"}</span>
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Unsaved Changes Tab Close Warning Dialog */}
       {promptCloseFileId && (() => {
