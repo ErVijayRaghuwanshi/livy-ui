@@ -1,7 +1,7 @@
 import { useLivy } from "../context/LivyContext";
 import { SESSION_STATES } from "../utils/constants";
 import { useSqlFiles } from "../context/SqlFilesContext";
-import { Keyboard, History } from "lucide-react";
+import { Keyboard, History, AlertCircle, Check } from "lucide-react";
 
 const stateLabels = {
   [SESSION_STATES.NOT_STARTED]: "No Session",
@@ -27,7 +27,7 @@ const stateColors = {
   [SESSION_STATES.SUCCESS]: "bg-green-500",
 };
 
-export default function StatusBar({ cursorPosition, onShowShortcuts, onShowHistory }) {
+export default function StatusBar({ cursorPosition, syntaxErrors = [], onJumpToFirstError, onShowShortcuts, onShowHistory }) {
   const { activeHost, sessionId, sessionState, isOnline, isServerReachable } = useLivy();
   const { activeResult, activeFile, autoSave, toggleAutoSave } = useSqlFiles();
 
@@ -73,6 +73,25 @@ export default function StatusBar({ cursorPosition, onShowShortcuts, onShowHisto
             {!isOnline ? "Offline" : isServerReachable === false ? "Server Down" : "Connected"}
           </span>
         </div>
+
+        {/* SQL Syntax Status */}
+        {activeFile && (
+          syntaxErrors && syntaxErrors.length > 0 ? (
+            <button
+              onClick={onJumpToFirstError}
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded text-(--color-error) bg-(--color-error)/10 hover:bg-(--color-error)/20 transition-colors cursor-pointer font-medium"
+              title={`${syntaxErrors.length} syntax error${syntaxErrors.length === 1 ? "" : "s"}. Click to jump to line ${syntaxErrors[0].startLine}`}
+            >
+              <AlertCircle size={12} className="shrink-0 text-(--color-error)" />
+              <span>{syntaxErrors.length} {syntaxErrors.length === 1 ? "Error" : "Errors"}</span>
+            </button>
+          ) : (
+            <span className="flex items-center gap-1 px-1 py-0.5 text-(--color-success) text-[11px]" title="SQL Syntax Valid">
+              <Check size={12} className="shrink-0 text-(--color-success)" />
+              <span>SQL Valid</span>
+            </span>
+          )
+        )}
 
         {/* Row count */}
         {rowCount !== null && (

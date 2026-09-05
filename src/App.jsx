@@ -71,6 +71,7 @@ export default function App() {
   const [showHistory, setShowHistory] = useState(false);
   const [showConnectionModal, setShowConnectionModal] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(null);
+  const [syntaxErrors, setSyntaxErrors] = useState([]);
 
   // Sidebar resizing states
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -561,6 +562,7 @@ export default function App() {
                   <SqlEditor
                     ref={editorRef}
                     onCursorPositionChange={setCursorPosition}
+                    onSyntaxErrorsChange={setSyntaxErrors}
                     theme={theme}
                     onFocusSchemaSearch={handleFocusSchemaSearch}
                     onFocusFileSearch={handleFocusFileSearch}
@@ -706,7 +708,13 @@ export default function App() {
           </div>
         </div>
       </div>
-      <StatusBar cursorPosition={cursorPosition} onShowShortcuts={() => setShowShortcuts(true)} onShowHistory={() => setShowHistory(true)} />
+      <StatusBar
+        cursorPosition={cursorPosition}
+        syntaxErrors={syntaxErrors}
+        onJumpToFirstError={() => editorRef.current?.jumpToFirstSyntaxError()}
+        onShowShortcuts={() => setShowShortcuts(true)}
+        onShowHistory={() => setShowHistory(true)}
+      />
     </div>
   );
 }

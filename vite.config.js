@@ -12,7 +12,7 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg", "robots.txt", "sitemap.xml", "pwa-192.png", "pwa-512.png"],
       workbox: {
-        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024, // 6 MB
+        maximumFileSizeToCacheInBytes: 15 * 1024 * 1024, // 15 MB
       },
       manifest: {
         name: "Livy SQL UI",
@@ -44,4 +44,15 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    chunkSizeWarningLimit: 5000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "dt-sql-parser": ["dt-sql-parser"],
+          "monaco": ["monaco-editor"],
+        },
+      },
+    },
+  },
 });

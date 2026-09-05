@@ -18,6 +18,8 @@ export const DEFAULT_SETTINGS = {
   "editor.cursorBlinking": "smooth",
   "editor.formatOnSave": false,
   "editor.renderWhitespace": "selection",
+  "editor.sqlValidation.enabled": true,
+  "editor.sqlValidation.dialect": "spark",
 
   // Spark & Compute Cluster Configurations
   "spark.defaultMaster": "local[*]",

@@ -16,6 +16,7 @@ import { useToast } from "./Toast";
 import { addHistoryEntry } from "./QueryHistory";
 import { useSettings } from "../context/SettingsContext";
 import { v4 as uuidv4 } from "uuid";
+import { validateSql } from "../services/sqlValidator";
 
 // Configure Monaco to use local files instead of CDN
 loader.config({ monaco });
@@ -429,6 +430,7 @@ const SqlEditor = forwardRef(function SqlEditor({
   onToggleCommandPalette,
   onTriggerBounce,
   onTriggerSnake,
+  onSyntaxErrorsChange,
 }, ref) {
   const { activeFile, files, openFiles, updateContent, setResult, saveFile, toggleAutoSave, activeResultId, pendingLineReveal, clearPendingLineReveal } = useSqlFiles();
   const activeFileRef = useRef(activeFile);
@@ -503,6 +505,79 @@ const SqlEditor = forwardRef(function SqlEditor({
   const handleRunSqlRef = useRef(null);
   const handleFormatRef = useRef(null);
   const handleMinifyRef = useRef(null);
+
+  // SQL Static Validation state & refs
+  const lastSyntaxErrorsRef = useRef([]);
+  const validateDebounceTimerRef = useRef(null);
+
+  const runSqlValidation = useCallback((model) => {
+    if (!model || model.isDisposed() || !monacoRef.current) return;
+
+    const isValidationEnabled = settings["editor.sqlValidation.enabled"] ?? true;
+    if (!isValidationEnabled) {
+      monacoRef.current.editor.setModelMarkers(model, "sql-validator", []);
+      lastSyntaxErrorsRef.current = [];
+      onSyntaxErrorsChange?.([]);
+      return;
+    }
+
+    const sql = model.getValue();
+    const dialect = settings["editor.sqlValidation.dialect"] || "spark";
+    const result = validateSql(sql, dialect);
+
+    if (model.isDisposed()) return;
+
+    if (result.isValid || result.errors.length === 0) {
+      monacoRef.current.editor.setModelMarkers(model, "sql-validator", []);
+      lastSyntaxErrorsRef.current = [];
+      onSyntaxErrorsChange?.([]);
+    } else {
+      const markers = result.errors.map((err) => ({
+        startLineNumber: Math.max(1, err.startLine),
+        startColumn: Math.max(1, err.startCol),
+        endLineNumber: Math.max(1, err.endLine),
+        endColumn: Math.max(err.startCol + 1, err.endCol),
+        message: err.message,
+        severity: monacoRef.current.MarkerSeverity.Error,
+      }));
+      monacoRef.current.editor.setModelMarkers(model, "sql-validator", markers);
+      lastSyntaxErrorsRef.current = result.errors;
+      onSyntaxErrorsChange?.(result.errors);
+    }
+  }, [settings, onSyntaxErrorsChange]);
+
+  const scheduleSqlValidation = useCallback((model, immediate = false) => {
+    if (validateDebounceTimerRef.current) {
+      clearTimeout(validateDebounceTimerRef.current);
+      validateDebounceTimerRef.current = null;
+    }
+    if (immediate) {
+      runSqlValidation(model);
+    } else {
+      validateDebounceTimerRef.current = setTimeout(() => {
+        runSqlValidation(model);
+      }, 350);
+    }
+  }, [runSqlValidation]);
+
+  // Re-run or clear validation when settings change
+  useEffect(() => {
+    if (editorRef.current) {
+      const currentModel = editorRef.current.getModel();
+      if (currentModel) {
+        scheduleSqlValidation(currentModel, true);
+      }
+    }
+  }, [settings["editor.sqlValidation.enabled"], settings["editor.sqlValidation.dialect"], scheduleSqlValidation]);
+
+  // Clean up debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (validateDebounceTimerRef.current) {
+        clearTimeout(validateDebounceTimerRef.current);
+      }
+    };
+  }, []);
 
   // Reset tab title when window regains focus
   useEffect(() => {
@@ -589,11 +664,13 @@ const SqlEditor = forwardRef(function SqlEditor({
         model.onDidChangeContent(() => {
           const val = model.getValue();
           handleChangeRef.current?.(val);
+          scheduleSqlValidation(model, false);
         });
         modelsRef.current.set(activeFileRef.current.id, model);
       }
       editor.setModel(model);
       prevActiveFileIdRef.current = activeFileRef.current.id;
+      scheduleSqlValidation(model, true);
     }
 
     updateDecorations(editor);
@@ -934,6 +1011,7 @@ const SqlEditor = forwardRef(function SqlEditor({
       newModel.onDidChangeContent(() => {
         const val = newModel.getValue();
         handleChangeRef.current?.(val);
+        scheduleSqlValidation(newModel, false);
       });
       modelsRef.current.set(activeFile.id, newModel);
     }
@@ -953,9 +1031,10 @@ const SqlEditor = forwardRef(function SqlEditor({
       editor.setPosition({ lineNumber: 1, column: 1 });
     }
 
+    scheduleSqlValidation(newModel, true);
     updateDecorations(editor);
     editor.focus();
-  }, [activeFile?.id, updateDecorations]);
+  }, [activeFile?.id, updateDecorations, scheduleSqlValidation]);
 
   // External Content Syncer Effect
   useEffect(() => {
@@ -1380,6 +1459,15 @@ const SqlEditor = forwardRef(function SqlEditor({
       editor.focus();
       editor.trigger('keyboard', 'editor.action.quickCommand');
     },
+    jumpToFirstSyntaxError: () => {
+      const editor = editorRef.current;
+      if (!editor || lastSyntaxErrorsRef.current.length === 0) return;
+      const first = lastSyntaxErrorsRef.current[0];
+      editor.revealLineInCenter(first.startLine);
+      editor.setPosition({ lineNumber: first.startLine, column: first.startCol });
+      editor.focus();
+    },
+    getSyntaxErrors: () => lastSyntaxErrorsRef.current,
   }));
 
   // Close glyph popup on outside click or Escape
