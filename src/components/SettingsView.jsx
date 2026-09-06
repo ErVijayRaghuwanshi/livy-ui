@@ -220,9 +220,10 @@ export default function SettingsView({
       key: "editor.minimap.enabled",
       category: "editor",
       categoryLabel: "Editor > Minimap",
-      title: "Enabled",
-      description: "Controls whether the code outline minimap is shown on the right side of the editor.",
+      title: "Minimap (File Preview)",
+      description: "Controls whether the code outline minimap preview is shown on the right side of the editor.",
       type: "boolean",
+      commonlyUsed: true,
     },
     {
       key: "editor.autoSave",

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Search, FileCode, Terminal, Keyboard } from "lucide-react";
 import { useSqlFiles } from "../context/SqlFilesContext";
+import { useSettings } from "../context/SettingsContext";
 
 const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 
@@ -30,6 +31,7 @@ export default function CommandPalette({
     previewFile,
     openSettingsTab,
   } = useSqlFiles();
+  const { settings, updateSetting } = useSettings();
 
   const [search, setSearch] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -154,6 +156,13 @@ export default function CommandPalette({
       category: "View",
       shortcut: isMac ? "⌘B" : "Ctrl+B",
       action: () => setSidebarCollapsed((p) => !p),
+    },
+    {
+      id: "toggle-minimap",
+      name: "View: Toggle Minimap (File Preview)",
+      category: "View",
+      shortcut: "",
+      action: () => updateSetting("editor.minimap.enabled", !settings["editor.minimap.enabled"]),
     },
     {
       id: "open-settings",

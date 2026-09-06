@@ -13,7 +13,7 @@ export const DEFAULT_SETTINGS = {
   "editor.tabSize": 2,
   "editor.wordWrap": "on",
   "editor.lineNumbers": "on",
-  "editor.minimap.enabled": false,
+  "editor.minimap.enabled": true,
   "editor.autoSave": "off",
   "editor.cursorBlinking": "smooth",
   "editor.formatOnSave": false,
@@ -51,9 +51,17 @@ const SettingsContext = createContext(null);
 export function SettingsProvider({ children }) {
   const [settings, setSettings] = useState(() => {
     const saved = getItem(SETTINGS_STORAGE_KEY, null);
+    const version = getItem("livy-ui-settings-version", 1);
     if (saved && typeof saved === "object") {
+      if (version < 2) {
+        const migrated = { ...DEFAULT_SETTINGS, ...saved, "editor.minimap.enabled": true };
+        setItem("livy-ui-settings-version", 2);
+        setItem(SETTINGS_STORAGE_KEY, migrated);
+        return migrated;
+      }
       return { ...DEFAULT_SETTINGS, ...saved };
     }
+    setItem("livy-ui-settings-version", 2);
     return DEFAULT_SETTINGS;
   });
 
