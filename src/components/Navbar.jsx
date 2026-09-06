@@ -88,10 +88,14 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
     sessionState === SESSION_STATES.BUSY;
   const isStarting = sessionState === SESSION_STATES.STARTING;
 
-  const handleCreateSession = () => {
-    startSession(newSessionName);
-    setNewSessionName("");
-    setShowSessionDropdown(false);
+  const handleCreateSession = async () => {
+    try {
+      await startSession(newSessionName);
+      setNewSessionName("");
+      setShowSessionDropdown(false);
+    } catch (err) {
+      console.error("Failed to create session:", err.message);
+    }
   };
 
   const handleAttach = (id) => {
@@ -361,7 +365,7 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
               </button>
             ) : (
               <button
-                onClick={() => startSession()}
+                onClick={() => startSession().catch((err) => console.error("Failed to start session:", err.message))}
                 disabled={loading}
                 className="flex items-center justify-center w-8 h-8 rounded-lg bg-(--color-success)/10 border border-(--color-success)/30 text-(--color-success) hover:bg-(--color-success)/20 hover:border-(--color-success)/50 active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-40 shadow-xs"
                 title="Start Session"

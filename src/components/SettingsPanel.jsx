@@ -111,9 +111,13 @@ export default function SettingsPanel({
     }));
   };
 
-  const handleCreateSession = () => {
-    startSession(newSessionName);
-    setNewSessionName("");
+  const handleCreateSession = async () => {
+    try {
+      await startSession(newSessionName);
+      setNewSessionName("");
+    } catch (err) {
+      console.error("Failed to create session:", err.message);
+    }
   };
 
   const isActive =
@@ -292,7 +296,7 @@ export default function SettingsPanel({
                   </button>
                 ) : (
                   <button
-                    onClick={() => startSession()}
+                    onClick={() => startSession().catch((err) => console.error("Failed to start session:", err.message))}
                     disabled={loading}
                     className="flex-1 flex items-center justify-center h-8 gap-1.5 px-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/40 text-xs rounded-lg transition-all disabled:opacity-40 cursor-pointer shadow-xs font-semibold dg-spring-btn"
                     title="Start New Session"

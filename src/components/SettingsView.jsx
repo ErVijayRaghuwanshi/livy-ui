@@ -88,6 +88,7 @@ export default function SettingsView({
   const [showCreateSessionForm, setShowCreateSessionForm] = useState(false);
   const [newSessionName, setNewSessionName] = useState("Default SQL Session");
   const [newSessionKind, setNewSessionKind] = useState("sql");
+  const [sessionCreateError, setSessionCreateError] = useState(null);
 
   // Fetch active sessions when entering compute/connection category
   useEffect(() => {
@@ -469,8 +470,15 @@ export default function SettingsView({
   // Create Session Submit Handler
   const handleCreateSessionSubmit = async (e) => {
     e.preventDefault();
-    await startSession(newSessionName || "Spark Session");
-    setShowCreateSessionForm(false);
+    setSessionCreateError(null);
+    try {
+      await startSession(newSessionName.trim() || "Spark Session", newSessionKind);
+      setShowCreateSessionForm(false);
+      setNewSessionName("Default SQL Session");
+      setNewSessionKind("sql");
+    } catch (err) {
+      setSessionCreateError(err.message || "Failed to create compute session");
+    }
   };
 
   // Filter settings by search query and selected category
@@ -849,7 +857,10 @@ export default function SettingsView({
                               </button>
 
                               <button
-                                onClick={() => setShowCreateSessionForm((prev) => !prev)}
+                                onClick={() => {
+                                  setShowCreateSessionForm((prev) => !prev);
+                                  setSessionCreateError(null);
+                                }}
                                 className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded bg-[#0078d4] text-white hover:bg-[#0078d4]/90 transition-colors cursor-pointer"
                               >
                                 <Plus size={13} />{" "}
@@ -867,6 +878,14 @@ export default function SettingsView({
                               <h4 className="text-xs font-semibold text-white flex items-center gap-1.5">
                                 <Play size={13} className="text-[#0078d4]" /> Create New Spark / Livy Session
                               </h4>
+
+                              {sessionCreateError && (
+                                <div className="flex items-start gap-2 p-2.5 rounded bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-mono animate-in fade-in">
+                                  <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                                  <span className="break-all">{sessionCreateError}</span>
+                                </div>
+                              )}
+
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                   <label className="block text-[11px] font-medium text-[#858585] mb-1">
@@ -874,10 +893,11 @@ export default function SettingsView({
                                   </label>
                                   <input
                                     type="text"
+                                    disabled={livyLoading}
                                     value={newSessionName}
                                     onChange={(e) => setNewSessionName(e.target.value)}
                                     placeholder="e.g. Analytics Session 1"
-                                    className="w-full px-3 py-1 text-xs rounded bg-[#1e1e1e] border border-[#3c3c3c] text-white outline-none focus:border-[#0078d4]"
+                                    className="w-full px-3 py-1 text-xs rounded bg-[#1e1e1e] border border-[#3c3c3c] text-white outline-none focus:border-[#0078d4] disabled:opacity-50"
                                   />
                                 </div>
                                 <div>
@@ -885,9 +905,10 @@ export default function SettingsView({
                                     Session Kind
                                   </label>
                                   <select
+                                    disabled={livyLoading}
                                     value={newSessionKind}
                                     onChange={(e) => setNewSessionKind(e.target.value)}
-                                    className="w-full px-3 py-1 text-xs rounded bg-[#1e1e1e] border border-[#3c3c3c] text-white outline-none focus:border-[#0078d4] cursor-pointer font-mono"
+                                    className="w-full px-3 py-1 text-xs rounded bg-[#1e1e1e] border border-[#3c3c3c] text-white outline-none focus:border-[#0078d4] cursor-pointer font-mono disabled:opacity-50"
                                   >
                                     <option value="sql">sql (Spark SQL)</option>
                                     <option value="pyspark">pyspark (Python Spark)</option>
@@ -899,8 +920,12 @@ export default function SettingsView({
                               <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#333333]">
                                 <button
                                   type="button"
-                                  onClick={() => setShowCreateSessionForm(false)}
-                                  className="px-3 py-1 text-xs rounded bg-[#2b2b2b] text-[#858585] hover:text-white cursor-pointer"
+                                  disabled={livyLoading}
+                                  onClick={() => {
+                                    setShowCreateSessionForm(false);
+                                    setSessionCreateError(null);
+                                  }}
+                                  className="px-3 py-1 text-xs rounded bg-[#2b2b2b] text-[#858585] hover:text-white cursor-pointer disabled:opacity-50"
                                 >
                                   Cancel
                                 </button>
@@ -914,7 +939,7 @@ export default function SettingsView({
                                   ) : (
                                     <Play size={13} />
                                   )}
-                                  Start Session
+                                  {livyLoading ? "Starting Session..." : "Start Session"}
                                 </button>
                               </div>
                             </form>

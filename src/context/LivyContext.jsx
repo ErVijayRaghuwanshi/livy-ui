@@ -172,15 +172,14 @@ export function LivyProvider({ children }) {
     dispatch({ type: "SET_SESSIONS_LOADING", payload: true });
     try {
       const data = await livyApi.listSessions();
-      const sqlSessions = (data.sessions || []).filter(
-        (s) => s.kind === "sql" || s.kind === "spark"
-      );
-      dispatch({ type: "SET_SESSIONS", payload: sqlSessions });
+      dispatch({ type: "SET_SESSIONS", payload: data.sessions || [] });
       dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
     } catch (err) {
       console.error("Failed to fetch sessions:", err.message);
       dispatch({ type: "SET_SESSIONS", payload: [] });
-      dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
+      if (!err.response && (err.message.includes("Network Error") || err.message.includes("ECONNREFUSED") || err.code === "ERR_NETWORK")) {
+        dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
+      }
     } finally {
       dispatch({ type: "SET_SESSIONS_LOADING", payload: false });
     }
@@ -197,24 +196,32 @@ export function LivyProvider({ children }) {
       fetchSessions();
     } catch (err) {
       dispatch({ type: "SET_ERROR", payload: err.message });
-      dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
+      if (!err.response && (err.message.includes("Network Error") || err.message.includes("ECONNREFUSED") || err.code === "ERR_NETWORK")) {
+        dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
+      }
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
   }, [fetchSessions]);
 
   // Start session
-  const startSession = useCallback(async (name = "") => {
+  const startSession = useCallback(async (name = "", kind = "sql", customConf = null, customJars = null) => {
     dispatch({ type: "SET_LOADING", payload: true });
     dispatch({ type: "SET_ERROR", payload: null });
     try {
-      const session = await livyApi.createSession(state.sessionConf, name, state.sessionJars);
+      const confToUse = customConf !== null ? customConf : state.sessionConf;
+      const jarsToUse = customJars !== null ? customJars : state.sessionJars;
+      const session = await livyApi.createSession(confToUse, name, jarsToUse, kind);
       dispatch({ type: "SET_SESSION", payload: session });
       dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
-      fetchSessions();
+      await fetchSessions();
+      return session;
     } catch (err) {
       dispatch({ type: "SET_ERROR", payload: err.message });
-      dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
+      if (!err.response && (err.message.includes("Network Error") || err.message.includes("ECONNREFUSED") || err.code === "ERR_NETWORK")) {
+        dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
+      }
+      throw err;
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
@@ -270,10 +277,11 @@ export function LivyProvider({ children }) {
     };
   }, [checkServerReachability]);
 
-  // Re-check reachability when active host changes
+  // Re-check reachability and fetch sessions when active host changes
   useEffect(() => {
     checkServerReachability();
-  }, [state.activeHostId, checkServerReachability]);
+    fetchSessions();
+  }, [state.activeHostId, checkServerReachability, fetchSessions]);
 
   // Auto-refresh session state on mount if sessionId exists
   useEffect(() => {

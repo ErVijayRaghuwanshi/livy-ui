@@ -11,24 +11,68 @@ export async function listSessions() {
   return data;
 }
 
-export async function createSession(conf = {}, name = "", jars = []) {
+export async function createSession(conf = {}, name = "", jars = [], kind = "sql") {
   const client = getClient();
-  const body = { kind: SESSION_KIND };
-  if (name.trim()) {
-    body.name = name.trim();
+  const body = { kind: kind || SESSION_KIND || "sql" };
+  if (name && String(name).trim()) {
+    body.name = String(name).trim();
   }
-  const cleanConf = Object.fromEntries(
-    Object.entries(conf).filter(([k, v]) => k.trim() && v.trim())
-  );
+  const cleanConf = {};
+  if (conf && typeof conf === "object") {
+    for (const [k, v] of Object.entries(conf)) {
+      const trimmedK = String(k).trim();
+      const trimmedV = v !== undefined && v !== null ? String(v).trim() : "";
+      if (trimmedK && trimmedV) {
+        cleanConf[trimmedK] = trimmedV;
+      }
+    }
+  }
   if (Object.keys(cleanConf).length > 0) {
     body.conf = cleanConf;
   }
-  const cleanJars = jars.filter((jar) => jar.trim());
+  const cleanJars = Array.isArray(jars)
+    ? jars.map((jar) => String(jar).trim()).filter(Boolean)
+    : [];
   if (cleanJars.length > 0) {
     body.jars = cleanJars;
   }
-  const { data } = await client.post("/sessions", body);
-  return data;
+
+  try {
+    const { data } = await client.post("/sessions", body);
+    return data;
+  } catch (err) {
+    // If Spark Connect / livy-next rejected a static config that cannot be modified after cluster startup,
+    // automatically strip static configs and retry once.
+    if (
+      body.conf &&
+      (err.message.includes("CANNOT_MODIFY_CONFIG") ||
+       err.message.includes("CANNOT_MODIFY_STATIC_CONFIG"))
+    ) {
+      console.warn("Retrying session creation without static Spark configs:", err.message);
+      const staticKeys = [
+        "spark.executor.memory",
+        "spark.driver.memory",
+        "spark.executor.cores",
+        "spark.dynamicAllocation.enabled",
+        "spark.sql.warehouse.dir",
+      ];
+      const dynamicConf = {};
+      for (const [k, v] of Object.entries(body.conf)) {
+        if (!staticKeys.includes(k) && !err.message.includes(`"${k}"`)) {
+          dynamicConf[k] = v;
+        }
+      }
+      const retryBody = { ...body };
+      if (Object.keys(dynamicConf).length > 0) {
+        retryBody.conf = dynamicConf;
+      } else {
+        delete retryBody.conf;
+      }
+      const { data } = await client.post("/sessions", retryBody);
+      return data;
+    }
+    throw err;
+  }
 }
 
 export async function getSession(sessionId) {

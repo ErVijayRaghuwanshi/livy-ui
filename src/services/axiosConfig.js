@@ -25,11 +25,16 @@ export function createLivyClient() {
     (response) => response,
     (error) => {
       const message =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
         error.response?.data?.msg ||
         error.response?.statusText ||
         error.message ||
         "Unknown error";
-      return Promise.reject(new Error(message));
+      const err = new Error(message);
+      err.response = error.response;
+      err.status = error.response?.status;
+      return Promise.reject(err);
     }
   );
 
