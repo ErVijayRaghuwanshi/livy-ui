@@ -1570,7 +1570,7 @@ export default function SettingsView({
             <Editor
               height="100%"
               language="json"
-              theme="vs-dark"
+              theme="vscode-dark-custom"
               value={jsonText}
               onChange={handleJsonChange}
               options={{

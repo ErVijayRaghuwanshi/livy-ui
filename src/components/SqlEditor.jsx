@@ -21,6 +21,98 @@ import { validateSql } from "../services/sqlValidator";
 // Configure Monaco to use local files instead of CDN
 loader.config({ monaco });
 
+import { language as sqlLanguage } from "monaco-editor/esm/vs/basic-languages/sql/sql.js";
+
+// Extend SQL tokenizer to support Spark SQL backticked identifiers
+if (sqlLanguage && sqlLanguage.tokenizer) {
+  if (!sqlLanguage.tokenizer.quotedIdentifier) {
+    if (Array.isArray(sqlLanguage.tokenizer.complexIdentifiers)) {
+      sqlLanguage.tokenizer.complexIdentifiers.unshift([
+        /`/,
+        { token: "identifier.quote", next: "@quotedIdentifier" }
+      ]);
+    }
+    sqlLanguage.tokenizer.quotedIdentifier = [
+      [/[^`]+/, "identifier.quote"],
+      [/``/, "identifier.quote"],
+      [/`/, { token: "identifier.quote", next: "@pop" }]
+    ];
+  }
+}
+
+export const VSCODE_DARK_CUSTOM = "vscode-dark-custom";
+
+monaco.editor.defineTheme(VSCODE_DARK_CUSTOM, {
+  base: "vs-dark",
+  inherit: true,
+  rules: [
+    // SQL Keywords (SELECT, FROM, WHERE, AND, AS, JOIN, ON, IS, NOT, NULL, IN, WITH, DATE, etc.) -> Coral Red / Salmon
+    { token: "keyword", foreground: "ff7b72", fontStyle: "normal" },
+    { token: "keyword.sql", foreground: "ff7b72", fontStyle: "normal" },
+    { token: "operator", foreground: "ff7b72" },
+    { token: "operator.sql", foreground: "ff7b72" },
+
+    // Builtin functions (concat, date, sum, count, etc.) -> Warm Golden Yellow
+    { token: "predefined", foreground: "dcdcaa" },
+    { token: "predefined.sql", foreground: "dcdcaa" },
+
+    // Strings ('98', '2026-01-01', 'RULE') -> Light Ice Blue
+    { token: "string", foreground: "a5d6ff" },
+    { token: "string.sql", foreground: "a5d6ff" },
+    { token: "string.quote", foreground: "a5d6ff" },
+
+    // Numbers (98, 99, 7) -> Sky Blue
+    { token: "number", foreground: "79c0ff" },
+    { token: "number.sql", foreground: "79c0ff" },
+
+    // Identifiers / Columns / Field references (MOBILENUMBER, VPN_TOR, etc.) -> Sky Blue
+    { token: "identifier", foreground: "79c0ff" },
+    { token: "identifier.sql", foreground: "79c0ff" },
+
+    // Backticked complex identifiers (`hdfs://...`) -> Light Ice Blue
+    { token: "identifier.quote", foreground: "a5d6ff" },
+
+    // Comments -> Muted Gray
+    { token: "comment", foreground: "8b949e", fontStyle: "italic" },
+    { token: "comment.sql", foreground: "8b949e", fontStyle: "italic" },
+
+    // Delimiters (brackets, commas, semicolons, dots) -> Light Gray
+    { token: "delimiter", foreground: "bcbebf" },
+    { token: "delimiter.sql", foreground: "bcbebf" },
+    { token: "delimiter.parenthesis", foreground: "bcbebf" },
+    { token: "delimiter.parenthesis.sql", foreground: "bcbebf" },
+  ],
+  colors: {
+    "editor.background": "#121314",
+    "editor.foreground": "#bcbebf",
+    "editorCursor.foreground": "#ffffff",
+    "editorLineNumber.foreground": "#707070",
+    "editorLineNumber.activeForeground": "#ffffff",
+    "editor.lineHighlightBackground": "#191a1b80",
+    "editor.lineHighlightBorder": "#28292a",
+    "editor.selectionBackground": "#264f7880",
+    "editor.inactiveSelectionBackground": "#3a3d4140",
+    "editor.selectionHighlightBackground": "#add6ff1a",
+    "editorGutter.background": "#121314",
+    "minimap.background": "#121314",
+    "minimapSlider.background": "#ffffff10",
+    "minimapSlider.hoverBackground": "#ffffff1a",
+    "minimapSlider.activeBackground": "#ffffff25",
+    "editorWidget.background": "#18191a",
+    "editorWidget.border": "#2c2d2e",
+    "editorSuggestWidget.background": "#18191a",
+    "editorSuggestWidget.border": "#2c2d2e",
+    "editorSuggestWidget.foreground": "#bcbebf",
+    "editorSuggestWidget.selectedBackground": "#2c2d2e",
+    "editorSuggestWidget.highlightForeground": "#79c0ff",
+    "editorHoverWidget.background": "#18191a",
+    "editorHoverWidget.border": "#2c2d2e",
+    "scrollbarSlider.background": "#42424240",
+    "scrollbarSlider.hoverBackground": "#4f4f4f70",
+    "scrollbarSlider.activeBackground": "#6e6e6e80",
+  },
+});
+
 // Helper to detect DDL operations that should trigger schema refresh
 function isDDLOperation(sql) {
   const ddlKeywords = /\b(CREATE\s+(TABLE|VIEW|DATABASE|SCHEMA|INDEX|FUNCTION)|DROP\s+(TABLE|VIEW|DATABASE|SCHEMA|INDEX|FUNCTION)|ALTER\s+TABLE|TRUNCATE\s+TABLE)\b/i;
@@ -608,6 +700,16 @@ const SqlEditor = forwardRef(function SqlEditor({
       decorationsRef.current,
       newDecorations
     );
+  }, []);
+
+  const handleBeforeMount = useCallback((monacoInstance) => {
+    if (sqlLanguage) {
+      try {
+        monacoInstance.languages.setMonarchTokensProvider("sql", sqlLanguage);
+      } catch (err) {
+        console.warn("[SqlEditor] Failed to set monarch tokens provider:", err);
+      }
+    }
   }, []);
 
   const handleEditorMount = (editor, monaco) => {
@@ -1544,7 +1646,8 @@ const SqlEditor = forwardRef(function SqlEditor({
         <Editor
           height="100%"
           defaultLanguage="sql"
-          theme={theme === "light" ? "light" : "vs-dark"}
+          theme={theme === "light" ? "light" : VSCODE_DARK_CUSTOM}
+          beforeMount={handleBeforeMount}
           onMount={handleEditorMount}
           options={{
             fontSize: settings["editor.fontSize"] || 14,
