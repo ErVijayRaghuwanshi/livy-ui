@@ -71,7 +71,6 @@ export default function SettingsView({
   const [mode, setMode] = useState("ui"); // 'ui' | 'json'
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("commonlyUsed");
-  const [activeScope, setActiveScope] = useState("user"); // 'user' | 'workspace'
   const [jsonText, setJsonText] = useState(() => JSON.stringify(settings, null, 2));
   const [jsonError, setJsonError] = useState(null);
   const [isResetSuccess, setIsResetSuccess] = useState(false);
@@ -578,11 +577,11 @@ export default function SettingsView({
         </div>
       </div>
 
-      {/* 2. Search & Scope Subheader */}
+      {/* 2. Search Subheader */}
       {mode === "ui" && (
-        <div className="px-6 pt-3 pb-3 border-b border-[#2b2b2b] bg-[#181818] flex flex-col gap-2.5 shrink-0">
+        <div className="px-6 py-2.5 border-b border-[#2b2b2b] bg-[#181818] flex items-center justify-between gap-4 shrink-0">
           {/* Search Box with VS Code placeholder and icons */}
-          <div className="relative w-full">
+          <div className="relative flex-1 max-w-xl">
             <Search
               size={14}
               className="absolute left-3 top-1/2 -translate-y-1/2 text-[#858585] pointer-events-none"
@@ -610,34 +609,15 @@ export default function SettingsView({
             </div>
           </div>
 
-          {/* Scope Switcher: User / Workspace Pills + Reset Action */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => setActiveScope("user")}
-                className={`px-3 py-0.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-                  activeScope === "user"
-                    ? "bg-[#0078d4] text-white"
-                    : "bg-[#252526] text-[#9d9d9d] hover:text-white"
-                }`}
-              >
-                User
-              </button>
-              <button
-                onClick={() => setActiveScope("workspace")}
-                className={`px-3 py-0.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-                  activeScope === "workspace"
-                    ? "bg-[#0078d4] text-white"
-                    : "bg-[#252526] text-[#9d9d9d] hover:text-white"
-                }`}
-              >
-                Workspace
-              </button>
-            </div>
-
+          <div className="flex items-center gap-3 shrink-0">
+            {searchQuery && (
+              <span className="text-xs text-[#858585]">
+                {filteredDefinitions.length} {filteredDefinitions.length === 1 ? "setting" : "settings"} found
+              </span>
+            )}
             <button
               onClick={handleReset}
-              className="flex items-center gap-1 px-2 py-0.5 text-xs text-[#858585] hover:text-white hover:bg-[#2b2b2b] rounded transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-[#858585] hover:text-white hover:bg-[#2b2b2b] border border-[#333] hover:border-[#444] rounded transition-colors cursor-pointer"
               title="Reset all settings to default values"
             >
               <RotateCcw size={12} />
