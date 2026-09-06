@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, X, FileCode, Play, Loader2, Settings, MoreHorizontal } from "lucide-react";
+import { Plus, X, FileCode, Play, Loader2, Settings } from "lucide-react";
 import { useSqlFiles, SETTINGS_FILE } from "../context/SqlFilesContext";
 
 function stripExtension(name) {
@@ -14,23 +14,9 @@ function ensureExtension(name) {
 const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 
 export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRef }) {
-  const { files, openFiles, activeTabId, setActiveTab, addFile, closeFile, renameFile, reorderFiles, dirtyFiles, promptCloseFileId, setPromptCloseFileId, requestCloseFile, previewTabId, promotePreviewTab, closeAllFiles, restoreLastClosedTab } = useSqlFiles();
+  const { files, openFiles, activeTabId, setActiveTab, addFile, closeFile, renameFile, reorderFiles, dirtyFiles, promptCloseFileId, setPromptCloseFileId, requestCloseFile, previewTabId, promotePreviewTab } = useSqlFiles();
   const [running, setRunning] = useState(false);
   const [canRun, setCanRun] = useState(false);
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const moreMenuRef = useRef(null);
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target)) {
-        setShowMoreMenu(false);
-      }
-    }
-    if (showMoreMenu) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [showMoreMenu]);
   
   useEffect(() => {
     const interval = setInterval(() => {
@@ -225,66 +211,6 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
         <Plus size={13} />
       </button>
 
-      {/* Right Actions: More Actions (...) Ellipsis similar to VS Code */}
-      <div className="flex items-center ml-auto pl-2 pr-1 gap-1 relative shrink-0">
-        <button
-          onClick={() => setShowMoreMenu((prev) => !prev)}
-          className={`flex items-center justify-center w-6 h-6 rounded-md text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary)/60 transition-colors cursor-pointer ${
-            showMoreMenu ? "bg-(--color-bg-tertiary) text-(--color-text-primary)" : ""
-          }`}
-          title="More Actions..."
-        >
-          <MoreHorizontal size={14} />
-        </button>
-
-        {showMoreMenu && (
-          <div
-            ref={moreMenuRef}
-            className="absolute right-1 top-8 z-50 bg-(--color-bg-secondary) border border-(--color-border) rounded-lg shadow-2xl py-1 min-w-44 animate-in fade-in zoom-in-95 duration-100 select-none text-xs"
-          >
-            <button
-              onClick={() => {
-                setShowMoreMenu(false);
-                restoreLastClosedTab();
-              }}
-              className="flex items-center justify-between w-full px-3 py-1.5 text-left text-(--color-text-secondary) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer"
-            >
-              <span>Reopen Closed Tab</span>
-              <span className="text-[10px] text-(--color-text-muted) font-mono">{isMac ? "⌘⇧T" : "Ctrl+Shift+T"}</span>
-            </button>
-            <button
-              onClick={() => {
-                setShowMoreMenu(false);
-                closeAllFiles();
-              }}
-              className="flex items-center justify-between w-full px-3 py-1.5 text-left text-(--color-text-secondary) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer"
-            >
-              <span>Close All Tabs</span>
-            </button>
-            <div className="my-1 border-t border-(--color-border)" />
-            <button
-              onClick={() => {
-                setShowMoreMenu(false);
-                editorRef?.current?.format();
-              }}
-              className="flex items-center justify-between w-full px-3 py-1.5 text-left text-(--color-text-secondary) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer"
-            >
-              <span>Format Document</span>
-              <span className="text-[10px] text-(--color-text-muted) font-mono">{isMac ? "⌘⇧F" : "Ctrl+Shift+F"}</span>
-            </button>
-            <button
-              onClick={() => {
-                setShowMoreMenu(false);
-                editorRef?.current?.minify();
-              }}
-              className="flex items-center justify-between w-full px-3 py-1.5 text-left text-(--color-text-secondary) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer"
-            >
-              <span>Minify SQL</span>
-              <span className="text-[10px] text-(--color-text-muted) font-mono">{isMac ? "⌘⇧M" : "Ctrl+Shift+M"}</span>
-            </button>
-          </div>
-        )}
-      </div>
 
       {/* Unsaved Changes Tab Close Warning Dialog */}
       {promptCloseFileId && (() => {
