@@ -266,7 +266,7 @@ livy-ui/
 ├── vite.config.js              # Vite config + PWA options
 ├── CHANGELOG.md                 # Version changelog history
 ├── PRIVACY.md                   # Privacy policy & data handling documentation
-├── release-notes/               # Version release notes (v1.1.1 through v1.4.7)
+├── release-notes/               # Version release notes (v1.1.1 through v2.0.0)
 ├── src/                        # React 19 + Vite 7 Frontend application code
 └── spark/                      # Backend sidecar directory (Spark + livy-next)
     ├── Dockerfile.spark        # Unified Spark + livy-next Dockerfile

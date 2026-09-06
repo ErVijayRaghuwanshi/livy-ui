@@ -10,6 +10,32 @@ All notable changes to the Livy SQL Editor project will be documented in this fi
 * Installed PySpark Data Science libraries (`pandas`, `pyarrow`, `grpcio`, `protobuf`, `redis`, `neo4j`) inside the Spark container.
 * Streamlined 2-service Docker Compose orchestration (`spark` and `livy-ui`).
 
+## [v2.0.0] - 2026-09-06
+### Added
+* **VS Code Settings Overlay**: Centered floating settings overlay (`⌘,` / `Ctrl+,`) with unboxed configuration rows, category sidebar navigation, modified indicators, and reset confirmation dialog.
+* **Dual Settings Mode**: Live two-way synchronized graphical UI and Monaco JSON editor (`settings.json`).
+* **Spark Conf Manager**: Visual key-value property editor with autocomplete datalist (`spark.sql.shuffle.partitions`, etc.) and 4 one-click presets (*Standard Local*, *Medium Performance*, *Delta Lake*, *Hive Warehouse*).
+* **Session Lifecycle Manager**: Create compute sessions with custom memory/cores/JARs, attach/switch sessions, refresh state, and terminate sessions from the Settings UI.
+* **Static Config Resilience**: Multi-pass configuration stripping for static Spark configs rejected by Livy with "Retry without custom configs" fallback.
+* **Livy Host Manager**: Add, edit, test reachability (ping), and switch Livy servers with click-to-select host cards.
+* **Authentic VS Code Dark Theme**: Color-matched editor palette (`#121314`), elevated active tab (`#2c2d2e`), and pink cylinder `Database` icon (`#ff7b72`).
+* **Custom Monaco SQL Theme (`vscode-dark-custom`)**: Red-coral keywords (`#ff7b72`), golden yellow functions (`#dcdcaa`), ice-blue strings and backticks (`#a5d6ff`), and sky-blue identifiers/numbers (`#79c0ff`).
+* **Spark SQL Backtick Support**: Extended Monaco SQL tokenizer to natively recognize backticked table and path identifiers.
+* **Real-Time Static SQL Validation**: Instant SQL syntax parsing and inline error squigglies powered by `dt-sql-parser`.
+* **Editor Minimap Preview**: Restored file preview minimap on the right margin with settings toggle.
+* **Persistent 3-Dot Sash Grip**: Interactive vertical 3-dot sash resize handle between sidebar and editor that remains active even when the sidebar is collapsed.
+* **Raw Livy Result Values & Inferred Types**: Preserved unformatted cell values from Spark Livy and integrated native Spark schema types into column headers and tooltips.
+* **Eliminated Schema Explorer Storm**: Converted background pre-loader loops into strict on-demand loading with in-flight deduplication guards and query timeouts.
+* **Decoupled Backend Architecture**: Decoupled Spark 4.1.2 sidecar with built-in `livy-next` native CORS and ultra-lightweight Caddy production web server.
+
+### Fixed
+* TitleBar Command Center pill centering to prevent horizontal shift on host switch.
+* Removed legacy `(...)` menu button from the editor tab bar.
+* Swallowed autocomplete popups occurring immediately after commas, spaces, and open parentheses.
+* Infinite re-render loop between `LivyContext` host updates and `SettingsContext`.
+
+[Details in Release Notes](release-notes/v2.0.0.md)
+
 ---
 
 ## [v1.4.7] - 2026-07-30
