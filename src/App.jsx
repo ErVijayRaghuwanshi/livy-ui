@@ -369,13 +369,20 @@ export default function App() {
     e.preventDefault();
     setIsSidebarDragging(true);
     const startX = e.clientX;
-    const startWidth = sidebarWidth;
+    const wasCollapsed = sidebarCollapsed;
+    const startWidth = wasCollapsed ? 0 : sidebarWidth;
+    let dragged = false;
 
     const onMouseMove = (moveEvent) => {
       const deltaX = moveEvent.clientX - startX;
-      const targetWidth = startWidth + deltaX;
-      if (targetWidth < 80) {
-        setSidebarCollapsed(true);
+      if (Math.abs(deltaX) > 3) {
+        dragged = true;
+      }
+      const targetWidth = wasCollapsed ? deltaX : startWidth + deltaX;
+      if (targetWidth < 60) {
+        if (!wasCollapsed) {
+          setSidebarCollapsed(true);
+        }
       } else {
         setSidebarCollapsed(false);
         const newWidth = Math.min(Math.max(targetWidth, 180), 600);
@@ -386,6 +393,9 @@ export default function App() {
 
     const onMouseUp = () => {
       setIsSidebarDragging(false);
+      if (!dragged && wasCollapsed) {
+        setSidebarCollapsed(false);
+      }
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
     };
@@ -433,8 +443,12 @@ export default function App() {
   };
 
   const handleSidebarDoubleClick = () => {
-    setSidebarWidth(240);
-    localStorage.setItem("livy-sidebar-width", "240");
+    if (sidebarCollapsed) {
+      setSidebarCollapsed(false);
+    } else {
+      setSidebarWidth(240);
+      localStorage.setItem("livy-sidebar-width", "240");
+    }
   };
 
   const handleCloseResultPanel = useCallback(() => {
@@ -532,45 +546,43 @@ export default function App() {
             setShowConnectionModal={setShowConnectionModal}
           />
 
-          {!sidebarCollapsed && (
-            <div
-              onMouseDown={handleSidebarMouseDown}
-              onDoubleClick={handleSidebarDoubleClick}
-              className={`dg-sidebar-resize-handle group ${isSidebarDragging || isCornerHovered ? "is-dragging" : ""}`}
-              title="Drag to resize sidebar width, double-click to reset"
-            >
-              {/* Hit area */}
-              <div className="absolute -inset-x-2 inset-y-0 z-10" />
+          <div
+            onMouseDown={handleSidebarMouseDown}
+            onDoubleClick={handleSidebarDoubleClick}
+            className={`dg-sidebar-resize-handle group ${isSidebarDragging || isCornerHovered ? "is-dragging" : ""}`}
+            title={sidebarCollapsed ? "Click or drag to expand sidebar" : "Drag to resize sidebar width, double-click to reset"}
+          >
+            {/* Hit area */}
+            <div className="absolute -inset-x-2 inset-y-0 z-10" />
 
-              {/* Thin blue line - visible only on hover or dragging */}
+            {/* Thin blue line - visible only on hover or dragging */}
+            <div
+              className={`h-full w-[2px] rounded-full transition-opacity duration-150 ${
+                isSidebarDragging || isCornerHovered
+                  ? "bg-(--color-accent) opacity-100"
+                  : "bg-(--color-accent) opacity-0 group-hover:opacity-100"
+              }`}
+            />
+
+            {/* VS Code authentic 3-dot sash hint (vertical grip between sidebar and editor) */}
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-[3px] pointer-events-none">
               <div
-                className={`h-full w-[2px] rounded-full transition-opacity duration-150 ${
-                  isSidebarDragging || isCornerHovered
-                    ? "bg-(--color-accent) opacity-100"
-                    : "bg-(--color-accent) opacity-0 group-hover:opacity-100"
+                className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
+                  isSidebarDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
                 }`}
               />
-
-              {/* VS Code authentic 3-dot sash hint (vertical grip between sidebar and editor) */}
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-[3px] pointer-events-none">
-                <div
-                  className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
-                    isSidebarDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
-                  }`}
-                />
-                <div
-                  className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
-                    isSidebarDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
-                  }`}
-                />
-                <div
-                  className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
-                    isSidebarDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
-                  }`}
-                />
-              </div>
+              <div
+                className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
+                  isSidebarDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
+                }`}
+              />
+              <div
+                className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
+                  isSidebarDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
+                }`}
+              />
             </div>
-          )}
+          </div>
 
           {/* Main Workspace Column (Editor Island + Terminal Island) */}
           <div className="flex flex-col flex-1 min-h-0 min-w-0 gap-0 overflow-hidden">
