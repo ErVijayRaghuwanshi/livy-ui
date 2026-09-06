@@ -13,10 +13,11 @@ export async function listSessions() {
 
 export async function createSession(conf = {}, name = "", jars = [], kind = "sql") {
   const client = getClient();
-  const body = { kind: kind || SESSION_KIND || "sql" };
-  if (name && String(name).trim()) {
-    body.name = String(name).trim();
-  }
+  const baseKind = kind || SESSION_KIND || "sql";
+  const cleanJars = Array.isArray(jars)
+    ? jars.map((jar) => String(jar).trim()).filter(Boolean)
+    : [];
+
   const cleanConf = {};
   if (conf && typeof conf === "object") {
     for (const [k, v] of Object.entries(conf)) {
@@ -27,51 +28,76 @@ export async function createSession(conf = {}, name = "", jars = [], kind = "sql
       }
     }
   }
-  if (Object.keys(cleanConf).length > 0) {
-    body.conf = cleanConf;
-  }
-  const cleanJars = Array.isArray(jars)
-    ? jars.map((jar) => String(jar).trim()).filter(Boolean)
-    : [];
-  if (cleanJars.length > 0) {
-    body.jars = cleanJars;
-  }
 
-  try {
-    const { data } = await client.post("/sessions", body);
-    return data;
-  } catch (err) {
-    // If Spark Connect / livy-next rejected a static config that cannot be modified after cluster startup,
-    // automatically strip static configs and retry once.
-    if (
-      body.conf &&
-      (err.message.includes("CANNOT_MODIFY_CONFIG") ||
-       err.message.includes("CANNOT_MODIFY_STATIC_CONFIG"))
-    ) {
-      console.warn("Retrying session creation without static Spark configs:", err.message);
-      const staticKeys = [
-        "spark.executor.memory",
-        "spark.driver.memory",
-        "spark.executor.cores",
-        "spark.dynamicAllocation.enabled",
-        "spark.sql.warehouse.dir",
-      ];
-      const dynamicConf = {};
-      for (const [k, v] of Object.entries(body.conf)) {
-        if (!staticKeys.includes(k) && !err.message.includes(`"${k}"`)) {
-          dynamicConf[k] = v;
-        }
-      }
-      const retryBody = { ...body };
-      if (Object.keys(dynamicConf).length > 0) {
-        retryBody.conf = dynamicConf;
-      } else {
-        delete retryBody.conf;
-      }
-      const { data } = await client.post("/sessions", retryBody);
-      return data;
+  // Known static or driver-level configs that cannot be set dynamically on a running Spark Connect cluster
+  const knownStaticPrefixesOrKeys = [
+    "spark.executor.",
+    "spark.driver.",
+    "spark.master",
+    "spark.dynamicAllocation.",
+    "spark.sql.warehouse.dir",
+    "spark.sql.extensions",
+    "spark.sql.catalogImplementation",
+    "spark.eventLog.",
+  ];
+
+  let currentConf = Object.keys(cleanConf).length > 0 ? { ...cleanConf } : undefined;
+  let attempts = 0;
+  const maxAttempts = 6;
+
+  while (attempts < maxAttempts) {
+    attempts++;
+    const body = { kind: baseKind };
+    if (name && String(name).trim()) {
+      body.name = String(name).trim();
     }
-    throw err;
+    if (currentConf && Object.keys(currentConf).length > 0) {
+      body.conf = currentConf;
+    }
+    if (cleanJars.length > 0) {
+      body.jars = cleanJars;
+    }
+
+    try {
+      const { data } = await client.post("/sessions", body);
+      return data;
+    } catch (err) {
+      const isConfigError =
+        currentConf &&
+        (err.message.includes("CANNOT_MODIFY_CONFIG") ||
+         err.message.includes("CANNOT_MODIFY_STATIC_CONFIG") ||
+         err.message.includes("failed to set config"));
+
+      if (isConfigError && attempts < maxAttempts) {
+        // 1. Try to extract the specific key from the error message
+        const match =
+          err.message.match(/failed to set config\s+([a-zA-Z0-9_.-]+)/i) ||
+          err.message.match(/["'`](spark\.[^"'`]+)["'`]/i);
+        const offendingKey = match ? match[1] : null;
+
+        console.warn(`[Livy createSession] Config rejected by server: ${offendingKey || err.message}`);
+
+        if (offendingKey && currentConf[offendingKey]) {
+          delete currentConf[offendingKey];
+        }
+
+        // Also proactively strip all known static configs to minimize failed round-trips
+        for (const k of Object.keys(currentConf)) {
+          if (knownStaticPrefixesOrKeys.some((prefix) => k.startsWith(prefix) || k === prefix)) {
+            delete currentConf[k];
+          }
+        }
+
+        if (Object.keys(currentConf).length === 0) {
+          currentConf = undefined;
+        }
+
+        continue;
+      }
+
+      // If not a config modification error or attempts exhausted, rethrow
+      throw err;
+    }
   }
 }
 

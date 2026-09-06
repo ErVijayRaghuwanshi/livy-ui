@@ -481,6 +481,18 @@ export default function SettingsView({
     }
   };
 
+  const handleRetryCleanSession = async () => {
+    setSessionCreateError(null);
+    try {
+      await startSession(newSessionName.trim() || "Spark Session", newSessionKind, {});
+      setShowCreateSessionForm(false);
+      setNewSessionName("Default SQL Session");
+      setNewSessionKind("sql");
+    } catch (err) {
+      setSessionCreateError(err.message || "Failed to create compute session");
+    }
+  };
+
   // Filter settings by search query and selected category
   const filteredDefinitions = useMemo(() => {
     return settingDefinitions.filter((def) => {
@@ -880,9 +892,21 @@ export default function SettingsView({
                               </h4>
 
                               {sessionCreateError && (
-                                <div className="flex items-start gap-2 p-2.5 rounded bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-mono animate-in fade-in">
-                                  <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                                  <span className="break-all">{sessionCreateError}</span>
+                                <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono space-y-2 animate-in fade-in">
+                                  <div className="flex items-start gap-2">
+                                    <AlertCircle size={15} className="text-rose-400 shrink-0 mt-0.5" />
+                                    <span className="break-all">{sessionCreateError}</span>
+                                  </div>
+                                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-rose-500/20">
+                                    <button
+                                      type="button"
+                                      disabled={livyLoading}
+                                      onClick={handleRetryCleanSession}
+                                      className="px-2.5 py-1 text-xs font-semibold rounded bg-rose-500/20 hover:bg-rose-500/30 text-white border border-rose-500/40 transition-colors cursor-pointer disabled:opacity-50"
+                                    >
+                                      Retry Without Custom Configs
+                                    </button>
+                                  </div>
                                 </div>
                               )}
 
