@@ -1,6 +1,157 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AlertCircle, Loader2, Table, CheckCircle2, Ban, Clock, FileText, Copy, Check, Download, Search, X, FilterX, Hash, Type, Calendar, ToggleLeft, Binary, List, Braces, ChevronDown, Trash2, Plus, History } from "lucide-react";
 import { useSqlFiles } from "../context/SqlFilesContext";
+import { useSchema } from "../context/SchemaContext";
+
+export function inferColumnType(field, sampleRows = [], colIndex = 0, schemaColumns = {}) {
+  const rawType = field?.type
+    ? typeof field.type === "string"
+      ? field.type
+      : field.type.type || JSON.stringify(field.type)
+    : "";
+  const name = String(field?.name || field || "").trim();
+
+  // 1. Check if column exists in SchemaContext catalog columns (exact or case-insensitive match)
+  if (schemaColumns && typeof schemaColumns === "object") {
+    for (const cols of Object.values(schemaColumns)) {
+      if (Array.isArray(cols)) {
+        const match = cols.find((c) => c.name && c.name.toLowerCase() === name.toLowerCase());
+        if (match && match.type) {
+          return match.type.toLowerCase();
+        }
+      }
+    }
+  }
+
+  // 2. Extract non-null sample values for this column
+  const values = sampleRows
+    .slice(0, 30)
+    .map((row) => {
+      if (!row) return undefined;
+      return row[name] !== undefined ? row[name] : Array.isArray(row) ? row[colIndex] : undefined;
+    })
+    .filter((v) => v !== null && v !== undefined && v !== "");
+
+  if (values.length === 0) {
+    return rawType || "string";
+  }
+
+  // 3. Inspect values for timestamps (15-16 digit microsecond numbers, 13-digit millisecond numbers, ISO timestamp strings)
+  const isMicrosecondTimestamp = values.every((v) => {
+    const num = Number(v);
+    return !isNaN(num) && num > 1e14 && num < 2e15; // e.g. 1742710461000000
+  });
+  const isMillisecondTimestamp = values.every((v) => {
+    const num = Number(v);
+    return !isNaN(num) && num > 1e11 && num < 2e12; // e.g. 1742710461000
+  });
+  const isIsoTimestamp = values.every((v) => {
+    return typeof v === "string" && /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}/.test(v);
+  });
+  const nameLooksLikeTimestamp = /timestamp|time|_at$|ts$|created_at|updated_at|date_time/i.test(name);
+  const nameLooksLikeDate = /date$|_date$|^date/i.test(name);
+
+  if (
+    isMicrosecondTimestamp ||
+    isMillisecondTimestamp ||
+    isIsoTimestamp ||
+    (nameLooksLikeTimestamp && values.every((v) => !isNaN(Number(v)) || !isNaN(Date.parse(v))))
+  ) {
+    return "timestamp";
+  }
+
+  // 4. Inspect values for date (YYYY-MM-DD or days since epoch e.g. 15000-35000 with date name)
+  const isIsoDate = values.every((v) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v));
+  const isEpochDayNumber =
+    (nameLooksLikeDate || rawType === "date") &&
+    values.every((v) => {
+      const num = Number(v);
+      return Number.isInteger(num) && num > 10000 && num < 50000;
+    });
+  if (isIsoDate || isEpochDayNumber) {
+    return "date";
+  }
+
+  // 5. Inspect numeric types (Integer vs BigInt vs Double/Decimal)
+  const allNumeric = values.every(
+    (v) => typeof v === "number" || (!isNaN(Number(v)) && typeof v === "string" && v.trim() !== "")
+  );
+  if (allNumeric) {
+    const hasDecimals = values.some((v) => {
+      const num = Number(v);
+      return !Number.isInteger(num) || String(v).includes(".");
+    });
+    if (hasDecimals) {
+      return "double";
+    }
+    const hasBigInt = values.some((v) => {
+      const num = Number(v);
+      return num > 2147483647 || num < -2147483648;
+    });
+    if (hasBigInt) {
+      return "bigint";
+    }
+    return rawType.includes("int") || rawType === "integer" ? rawType : "integer";
+  }
+
+  // 6. Boolean
+  const allBoolean = values.every((v) => typeof v === "boolean" || v === "true" || v === "false");
+  if (allBoolean) {
+    return "boolean";
+  }
+
+  // 7. Arrays and Structs
+  if (values.some((v) => Array.isArray(v))) {
+    return "array";
+  }
+  if (values.some((v) => typeof v === "object" && v !== null)) {
+    return "struct";
+  }
+
+  return rawType || "string";
+}
+
+export function formatCellValue(value, inferredType) {
+  if (value === null || value === undefined) {
+    return { text: "NULL", isNull: true };
+  }
+
+  if (typeof value === "object") {
+    return { text: JSON.stringify(value), isNull: false };
+  }
+
+  const strVal = String(value);
+
+  if (inferredType === "timestamp") {
+    const num = Number(value);
+    if (!isNaN(num) && num > 1e14 && num < 2e15) {
+      // Microseconds epoch -> ms
+      const d = new Date(Math.floor(num / 1000));
+      if (!isNaN(d.getTime())) {
+        return { text: d.toISOString().replace("T", " ").replace(/\.\d+Z$/, ""), isNull: false };
+      }
+    } else if (!isNaN(num) && num > 1e11 && num < 2e12) {
+      // Milliseconds epoch
+      const d = new Date(num);
+      if (!isNaN(d.getTime())) {
+        return { text: d.toISOString().replace("T", " ").replace(/\.\d+Z$/, ""), isNull: false };
+      }
+    }
+  }
+
+  if (inferredType === "date") {
+    const num = Number(value);
+    if (Number.isInteger(num) && num > 10000 && num < 50000) {
+      // Days since epoch
+      const d = new Date(num * 86400000);
+      if (!isNaN(d.getTime())) {
+        return { text: d.toISOString().slice(0, 10), isNull: false };
+      }
+    }
+  }
+
+  return { text: strVal, isNull: false };
+}
 
 function getDataTypeIcon(type) {
   if (!type) return null;
@@ -966,6 +1117,13 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized, acti
   const fields = data.schema.fields || [];
   const rows = data.data || [];
 
+  const schemaContext = useSchema();
+  const schemaColumns = schemaContext?.columns || {};
+
+  const inferredTypes = useMemo(() => {
+    return fields.map((field, i) => inferColumnType(field, rows, i, schemaColumns));
+  }, [fields, rows, schemaColumns]);
+
   const totalTableWidth = useMemo(() => {
     let sum = 48; // locked index column #
     fields.forEach((_, i) => {
@@ -1209,8 +1367,9 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized, acti
               const header = fields.map((f) => csvEscape(f.name || f)).join(",");
               const body = filteredRows.map((row) =>
                 fields.map((f, ci) => {
-                  const val = row[f.name || f] !== undefined ? row[f.name || f] : Array.isArray(row) ? (row[ci] ?? "") : "";
-                  return csvEscape(val);
+                  const raw = row[f.name || f] !== undefined ? row[f.name || f] : Array.isArray(row) ? (row[ci] ?? "") : "";
+                  const formatted = formatCellValue(raw, inferredTypes[ci]).text;
+                  return csvEscape(formatted);
                 }).join(",")
               ).join("\n");
               return header + "\n" + body;
@@ -1220,7 +1379,8 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized, acti
                 const obj = {};
                 fields.forEach((f, ci) => {
                   const name = f.name || f;
-                  obj[name] = row[name] !== undefined ? row[name] : Array.isArray(row) ? (row[ci] ?? "") : "";
+                  const raw = row[name] !== undefined ? row[name] : Array.isArray(row) ? (row[ci] ?? "") : "";
+                  obj[name] = formatCellValue(raw, inferredTypes[ci]).text;
                 });
                 return obj;
               }), null, 2);
@@ -1282,12 +1442,13 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized, acti
               </th>
               {fields.map((field, i) => {
                 const name = field.name || field;
-                const type = field.type
+                const rawType = field.type
                   ? typeof field.type === "string"
                     ? field.type
                     : field.type.type || JSON.stringify(field.type)
                   : null;
-                const typeIcon = getDataTypeIcon(type);
+                const inferredType = inferredTypes[i] || rawType || "string";
+                const typeIcon = getDataTypeIcon(inferredType);
                 
                 const isSorted = sortColIndex === i;
                 const sortIcon = isSorted ? (
@@ -1315,7 +1476,7 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized, acti
                         {typeIcon && (
                           <span 
                             className="inline-flex items-center justify-center w-4.5 h-4.5 text-[11px] rounded bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-muted) shrink-0 select-none hover:bg-(--color-bg-secondary) hover:text-(--color-text-secondary) transition-colors"
-                            title={type}
+                            title={`${inferredType.toUpperCase()} · ${name}`}
                           >
                             {typeIcon}
                           </span>
@@ -1418,17 +1579,23 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized, acti
                   {startIdx + i + 1}
                 </td>
                 {fields.map((field, ci) => {
-                  const cellValue = row[field.name || field] !== undefined
-                    ? String(row[field.name || field])
+                  const rawVal = row[field.name || field] !== undefined
+                    ? row[field.name || field]
                     : Array.isArray(row)
-                      ? String(row[ci] ?? "")
-                      : "";
+                      ? row[ci]
+                      : null;
                   
+                  const { text: cellValue, isNull } = formatCellValue(rawVal, inferredTypes[ci]);
                   const filterValue = columnFilters[ci];
                   let cellContent = cellValue;
                   
-                  // Highlight matching text if filter is active
-                  if (filterValue && filterValue.trim() !== '') {
+                  if (isNull) {
+                    cellContent = (
+                      <span className="text-(--color-text-muted)/40 italic font-sans text-[11px] select-none">
+                        NULL
+                      </span>
+                    );
+                  } else if (filterValue && filterValue.trim() !== '') {
                     try {
                       const regex = new RegExp(`(${filterValue})`, 'gi');
                       const parts = cellValue.split(regex);
@@ -1461,7 +1628,7 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized, acti
                     <td
                       key={ci}
                       className="px-3 py-1.5 text-(--color-text-primary) truncate font-mono border-r border-(--color-border)/35"
-                      title={cellValue}
+                      title={isNull ? "NULL" : rawVal !== cellValue ? `${cellValue} (raw: ${rawVal})` : cellValue}
                     >
                       {cellContent}
                     </td>

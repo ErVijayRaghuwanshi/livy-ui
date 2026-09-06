@@ -35,6 +35,7 @@ import {
 import { useSettings, DEFAULT_SETTINGS } from "../context/SettingsContext";
 import { useLivy } from "../context/LivyContext";
 import { v4 as uuidv4 } from "uuid";
+import { COMMON_CONF_KEYS, SPARK_PRESETS } from "../utils/constants";
 
 export default function SettingsView({
   theme,
@@ -65,6 +66,8 @@ export default function SettingsView({
     stopSession,
     killSession,
     attachSession,
+    sessionConf,
+    setSessionConf,
     loading: livyLoading,
   } = useLivy();
 
@@ -90,6 +93,12 @@ export default function SettingsView({
   const [newSessionKind, setNewSessionKind] = useState("sql");
   const [sessionCreateError, setSessionCreateError] = useState(null);
 
+  // Spark Conf Manager Form State
+  const [newSparkKey, setNewSparkKey] = useState("");
+  const [newSparkValue, setNewSparkValue] = useState("");
+  const [sparkConfFilter, setSparkConfFilter] = useState("");
+  const [sparkActionMsg, setSparkActionMsg] = useState(null);
+
   // Fetch active sessions when entering compute/connection category
   useEffect(() => {
     if (activeCategory === "compute" || activeCategory === "connection") {
@@ -100,9 +109,10 @@ export default function SettingsView({
   const combinedSettings = useMemo(() => {
     return {
       ...settings,
+      ...(sessionConf || {}),
       "livy.hosts": hosts,
     };
-  }, [settings, hosts]);
+  }, [settings, sessionConf, hosts]);
 
   // Sync jsonText whenever settings change in UI mode
   useEffect(() => {
@@ -121,6 +131,19 @@ export default function SettingsView({
         if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
           const { "livy.hosts": jsonHosts, ...otherSettings } = parsed;
           updateAllSettings(otherSettings);
+
+          // Synchronize any spark.* properties with sessionConf
+          const sparkEntries = {};
+          Object.entries(otherSettings).forEach(([k, v]) => {
+            if (k.startsWith("spark.")) {
+              const confKey = k === "spark.defaultMaster" ? "spark.master" : k;
+              sparkEntries[confKey] = String(v);
+            }
+          });
+          if (Object.keys(sparkEntries).length > 0 && setSessionConf) {
+            setSessionConf((prev) => ({ ...prev, ...sparkEntries }));
+          }
+
           setJsonError(null);
         } else {
           setJsonError("JSON content must be a valid key-value object.");
@@ -129,7 +152,7 @@ export default function SettingsView({
         setJsonError(err.message);
       }
     },
-    [updateAllSettings]
+    [updateAllSettings, setSessionConf]
   );
 
   const categories = [
@@ -318,6 +341,15 @@ export default function SettingsView({
       title: "Spark Session Manager",
       description: "Create, view, attach to, or terminate active Spark / Livy sessions on the connected cluster.",
       type: "sessionManager",
+      commonlyUsed: true,
+    },
+    {
+      key: "spark.configurationProperties",
+      category: "compute",
+      categoryLabel: "Spark Configuration",
+      title: "Spark Configuration Properties",
+      description: "Manage spark.* key-value properties passed to Livy when starting compute sessions. Add custom properties, tweak values inline, or apply recommended presets.",
+      type: "sparkConfManager",
       commonlyUsed: true,
     },
     {
@@ -515,17 +547,55 @@ export default function SettingsView({
 
   const confirmReset = () => {
     resetToDefaults();
+    if (setSessionConf) setSessionConf({});
     setShowResetModal(false);
     setIsResetSuccess(true);
     setTimeout(() => setIsResetSuccess(false), 3000);
   };
 
-  const isSettingModified = (def) => {
-    const current = settings[def.key];
+  const getSettingValue = useCallback((key, type) => {
+    if (key === "spark.defaultMaster") {
+      return sessionConf?.["spark.master"] ?? sessionConf?.["spark.defaultMaster"] ?? settings[key] ?? DEFAULT_SETTINGS[key];
+    }
+    if (key.startsWith("spark.") && sessionConf?.[key] !== undefined) {
+      return type === "number" ? (parseInt(sessionConf[key], 10) || 0) : String(sessionConf[key]);
+    }
+    return settings[key] ?? DEFAULT_SETTINGS[key];
+  }, [settings, sessionConf]);
+
+  const handleSettingChange = useCallback((key, val) => {
+    updateSetting(key, val);
+    if (key.startsWith("spark.") && setSessionConf) {
+      const confKey = key === "spark.defaultMaster" ? "spark.master" : key;
+      setSessionConf((prev) => ({
+        ...prev,
+        [confKey]: String(val),
+      }));
+    }
+  }, [updateSetting, setSessionConf]);
+
+  const handleResetSingleSetting = useCallback((key) => {
+    resetSetting(key);
+    if (key.startsWith("spark.") && setSessionConf) {
+      const confKey = key === "spark.defaultMaster" ? "spark.master" : key;
+      setSessionConf((prev) => {
+        const next = { ...prev };
+        delete next[confKey];
+        delete next[key];
+        return next;
+      });
+    }
+  }, [resetSetting, setSessionConf]);
+
+  const isSettingModified = useCallback((def) => {
+    if (def.type === "sparkConfManager" || def.type === "sessionManager" || def.type === "hostManager") {
+      return false;
+    }
+    const current = getSettingValue(def.key, def.type);
     const defVal = DEFAULT_SETTINGS[def.key];
     if (current === undefined) return false;
-    return current !== defVal;
-  };
+    return String(current) !== String(defVal);
+  }, [getSettingValue]);
 
   return (
     <div className="flex flex-col h-full w-full bg-[#181818] text-[#cccccc] select-none overflow-hidden font-sans">
@@ -711,7 +781,7 @@ export default function SettingsView({
               </div>
             ) : (
               filteredDefinitions.map((def) => {
-                const currentValue = settings[def.key] ?? DEFAULT_SETTINGS[def.key];
+                const currentValue = getSettingValue(def.key, def.type);
                 const modified = isSettingModified(def);
 
                 return (
@@ -737,7 +807,7 @@ export default function SettingsView({
                       <div className="flex items-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
                         {modified && (
                           <button
-                            onClick={() => resetSetting(def.key)}
+                            onClick={() => handleResetSingleSetting(def.key)}
                             className="flex items-center gap-1 text-[11px] text-[#858585] hover:text-[#0078d4] transition-colors cursor-pointer"
                             title="Reset this setting to default value"
                           >
@@ -774,7 +844,7 @@ export default function SettingsView({
                             if (def.onChange) {
                               def.onChange(val);
                             } else {
-                              updateSetting(def.key, val);
+                              handleSettingChange(def.key, val);
                             }
                           }}
                           className="px-3 py-1.5 text-xs rounded bg-[#2b2b2b] border border-[#3c3c3c] text-white focus:outline-none focus:border-[#0078d4] cursor-pointer"
@@ -794,7 +864,7 @@ export default function SettingsView({
                           max={def.max}
                           value={currentValue}
                           onChange={(e) =>
-                            updateSetting(def.key, parseInt(e.target.value, 10) || def.min)
+                            handleSettingChange(def.key, parseInt(e.target.value, 10) || def.min)
                           }
                           className="w-28 px-3 py-1.5 text-xs rounded bg-[#2b2b2b] border border-[#3c3c3c] text-white focus:outline-none focus:border-[#0078d4]"
                         />
@@ -804,7 +874,7 @@ export default function SettingsView({
                         <input
                           type="text"
                           value={currentValue}
-                          onChange={(e) => updateSetting(def.key, e.target.value)}
+                          onChange={(e) => handleSettingChange(def.key, e.target.value)}
                           className="w-full max-w-md px-3 py-1.5 text-xs rounded bg-[#2b2b2b] border border-[#3c3c3c] text-white focus:outline-none focus:border-[#0078d4] font-mono"
                         />
                       )}
@@ -814,7 +884,7 @@ export default function SettingsView({
                           <input
                             type="checkbox"
                             checked={!!currentValue}
-                            onChange={(e) => updateSetting(def.key, e.target.checked)}
+                            onChange={(e) => handleSettingChange(def.key, e.target.checked)}
                             className="w-4 h-4 rounded border-[#3c3c3c] bg-[#2b2b2b] text-[#0078d4] focus:ring-0 cursor-pointer accent-[#0078d4]"
                           />
                           <span className="text-xs text-white">
@@ -941,6 +1011,13 @@ export default function SettingsView({
                                 </div>
                               </div>
 
+                              <div className="flex items-center justify-between p-2 px-3 rounded bg-[#1e1e1e] border border-[#3c3c3c] text-[11px]">
+                                <span className="text-[#858585]">Session Spark Configurations:</span>
+                                <span className="font-mono text-[#0078d4] font-semibold">
+                                  {Object.keys(sessionConf || {}).length} custom {Object.keys(sessionConf || {}).length === 1 ? "property" : "properties"}
+                                </span>
+                              </div>
+
                               <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#333333]">
                                 <button
                                   type="button"
@@ -1058,6 +1135,242 @@ export default function SettingsView({
                           )}
                         </div>
                       )}
+
+                      {/* Spark Configuration Properties Manager */}
+                      {def.type === "sparkConfManager" && (() => {
+                        const confEntries = Object.entries(sessionConf || {});
+                        const filteredConfEntries = confEntries.filter(([k, v]) => {
+                          if (!sparkConfFilter.trim()) return true;
+                          const q = sparkConfFilter.toLowerCase();
+                          return k.toLowerCase().includes(q) || String(v).toLowerCase().includes(q);
+                        });
+
+                        const handleAddSparkProperty = (e) => {
+                          e?.preventDefault();
+                          const k = newSparkKey.trim();
+                          const v = newSparkValue.trim();
+                          if (!k) return;
+                          const next = { ...sessionConf, [k]: v };
+                          setSessionConf(next);
+                          if (k in settings || k === "spark.master") {
+                            updateSetting(k === "spark.master" ? "spark.defaultMaster" : k, v);
+                          }
+                          setNewSparkKey("");
+                          setNewSparkValue("");
+                          setSparkActionMsg(`Added "${k}"`);
+                          setTimeout(() => setSparkActionMsg(null), 3000);
+                        };
+
+                        const handleUpdateSparkProperty = (k, v) => {
+                          const next = { ...sessionConf, [k]: v };
+                          setSessionConf(next);
+                          if (k in settings || k === "spark.master") {
+                            updateSetting(k === "spark.master" ? "spark.defaultMaster" : k, v);
+                          }
+                        };
+
+                        const handleDeleteSparkProperty = (k) => {
+                          const next = { ...sessionConf };
+                          delete next[k];
+                          setSessionConf(next);
+                          if (k in settings || k === "spark.master") {
+                            resetSetting(k === "spark.master" ? "spark.defaultMaster" : k);
+                          }
+                          setSparkActionMsg(`Removed "${k}"`);
+                          setTimeout(() => setSparkActionMsg(null), 3000);
+                        };
+
+                        const handleApplyPreset = (preset) => {
+                          const next = { ...sessionConf, ...preset.conf };
+                          setSessionConf(next);
+                          Object.entries(preset.conf).forEach(([pk, pv]) => {
+                            if (pk in settings || pk === "spark.master") {
+                              updateSetting(pk === "spark.master" ? "spark.defaultMaster" : pk, pv);
+                            }
+                          });
+                          setSparkActionMsg(`Applied preset: ${preset.name}`);
+                          setTimeout(() => setSparkActionMsg(null), 3000);
+                        };
+
+                        const handleClearAllSparkConf = () => {
+                          setSessionConf({});
+                          setSparkActionMsg("Cleared all custom Spark configurations");
+                          setTimeout(() => setSparkActionMsg(null), 3000);
+                        };
+
+                        return (
+                          <div className="space-y-4 pt-1 max-w-3xl">
+                            {/* Top action status or preset feedback */}
+                            {sparkActionMsg && (
+                              <div className="flex items-center gap-2 p-2 px-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs animate-in fade-in">
+                                <CheckCircle2 size={13} className="shrink-0" />
+                                <span>{sparkActionMsg}</span>
+                              </div>
+                            )}
+
+                            {/* Quick Presets Bar */}
+                            <div className="p-3 rounded-lg border border-[#333333] bg-[#252526] space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
+                                  <Sparkles size={14} className="text-[#0078d4]" />
+                                  <span>Recommended Configuration Presets</span>
+                                </div>
+                                <span className="text-[11px] text-[#858585]">1-Click cluster optimization</span>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-1">
+                                {SPARK_PRESETS.map((preset) => (
+                                  <button
+                                    key={preset.name}
+                                    type="button"
+                                    onClick={() => handleApplyPreset(preset)}
+                                    className="flex flex-col text-left p-2 rounded bg-[#1e1e1e] hover:bg-[#2b2b2b] border border-[#3c3c3c] hover:border-[#0078d4] transition-all cursor-pointer group"
+                                    title={preset.description}
+                                  >
+                                    <span className="text-xs font-semibold text-white group-hover:text-[#0078d4] transition-colors truncate">
+                                      {preset.name}
+                                    </span>
+                                    <span className="text-[10px] text-[#858585] line-clamp-2 mt-0.5 leading-snug">
+                                      {preset.description}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Active Properties Table / Card */}
+                            <div className="rounded-lg border border-[#333333] bg-[#252526] overflow-hidden">
+                              {/* Table Header / Toolbar */}
+                              <div className="flex flex-wrap items-center justify-between gap-2 p-3 border-b border-[#333333] bg-[#202020]">
+                                <div className="flex items-center gap-2">
+                                  <Sliders size={14} className="text-[#0078d4]" />
+                                  <span className="text-xs font-semibold text-white">Active Spark Properties</span>
+                                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#0078d4]/15 text-[#0078d4] border border-[#0078d4]/30 font-semibold">
+                                    {confEntries.length} {confEntries.length === 1 ? "property" : "properties"}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  {confEntries.length > 2 && (
+                                    <div className="relative flex items-center">
+                                      <Search size={11} className="absolute left-2 text-[#858585] pointer-events-none" />
+                                      <input
+                                        type="text"
+                                        value={sparkConfFilter}
+                                        onChange={(e) => setSparkConfFilter(e.target.value)}
+                                        placeholder="Filter properties..."
+                                        className="pl-6 pr-2 py-1 text-[11px] rounded bg-[#1e1e1e] border border-[#3c3c3c] text-white focus:outline-none focus:border-[#0078d4] w-36 sm:w-44 font-mono placeholder:font-sans"
+                                      />
+                                    </div>
+                                  )}
+                                  {confEntries.length > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={handleClearAllSparkConf}
+                                      className="flex items-center gap-1 px-2 py-1 text-[11px] rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition-colors cursor-pointer"
+                                      title="Remove all custom Spark configurations"
+                                    >
+                                      <Trash2 size={11} />
+                                      <span>Clear All</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Properties List / Rows */}
+                              {confEntries.length === 0 ? (
+                                <div className="p-6 text-center text-[#858585] space-y-1.5">
+                                  <p className="text-xs font-medium text-[#cccccc]">No custom Spark properties configured.</p>
+                                  <p className="text-[11px] text-[#858585]">
+                                    New compute sessions will launch using default cluster configurations. You can select a preset above or add custom properties below.
+                                  </p>
+                                </div>
+                              ) : filteredConfEntries.length === 0 ? (
+                                <div className="p-4 text-center text-xs text-[#858585]">
+                                  No properties match &quot;{sparkConfFilter}&quot;
+                                </div>
+                              ) : (
+                                <div className="divide-y divide-[#333333]/50">
+                                  {filteredConfEntries.map(([k, v]) => (
+                                    <div
+                                      key={k}
+                                      className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 p-2.5 px-3 hover:bg-[#2a2a2b] transition-colors group"
+                                    >
+                                      <div className="min-w-0 flex-1 sm:max-w-[45%]">
+                                        <span className="font-mono text-xs text-[#0078d4] font-medium block truncate select-all" title={k}>
+                                          {k}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-2 flex-1 w-full sm:w-auto">
+                                        <input
+                                          type="text"
+                                          value={v}
+                                          onChange={(e) => handleUpdateSparkProperty(k, e.target.value)}
+                                          className="flex-1 px-2.5 py-1 text-xs rounded bg-[#1e1e1e] border border-[#3c3c3c] text-white focus:outline-none focus:border-[#0078d4] font-mono select-all transition-colors"
+                                          title={`Edit value for ${k}`}
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteSparkProperty(k)}
+                                          className="p-1 rounded text-[#858585] hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer shrink-0"
+                                          title={`Delete ${k}`}
+                                        >
+                                          <Trash2 size={13} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Add New Property Form */}
+                            <form
+                              onSubmit={handleAddSparkProperty}
+                              className="p-3.5 rounded-lg border border-[#333333] bg-[#252526] space-y-3"
+                            >
+                              <span className="text-xs font-semibold text-white block">
+                                Add or Override Spark Property
+                              </span>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+                                <div className="sm:col-span-3 relative">
+                                  <input
+                                    type="text"
+                                    value={newSparkKey}
+                                    onChange={(e) => setNewSparkKey(e.target.value)}
+                                    placeholder="e.g. spark.sql.shuffle.partitions"
+                                    list="spark-common-keys-datalist"
+                                    className="w-full px-3 py-1.5 text-xs rounded bg-[#1e1e1e] border border-[#3c3c3c] text-white focus:outline-none focus:border-[#0078d4] font-mono placeholder:font-sans placeholder:text-[#6e6e6e]"
+                                  />
+                                  <datalist id="spark-common-keys-datalist">
+                                    {COMMON_CONF_KEYS.filter((k) => !(k in (sessionConf || {}))).map((k) => (
+                                      <option key={k} value={k} />
+                                    ))}
+                                  </datalist>
+                                </div>
+
+                                <div className="sm:col-span-2 flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={newSparkValue}
+                                    onChange={(e) => setNewSparkValue(e.target.value)}
+                                    placeholder="Value (e.g. 16 or 4g)"
+                                    className="flex-1 px-3 py-1.5 text-xs rounded bg-[#1e1e1e] border border-[#3c3c3c] text-white focus:outline-none focus:border-[#0078d4] font-mono placeholder:font-sans placeholder:text-[#6e6e6e]"
+                                  />
+                                  <button
+                                    type="submit"
+                                    disabled={!newSparkKey.trim()}
+                                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded bg-[#0078d4] text-white hover:bg-[#0078d4]/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shrink-0"
+                                  >
+                                    <Plus size={13} />
+                                    <span>Add</span>
+                                  </button>
+                                </div>
+                              </div>
+                            </form>
+                          </div>
+                        );
+                      })()}
 
                       {/* Full Host Manager Section */}
                       {def.type === "hostManager" && (
