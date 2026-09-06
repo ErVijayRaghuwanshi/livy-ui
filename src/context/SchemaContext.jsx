@@ -22,8 +22,12 @@ export function SchemaProvider({ children }) {
   const loadingRef = useRef(loading);
   loadingRef.current = loading;
 
+  const inFlightRef = useRef(new Set());
+
   const loadDatabases = useCallback(async () => {
     if (!isReady) return;
+    if (inFlightRef.current.has("_dbs")) return;
+    inFlightRef.current.add("_dbs");
     setLoading((p) => ({ ...p, _dbs: true }));
     try {
       const rows = await livyApi.runSql(sessionId, "SHOW DATABASES");
@@ -36,13 +40,15 @@ export function SchemaProvider({ children }) {
     } catch (err) {
       console.error("[SchemaContext] Error loading databases:", err);
     } finally {
+      inFlightRef.current.delete("_dbs");
       setLoading((p) => ({ ...p, _dbs: false }));
     }
   }, [sessionId, isReady]);
 
   const loadTables = useCallback(async (db) => {
     if (!isReady) return;
-    if (tablesRef.current[db] || loadingRef.current[db]) return;
+    if (tablesRef.current[db] || loadingRef.current[db] || inFlightRef.current.has(`db:${db}`)) return;
+    inFlightRef.current.add(`db:${db}`);
     setLoading((p) => ({ ...p, [db]: true }));
     try {
       const rows = await livyApi.runSql(
@@ -60,6 +66,7 @@ export function SchemaProvider({ children }) {
       console.error(`[SchemaContext] Error loading tables for ${db}:`, err);
       setTables((p) => ({ ...p, [db]: [] }));
     } finally {
+      inFlightRef.current.delete(`db:${db}`);
       setLoading((p) => ({ ...p, [db]: false }));
     }
   }, [sessionId, isReady]);
@@ -67,7 +74,8 @@ export function SchemaProvider({ children }) {
   const loadColumns = useCallback(async (db, table) => {
     const key = `${db}.${table}`;
     if (!isReady) return;
-    if (columnsRef.current[key] || loadingRef.current[key]) return;
+    if (columnsRef.current[key] || loadingRef.current[key] || inFlightRef.current.has(`col:${key}`)) return;
+    inFlightRef.current.add(`col:${key}`);
     setLoading((p) => ({ ...p, [key]: true }));
     try {
       const rows = await livyApi.runSql(
@@ -88,11 +96,13 @@ export function SchemaProvider({ children }) {
       console.error(`[SchemaContext] Error loading columns for ${key}:`, err);
       setColumns((p) => ({ ...p, [key]: [] }));
     } finally {
+      inFlightRef.current.delete(`col:${key}`);
       setLoading((p) => ({ ...p, [key]: false }));
     }
   }, [sessionId, isReady]);
 
   const clearSchema = useCallback(() => {
+    inFlightRef.current.clear();
     setDatabases([]);
     setTables({});
     setColumns({});
@@ -101,6 +111,9 @@ export function SchemaProvider({ children }) {
 
   const refreshSchema = useCallback(() => {
     console.log('[SchemaContext] refreshSchema called, incrementing trigger');
+    inFlightRef.current.clear();
+    setTables({});
+    setColumns({});
     setRefreshTrigger(prev => prev + 1);
   }, []);
 
@@ -121,28 +134,6 @@ export function SchemaProvider({ children }) {
       loadDatabases();
     }
   }, [refreshTrigger, isReady, loadDatabases]);
-
-  // Eagerly pre-load all tables and columns in the background
-  useEffect(() => {
-    if (!isReady || databases.length === 0) return;
-
-    // Load tables for all databases
-    databases.forEach((db) => {
-      if (!tablesRef.current[db] && !loadingRef.current[db]) {
-        loadTables(db);
-      }
-    });
-
-    // Load columns for all loaded tables
-    Object.entries(tables).forEach(([db, tbls]) => {
-      tbls.forEach((tbl) => {
-        const key = `${db}.${tbl}`;
-        if (!columnsRef.current[key] && !loadingRef.current[key]) {
-          loadColumns(db, tbl);
-        }
-      });
-    });
-  }, [isReady, databases, tables, loading, loadTables, loadColumns]);
 
   const value = {
     databases,

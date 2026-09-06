@@ -57,16 +57,14 @@ function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy, onIns
 
 
   useEffect(() => {
-
     if (defaultOpen !== prevDefaultOpen.current) {
-
       setOpen(defaultOpen);
-
       prevDefaultOpen.current = defaultOpen;
-
+      if (defaultOpen && onOpen) {
+        onOpen();
+      }
     }
-
-  }, [defaultOpen]);
+  }, [defaultOpen, onOpen]);
 
   const [copied, setCopied] = useState(false);
 

@@ -137,10 +137,17 @@ export async function cancelStatement(sessionId, statementId) {
   return data;
 }
 
-export async function runSql(sessionId, sql) {
+export async function runSql(sessionId, sql, timeoutMs = 45000) {
   const stmt = await submitStatement(sessionId, sql);
   const pollInterval = 500;
+  const startTime = Date.now();
   while (true) {
+    if (Date.now() - startTime > timeoutMs) {
+      try {
+        await cancelStatement(sessionId, stmt.id);
+      } catch {}
+      throw new Error(`SQL query timed out after ${Math.round(timeoutMs / 1000)}s`);
+    }
     const result = await getStatement(sessionId, stmt.id);
     if (result.state === "available") {
       const output = result.output;
