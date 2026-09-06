@@ -550,6 +550,25 @@ export default function App() {
                     : "bg-(--color-accent) opacity-0 group-hover:opacity-100"
                 }`}
               />
+
+              {/* VS Code authentic 3-dot sash hint (vertical grip between sidebar and editor) */}
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-[3px] pointer-events-none">
+                <div
+                  className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
+                    isSidebarDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
+                  }`}
+                />
+                <div
+                  className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
+                    isSidebarDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
+                  }`}
+                />
+                <div
+                  className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
+                    isSidebarDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
+                  }`}
+                />
+              </div>
             </div>
           )}
 
