@@ -18,6 +18,7 @@ export const DEFAULT_SETTINGS = {
   "editor.cursorBlinking": "smooth",
   "editor.formatOnSave": false,
   "editor.renderWhitespace": "selection",
+  "editor.acceptSuggestionOnEnter": "smart",
   "editor.sqlValidation.enabled": true,
   "editor.sqlValidation.dialect": "spark",
 
@@ -86,6 +87,16 @@ export function SettingsProvider({ children }) {
     setSettings(DEFAULT_SETTINGS);
   }, []);
 
+  // Reset a single setting to its default value
+  const resetSetting = useCallback((key) => {
+    if (key in DEFAULT_SETTINGS) {
+      setSettings((prev) => ({
+        ...prev,
+        [key]: DEFAULT_SETTINGS[key],
+      }));
+    }
+  }, []);
+
   return (
     <SettingsContext.Provider
       value={{
@@ -93,6 +104,7 @@ export function SettingsProvider({ children }) {
         updateSetting,
         updateAllSettings,
         resetToDefaults,
+        resetSetting,
       }}
     >
       {children}

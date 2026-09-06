@@ -16,6 +16,8 @@ import WelcomeScreen from "./components/WelcomeScreen";
 import BounceGame from "./components/BounceGame";
 import SnakeGame from "./components/SnakeGame";
 import SettingsTab from "./components/SettingsTab";
+import SettingsModal from "./components/SettingsModal";
+import { useSettings } from "./context/SettingsContext";
 
 const SIDEBAR_CACHE_KEY = "livy-ui-explorer-collapsed";
 const THEME_CACHE_KEY = "livy-ui-theme";
@@ -69,7 +71,9 @@ export default function App() {
   const [isDragging, setIsDragging] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const { settings } = useSettings();
   const [showConnectionModal, setShowConnectionModal] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(null);
   const [syntaxErrors, setSyntaxErrors] = useState([]);
 
@@ -256,10 +260,10 @@ export default function App() {
         return;
       }
 
-      // Ctrl+, / Cmd+, — open Settings tab
+      // Ctrl+, / Cmd+, — open Settings overlay modal
       if (ctrl && !e.altKey && !e.shiftKey && e.key === ",") {
         e.preventDefault();
-        openSettingsTab();
+        setIsSettingsOpen((p) => !p);
         return;
       }
 
@@ -274,9 +278,12 @@ export default function App() {
         return;
       }
 
-      // Ctrl+S / Cmd+S — save SQL (clear dirty state)
+      // Ctrl+S / Cmd+S — save SQL (format on save if enabled, clear dirty state)
       if (ctrl && !e.altKey && !e.shiftKey && (e.key.toLowerCase() === "s" || e.code === "KeyS")) {
         e.preventDefault();
+        if (settings["editor.formatOnSave"]) {
+          editorRef.current?.format();
+        }
         saveFile(activeTabId);
         return;
       }
@@ -474,11 +481,23 @@ export default function App() {
         setShowShortcuts={setShowShortcuts}
         setShowHistory={setShowHistory}
         setShowConnectionModal={setShowConnectionModal}
+        onOpenSettings={() => setIsSettingsOpen(true)}
         editorRef={editorRef}
         onTriggerBounce={handleTriggerBounce}
         onTriggerSnake={handleTriggerSnake}
       />
       <ConnectionModal isOpen={showConnectionModal} onClose={() => setShowConnectionModal(false)} />
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onOpenAsTab={() => {
+          setIsSettingsOpen(false);
+          openSettingsTab();
+        }}
+        theme={theme}
+        toggleTheme={toggleTheme}
+        setShowConnectionModal={setShowConnectionModal}
+      />
       <TitleBar
         onOpenCommandPalette={() => {
           setCommandPaletteInitialQuery("");
@@ -493,6 +512,8 @@ export default function App() {
           setActiveTab={setActiveSidebarTab}
           sidebarCollapsed={sidebarCollapsed}
           setSidebarCollapsed={setSidebarCollapsed}
+          isSettingsOpen={isSettingsOpen}
+          onOpenSettings={() => setIsSettingsOpen(true)}
         />
 
         {/* Floating Workspace Islands Container */}
@@ -544,6 +565,7 @@ export default function App() {
                     theme={theme}
                     toggleTheme={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
                     setShowConnectionModal={setShowConnectionModal}
+                    onOpenAsModal={() => setIsSettingsOpen(true)}
                   />
                 ) : activeGames[activeFile.id] === 'bounce' ? (
                   <BounceGame

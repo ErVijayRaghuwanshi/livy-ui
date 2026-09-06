@@ -8,6 +8,8 @@ export default function ActivityBar({
   setActiveTab,
   sidebarCollapsed,
   setSidebarCollapsed,
+  isSettingsOpen,
+  onOpenSettings,
 }) {
   const { openSettingsTab, activeTabId } = useSqlFiles();
 
@@ -79,15 +81,21 @@ export default function ActivityBar({
       <div className="flex flex-col items-center w-full pb-1">
         {/* Settings Tab */}
         <button
-          onClick={() => openSettingsTab()}
+          onClick={() => {
+            if (onOpenSettings) {
+              onOpenSettings();
+            } else {
+              openSettingsTab();
+            }
+          }}
           className={`relative flex items-center justify-center w-12 h-12 transition-colors cursor-pointer ${
-            activeTabId === "settings"
+            isSettingsOpen || activeTabId === "settings"
               ? "text-white"
               : "text-[#858585] hover:text-white"
           }`}
           title={isMac ? "Preferences: Open Settings (⌘,)" : "Preferences: Open Settings (Ctrl+,)"}
         >
-          {activeTabId === "settings" && (
+          {(isSettingsOpen || activeTabId === "settings") && (
             <span className="absolute left-0 top-0 bottom-0 w-[2px] bg-white" />
           )}
           <Settings size={20} className="hover:rotate-45 transition-transform duration-300" />

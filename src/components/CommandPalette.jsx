@@ -12,6 +12,7 @@ export default function CommandPalette({
   setShowShortcuts,
   setShowHistory,
   setShowConnectionModal,
+  onOpenSettings,
   editorRef,
   onTriggerBounce,
   onTriggerSnake,
@@ -159,7 +160,13 @@ export default function CommandPalette({
       name: "Preferences: Open Settings (UI / JSON)",
       category: "Preferences",
       shortcut: isMac ? "⌘," : "Ctrl+,",
-      action: () => openSettingsTab(),
+      action: () => {
+        if (onOpenSettings) {
+          onOpenSettings();
+        } else {
+          openSettingsTab();
+        }
+      },
     },
     {
       id: "toggle-theme",

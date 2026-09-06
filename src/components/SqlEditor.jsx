@@ -1561,7 +1561,7 @@ const SqlEditor = forwardRef(function SqlEditor({
             cursorBlinking: settings["editor.cursorBlinking"] || "smooth",
             renderWhitespace: settings["editor.renderWhitespace"] || "selection",
             suggestOnTriggerCharacters: true,
-            acceptSuggestionOnEnter: "smart",
+            acceptSuggestionOnEnter: settings["editor.acceptSuggestionOnEnter"] || "smart",
             tabCompletion: "on",
             quickSuggestions: {
               other: true,
