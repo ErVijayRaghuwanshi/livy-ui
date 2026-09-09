@@ -142,7 +142,11 @@ export function LivyProvider({ children }) {
       dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
     } catch (err) {
       dispatch({ type: "SET_ERROR", payload: err.message });
-      dispatch({ type: "CLEAR_SESSION" });
+      // Only clear the active session if the server explicitly returned 404 (session doesn't exist).
+      // During server restarts or network blips, preserve sessionId so the UI can reconnect once back online.
+      if (err.response && err.response.status === 404) {
+        dispatch({ type: "CLEAR_SESSION" });
+      }
       dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });

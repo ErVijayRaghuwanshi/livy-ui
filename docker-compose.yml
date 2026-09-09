@@ -14,7 +14,9 @@ services:
       - '18080:18080'    # Spark History Server UI
       - '15002:15002'    # Spark Connect Server port
       - '8998:8998'      # livy-next REST API (with built-in CORS)
+    stop_grace_period: 30s
     volumes:
+      - ./spark/start-spark.sh:/opt/start-spark.sh:ro
       - ./spark/data:/opt/spark/data
       - ./spark/data:/tmp/data
       - ./spark/work-dir:/opt/spark/work-dir
