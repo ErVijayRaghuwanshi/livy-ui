@@ -25,7 +25,7 @@ export default function ActivityBar({
   };
 
   return (
-    <div className="flex flex-col items-center justify-between w-12 h-full bg-(--color-bg-workbench) border-r border-(--color-border) select-none shrink-0 z-40">
+    <div className="flex flex-col items-center justify-between w-12 h-full bg-(--color-bg-secondary) border-r border-(--color-border) select-none shrink-0 z-40">
       {/* Top Icons */}
       <div className="flex flex-col items-center w-full">
         {/* Files Tab */}

@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --color-bg-workbench: #121314;
+  --color-bg-workbench: #18191a;
   --color-bg-primary: #121314;
   --color-bg-secondary: #18191a;
   --color-bg-tertiary: #242526;
@@ -19,7 +19,7 @@
 }
 
 .light {
-  --color-bg-workbench: #f8f8f8;
+  --color-bg-workbench: #f3f3f3;
   --color-bg-primary: #ffffff;
   --color-bg-secondary: #f3f3f3;
   --color-bg-tertiary: #e8e8e8;
