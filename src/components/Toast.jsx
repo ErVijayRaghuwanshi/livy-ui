@@ -39,7 +39,7 @@ function Toast({ toast, onDismiss }) {
     >
       <Icon size={16} className={`shrink-0 mt-0.5 ${config.color}`} />
       <div className="flex-1 min-w-0">
-        <div className={`text-xs font-medium ${config.color}`}>{config.label}</div>
+        <div className={`text-xs font-medium ${config.color}`}>{toast.title || config.label}</div>
         {toast.message && (
           <div className="text-[11px] text-(--color-text-secondary) mt-0.5 truncate">
             {toast.message}
@@ -76,10 +76,10 @@ export function ToastContainer() {
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
-  const addToast = useCallback((type, message, elapsed) => {
+  const addToast = useCallback((type, message, elapsed, title) => {
     const id = ++toastId;
     setToasts((prev) => {
-      const next = [...prev, { id, type, message, elapsed }];
+      const next = [...prev, { id, type, message, elapsed, title }];
       // Keep only the latest MAX_TOASTS
       return next.length > MAX_TOASTS ? next.slice(-MAX_TOASTS) : next;
     });

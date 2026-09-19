@@ -144,6 +144,13 @@ export default function CommandPalette({
       action: () => editorRef?.current?.minify(),
     },
     {
+      id: "validate-sql",
+      name: "Validate SQL Syntax",
+      category: "Editor",
+      shortcut: isMac ? "⌥⇧V" : "Alt+Shift+V",
+      action: () => editorRef?.current?.validate?.(),
+    },
+    {
       id: "restore-tab",
       name: "Restore Last Closed Tab",
       category: "File",

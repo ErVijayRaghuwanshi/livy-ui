@@ -619,6 +619,7 @@ const SqlEditor = forwardRef(function SqlEditor({
   const handleRunSqlRef = useRef(null);
   const handleFormatRef = useRef(null);
   const handleMinifyRef = useRef(null);
+  const handleValidateRef = useRef(null);
   const toggleWordWrapRef = useRef(null);
 
   // SQL Static Validation state & refs
@@ -674,6 +675,52 @@ const SqlEditor = forwardRef(function SqlEditor({
       }, 350);
     }
   }, [runSqlValidation]);
+
+  const handleValidate = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor || !monacoRef.current) return;
+    const model = editor.getModel();
+    if (!model || model.isDisposed()) return;
+
+    const sql = model.getValue();
+    if (!sql.trim()) {
+      addToast("ok", "SQL editor is empty", null, "SQL Validation");
+      return;
+    }
+
+    const dialect = settings["editor.sqlValidation.dialect"] || "spark";
+    const result = validateSql(sql, dialect);
+
+    if (result.isValid || result.errors.length === 0) {
+      monacoRef.current.editor.setModelMarkers(model, "sql-validator", []);
+      lastSyntaxErrorsRef.current = [];
+      onSyntaxErrorsChange?.([]);
+      addToast("ok", `SQL syntax is valid (${dialect.toUpperCase()})`, null, "SQL Validation");
+    } else {
+      const markers = result.errors.map((err) => ({
+        startLineNumber: Math.max(1, err.startLine),
+        startColumn: Math.max(1, err.startCol),
+        endLineNumber: Math.max(1, err.endLine),
+        endColumn: Math.max(err.startCol + 1, err.endCol),
+        message: err.message,
+        severity: monacoRef.current.MarkerSeverity.Error,
+      }));
+      monacoRef.current.editor.setModelMarkers(model, "sql-validator", markers);
+      lastSyntaxErrorsRef.current = result.errors;
+      onSyntaxErrorsChange?.(result.errors);
+
+      const first = result.errors[0];
+      editor.revealLineInCenter(first.startLine);
+      editor.setPosition({ lineNumber: first.startLine, column: first.startCol });
+      editor.focus();
+      addToast(
+        "error",
+        `Line ${first.startLine}: ${first.message || "Syntax error"}`,
+        null,
+        `SQL Validation (${result.errors.length} error${result.errors.length === 1 ? "" : "s"})`
+      );
+    }
+  }, [settings, onSyntaxErrorsChange, addToast]);
 
   // Re-run or clear validation when settings change
   useEffect(() => {
@@ -863,6 +910,8 @@ const SqlEditor = forwardRef(function SqlEditor({
       id: "run-sql-monaco",
       label: "Run SQL",
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
+      contextMenuGroupId: "1_sql",
+      contextMenuOrder: 0.5,
       run: () => {
         handleRunSqlRef.current?.();
       },
@@ -885,13 +934,25 @@ const SqlEditor = forwardRef(function SqlEditor({
       run: () => handleMinifyRef.current?.(),
     });
 
+    // Validate SQL action in right click menu
+    editor.addAction({
+      id: "validate-sql",
+      label: "Validate SQL",
+      keybindings: [monaco.KeyMod.Alt | monaco.KeyMod.Shift | monaco.KeyCode.KeyV],
+      contextMenuGroupId: "1_sql",
+      contextMenuOrder: 3,
+      run: () => {
+        handleValidateRef.current?.();
+      },
+    });
+
     // Word wrap toggle action (changed to Alt+Z / ⌥+Z for VS Code consistency)
     editor.addAction({
       id: "toggle-word-wrap",
       label: "Toggle Word Wrap",
       keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.KeyZ],
       contextMenuGroupId: "1_sql",
-      contextMenuOrder: 3,
+      contextMenuOrder: 4,
       run: () => {
         toggleWordWrapRef.current?.();
       },
@@ -903,7 +964,7 @@ const SqlEditor = forwardRef(function SqlEditor({
       label: "Toggle Auto-Save",
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyA],
       contextMenuGroupId: "1_sql",
-      contextMenuOrder: 4,
+      contextMenuOrder: 5,
       run: () => {
         toggleAutoSaveRef.current?.();
       },
@@ -1553,6 +1614,7 @@ const SqlEditor = forwardRef(function SqlEditor({
   handleRunSqlRef.current = handleRunSql;
   handleFormatRef.current = handleFormat;
   handleMinifyRef.current = handleMinify;
+  handleValidateRef.current = handleValidate;
   toggleWordWrapRef.current = toggleWordWrap;
 
   const handleRun = () => handleRunSql();
@@ -1569,6 +1631,7 @@ const SqlEditor = forwardRef(function SqlEditor({
     isRunning: () => running,
     canRun: () => canRun,
     minify: handleMinify,
+    validate: handleValidate,
     toggleWordWrap,
     isWordWrap: () => wordWrap,
     insertText: (text) => {

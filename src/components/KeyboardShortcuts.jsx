@@ -9,6 +9,7 @@ const SHORTCUTS = [
   { keys: [`${mod}+Enter`], description: "Run SQL (selected text or statement at cursor)" },
   { keys: [`${mod}+Shift+F`], description: "Format SQL (statement-by-statement)" },
   { keys: [`${mod}+Shift+M`], description: "Minify SQL (statement-by-statement)" },
+  { keys: [isMac ? "⌥+Shift+V" : "Alt+Shift+V"], description: "Validate SQL syntax" },
   { keys: [`${mod}+S`], description: "Save SQL file" },
   { keys: [`${mod}+Shift+A`], description: "Toggle Auto-Save" },
   { keys: [isMac ? "⌥+Z" : "Alt+Z"], description: "Toggle Word Wrap" },

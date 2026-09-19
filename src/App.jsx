@@ -295,6 +295,13 @@ export default function App() {
         return;
       }
 
+      // Alt+Shift+V / Option+Shift+V — Validate SQL Syntax
+      if (e.altKey && !ctrl && e.shiftKey && (e.key.toLowerCase() === "v" || e.code === "KeyV")) {
+        e.preventDefault();
+        editorRef.current?.validate?.();
+        return;
+      }
+
       // Alt + [1-9] to switch directly to tab 1-9 (browser-safe shortcut, works on Mac Option+1-9 too)
       if (e.altKey && !ctrl && !e.shiftKey && e.code.startsWith("Digit")) {
         const digitStr = e.code.slice(5);
