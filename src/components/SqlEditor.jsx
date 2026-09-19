@@ -620,6 +620,7 @@ const SqlEditor = forwardRef(function SqlEditor({
   const handleFormatRef = useRef(null);
   const handleMinifyRef = useRef(null);
   const handleValidateRef = useRef(null);
+  const toggleSqlValidationRef = useRef(null);
   const toggleWordWrapRef = useRef(null);
 
   // SQL Static Validation state & refs
@@ -675,6 +676,33 @@ const SqlEditor = forwardRef(function SqlEditor({
       }, 350);
     }
   }, [runSqlValidation]);
+
+  const toggleSqlValidation = useCallback(() => {
+    const isCurrentlyEnabled = settings["editor.sqlValidation.enabled"] ?? true;
+    const nextVal = !isCurrentlyEnabled;
+    updateSetting("editor.sqlValidation.enabled", nextVal);
+
+    if (!nextVal) {
+      if (editorRef.current && monacoRef.current) {
+        const model = editorRef.current.getModel();
+        if (model) {
+          monacoRef.current.editor.setModelMarkers(model, "sql-validator", []);
+        }
+      }
+      lastSyntaxErrorsRef.current = [];
+      onSyntaxErrorsChange?.([]);
+      addToast("cancelled", "Real-time SQL validation is now disabled", null, "SQL Validation: OFF");
+    } else {
+      if (editorRef.current) {
+        const model = editorRef.current.getModel();
+        if (model) {
+          scheduleSqlValidation(model, true);
+        }
+      }
+      addToast("ok", "Real-time SQL validation is now enabled", null, "SQL Validation: ON");
+    }
+    return nextVal;
+  }, [settings, updateSetting, scheduleSqlValidation, onSyntaxErrorsChange, addToast]);
 
   const handleValidate = useCallback(() => {
     const editor = editorRef.current;
@@ -934,15 +962,15 @@ const SqlEditor = forwardRef(function SqlEditor({
       run: () => handleMinifyRef.current?.(),
     });
 
-    // Validate SQL action in right click menu
+    // Toggle SQL Validation action in right click menu
     editor.addAction({
-      id: "validate-sql",
-      label: "Validate SQL",
+      id: "toggle-sql-validation",
+      label: "Toggle SQL Validation",
       keybindings: [monaco.KeyMod.Alt | monaco.KeyMod.Shift | monaco.KeyCode.KeyV],
       contextMenuGroupId: "1_sql",
       contextMenuOrder: 3,
       run: () => {
-        handleValidateRef.current?.();
+        toggleSqlValidationRef.current?.();
       },
     });
 
@@ -1615,6 +1643,7 @@ const SqlEditor = forwardRef(function SqlEditor({
   handleFormatRef.current = handleFormat;
   handleMinifyRef.current = handleMinify;
   handleValidateRef.current = handleValidate;
+  toggleSqlValidationRef.current = toggleSqlValidation;
   toggleWordWrapRef.current = toggleWordWrap;
 
   const handleRun = () => handleRunSql();
@@ -1632,6 +1661,8 @@ const SqlEditor = forwardRef(function SqlEditor({
     canRun: () => canRun,
     minify: handleMinify,
     validate: handleValidate,
+    toggleSqlValidation,
+    isSqlValidationEnabled: () => settings["editor.sqlValidation.enabled"] ?? true,
     toggleWordWrap,
     isWordWrap: () => wordWrap,
     insertText: (text) => {

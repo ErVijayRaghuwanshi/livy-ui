@@ -144,11 +144,17 @@ export default function CommandPalette({
       action: () => editorRef?.current?.minify(),
     },
     {
-      id: "validate-sql",
-      name: "Validate SQL Syntax",
-      category: "Editor",
+      id: "toggle-sql-validation",
+      name: "View: Toggle SQL Validation",
+      category: "View",
       shortcut: isMac ? "⌥⇧V" : "Alt+Shift+V",
-      action: () => editorRef?.current?.validate?.(),
+      action: () => {
+        if (editorRef?.current?.toggleSqlValidation) {
+          editorRef.current.toggleSqlValidation();
+        } else {
+          updateSetting("editor.sqlValidation.enabled", !(settings["editor.sqlValidation.enabled"] ?? true));
+        }
+      },
     },
     {
       id: "restore-tab",

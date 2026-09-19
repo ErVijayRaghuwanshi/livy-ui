@@ -27,7 +27,17 @@ const stateColors = {
   [SESSION_STATES.SUCCESS]: "bg-green-500",
 };
 
-export default function StatusBar({ cursorPosition, syntaxErrors = [], onJumpToFirstError, onShowShortcuts, onShowHistory, wordWrap, onToggleWordWrap }) {
+export default function StatusBar({
+  cursorPosition,
+  syntaxErrors = [],
+  onJumpToFirstError,
+  onShowShortcuts,
+  onShowHistory,
+  wordWrap,
+  onToggleWordWrap,
+  isSqlValidationEnabled = true,
+  onToggleSqlValidation,
+}) {
   const { activeHost, sessionId, sessionState, isOnline, isServerReachable } = useLivy();
   const { activeResult, activeFile, autoSave, toggleAutoSave } = useSqlFiles();
 
@@ -76,7 +86,16 @@ export default function StatusBar({ cursorPosition, syntaxErrors = [], onJumpToF
 
         {/* SQL Syntax Status */}
         {activeFile && (
-          syntaxErrors && syntaxErrors.length > 0 ? (
+          !isSqlValidationEnabled ? (
+            <button
+              onClick={onToggleSqlValidation}
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary)/40 transition-colors cursor-pointer"
+              title="SQL Validation is OFF (Click or press Alt+Shift+V to enable)"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-gray-500" />
+              <span>Validation: OFF</span>
+            </button>
+          ) : syntaxErrors && syntaxErrors.length > 0 ? (
             <button
               onClick={onJumpToFirstError}
               className="flex items-center gap-1 px-1.5 py-0.5 rounded text-(--color-error) bg-(--color-error)/10 hover:bg-(--color-error)/20 transition-colors cursor-pointer font-medium"
@@ -86,10 +105,14 @@ export default function StatusBar({ cursorPosition, syntaxErrors = [], onJumpToF
               <span>{syntaxErrors.length} {syntaxErrors.length === 1 ? "Error" : "Errors"}</span>
             </button>
           ) : (
-            <span className="flex items-center gap-1 px-1 py-0.5 text-(--color-success) text-[11px]" title="SQL Syntax Valid">
+            <button
+              onClick={onToggleSqlValidation}
+              className="flex items-center gap-1 px-1 py-0.5 text-(--color-success) text-[11px] hover:bg-(--color-bg-tertiary)/40 rounded transition-colors cursor-pointer"
+              title="SQL Syntax Valid · Click to toggle validation"
+            >
               <Check size={12} className="shrink-0 text-(--color-success)" />
               <span>SQL Valid</span>
-            </span>
+            </button>
           )
         )}
 

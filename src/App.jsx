@@ -295,10 +295,10 @@ export default function App() {
         return;
       }
 
-      // Alt+Shift+V / Option+Shift+V — Validate SQL Syntax
+      // Alt+Shift+V / Option+Shift+V — Toggle SQL Validation
       if (e.altKey && !ctrl && e.shiftKey && (e.key.toLowerCase() === "v" || e.code === "KeyV")) {
         e.preventDefault();
-        editorRef.current?.validate?.();
+        editorRef.current?.toggleSqlValidation?.();
         return;
       }
 
@@ -783,6 +783,8 @@ export default function App() {
         onShowHistory={() => setShowHistory(true)}
         wordWrap={settings["editor.wordWrap"] !== "off"}
         onToggleWordWrap={() => editorRef.current?.toggleWordWrap?.()}
+        isSqlValidationEnabled={settings["editor.sqlValidation.enabled"] ?? true}
+        onToggleSqlValidation={() => editorRef.current?.toggleSqlValidation?.()}
       />
     </div>
   );
