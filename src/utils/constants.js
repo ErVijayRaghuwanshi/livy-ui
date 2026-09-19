@@ -1,6 +1,6 @@
 export const DEFAULT_HOST = {
   id: "default",
-  name: "docker-livy",
+  name: "livy-next",
   url: "http://localhost:8998",
 };
 

@@ -1005,8 +1005,8 @@ export default function SettingsView({
                                     className="w-full px-3 py-1 text-xs rounded bg-[#1e1e1e] border border-[#3c3c3c] text-white outline-none focus:border-[#0078d4] cursor-pointer font-mono disabled:opacity-50"
                                   >
                                     <option value="sql">sql (Spark SQL)</option>
-                                    <option value="pyspark">pyspark (Python Spark)</option>
-                                    <option value="spark">spark (Scala Spark)</option>
+                                    <option value="pyspark" disabled>pyspark (Python Spark)</option>
+                                    <option value="spark" disabled>spark (Scala Spark)</option>
                                   </select>
                                 </div>
                               </div>
