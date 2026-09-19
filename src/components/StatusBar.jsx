@@ -1,7 +1,7 @@
 import { useLivy } from "../context/LivyContext";
 import { SESSION_STATES } from "../utils/constants";
 import { useSqlFiles } from "../context/SqlFilesContext";
-import { Keyboard, History, AlertCircle, Check } from "lucide-react";
+import { Keyboard, History, AlertCircle, Check, WrapText } from "lucide-react";
 
 const stateLabels = {
   [SESSION_STATES.NOT_STARTED]: "No Session",
@@ -27,7 +27,7 @@ const stateColors = {
   [SESSION_STATES.SUCCESS]: "bg-green-500",
 };
 
-export default function StatusBar({ cursorPosition, syntaxErrors = [], onJumpToFirstError, onShowShortcuts, onShowHistory }) {
+export default function StatusBar({ cursorPosition, syntaxErrors = [], onJumpToFirstError, onShowShortcuts, onShowHistory, wordWrap, onToggleWordWrap }) {
   const { activeHost, sessionId, sessionState, isOnline, isServerReachable } = useLivy();
   const { activeResult, activeFile, autoSave, toggleAutoSave } = useSqlFiles();
 
@@ -116,6 +116,16 @@ export default function StatusBar({ cursorPosition, syntaxErrors = [], onJumpToF
         >
           <span className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${autoSave ? "bg-blue-400 shadow-[0_0_6px_rgba(96,165,250,0.6)] animate-pulse" : "bg-gray-500"}`} />
           <span>Auto-Save: <span className={autoSave ? "text-blue-400 font-medium" : "text-(--color-text-muted)"}>{autoSave ? "ON" : "OFF"}</span></span>
+        </button>
+
+        {/* Word Wrap Toggle */}
+        <button
+          onClick={onToggleWordWrap}
+          className="flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary)/40 transition-all cursor-pointer"
+          title={`Word Wrap: ${wordWrap ? "ON" : "OFF"} (Alt+Z / ⌥Z)`}
+        >
+          <WrapText size={11} className={wordWrap ? "text-blue-400" : "text-(--color-text-muted)"} />
+          <span>Wrap: <span className={wordWrap ? "text-blue-400 font-medium" : "text-(--color-text-muted)"}>{wordWrap ? "ON" : "OFF"}</span></span>
         </button>
 
         {/* Query history */}

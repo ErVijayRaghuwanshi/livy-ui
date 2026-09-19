@@ -165,6 +165,19 @@ export default function CommandPalette({
       action: () => updateSetting("editor.minimap.enabled", !settings["editor.minimap.enabled"]),
     },
     {
+      id: "toggle-word-wrap",
+      name: "View: Toggle Word Wrap",
+      category: "View",
+      shortcut: isMac ? "⌥Z" : "Alt+Z",
+      action: () => {
+        if (editorRef?.current?.toggleWordWrap) {
+          editorRef.current.toggleWordWrap();
+        } else {
+          updateSetting("editor.wordWrap", settings["editor.wordWrap"] === "off" ? "on" : "off");
+        }
+      },
+    },
+    {
       id: "open-settings",
       name: "Preferences: Open Settings (UI / JSON)",
       category: "Preferences",

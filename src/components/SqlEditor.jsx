@@ -152,15 +152,14 @@ function registerSparkProviders(monaco, schemaDataRef) {
 
   // Completion provider for functions, keywords, snippets, and schema
   const completionProvider = monaco.languages.registerCompletionItemProvider("sql", {
-    triggerCharacters: ["."],
+    triggerCharacters: [".", " "],
     provideCompletionItems: (model, position, completionContext) => {
       const lineContent = model.getLineContent(position.lineNumber);
       const textBeforeCursor = lineContent.substring(0, position.column - 1);
-      const trimmedBefore = textBeforeCursor.trimEnd();
 
-      // Don't auto-suggest if cursor is right after comma or open paren unless user explicitly invoked via Ctrl+Space
+      // Only suppress autocomplete when user literally just typed a comma or open paren (without manual invocation)
       const isManualInvoke = completionContext && completionContext.triggerKind === 0;
-      if (!isManualInvoke && (trimmedBefore.endsWith(",") || trimmedBefore.endsWith("(") || trimmedBefore === "")) {
+      if (!isManualInvoke && (textBeforeCursor.endsWith(",") || textBeforeCursor.endsWith("("))) {
         return { suggestions: [] };
       }
 
@@ -212,13 +211,17 @@ function registerSparkProviders(monaco, schemaDataRef) {
       if (schemaDataRef && schemaDataRef.current) {
         const { databases, tables, columns } = schemaDataRef.current;
 
-        // Database suggestions
-        if (databases && databases.length > 0) {
+        // Check if cursor is right after an identifier + dot (e.g. "default." or "users.")
+        const dotMatch = textBeforeCursor.match(/`?([a-zA-Z0-9_]+)`?\.\s*$/);
+        const prefixIdentifier = dotMatch ? dotMatch[1].toLowerCase() : null;
+
+        // Database suggestions (suggest when not after a dot)
+        if (!prefixIdentifier && databases && databases.length > 0) {
           databases.forEach((db) => {
             schemaSuggestions.push({
               label: db,
               kind: monaco.languages.CompletionItemKind.Module,
-              insertText: `\`${db}\``,
+              insertText: db,
               detail: "Database",
               documentation: `Database: ${db}`,
               range,
@@ -227,27 +230,45 @@ function registerSparkProviders(monaco, schemaDataRef) {
           });
         }
 
-        // Table suggestions (show in table context or any context)
-        if (tables && Object.keys(tables).length > 0 && (sqlContext === 'table' || sqlContext === 'any')) {
+        // Table suggestions
+        if (tables && Object.keys(tables).length > 0 && (!prefixIdentifier || sqlContext === 'table' || sqlContext === 'any')) {
           Object.entries(tables).forEach(([db, tableList]) => {
+            const isDbMatch = prefixIdentifier && db.toLowerCase() === prefixIdentifier;
+            if (prefixIdentifier && !isDbMatch) return;
+
             tableList.forEach((tbl) => {
+              const insertText = tbl.includes(" ") ? `\`${tbl}\`` : tbl;
               schemaSuggestions.push({
-                label: `${db}.${tbl}`,
+                label: isDbMatch ? tbl : `${db}.${tbl}`,
                 kind: monaco.languages.CompletionItemKind.Class,
-                insertText: `\`${db}\`.\`${tbl}\``,
+                insertText: insertText,
                 detail: `Table in ${db}`,
                 documentation: `Table: ${tbl}\nDatabase: ${db}`,
                 range,
                 sortText: "1_" + tbl,
               });
+              if (!prefixIdentifier) {
+                schemaSuggestions.push({
+                  label: tbl,
+                  kind: monaco.languages.CompletionItemKind.Class,
+                  insertText: insertText,
+                  detail: `Table in ${db}`,
+                  documentation: `Table: ${tbl}\nDatabase: ${db}`,
+                  range,
+                  sortText: "1_" + tbl,
+                });
+              }
             });
           });
         }
 
-        // Column suggestions (show in column context)
-        if (columns && Object.keys(columns).length > 0 && (sqlContext === 'column' || sqlContext === 'any')) {
+        // Column suggestions
+        if (columns && Object.keys(columns).length > 0 && (!prefixIdentifier || sqlContext === 'column' || sqlContext === 'any')) {
           Object.entries(columns).forEach(([key, columnList]) => {
             const [db, tbl] = key.split('.');
+            const isTableMatch = prefixIdentifier && (tbl.toLowerCase() === prefixIdentifier || key.toLowerCase() === prefixIdentifier);
+            if (prefixIdentifier && !isTableMatch) return;
+
             columnList.forEach((col) => {
               const insertText = col.name.includes(" ") ? `\`${col.name}\`` : col.name;
               schemaSuggestions.push({
@@ -552,13 +573,43 @@ const SqlEditor = forwardRef(function SqlEditor({
   const schemaContext = useSchema();
   const schemaDataRef = useRef({ databases: [], tables: {}, columns: {} });
   const { addToast } = useToast();
-  const { settings } = useSettings();
+  const { settings, updateSetting } = useSettings();
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
   const viewStatesRef = useRef({});
   const [monacoInstance, setMonacoInstance] = useState(null);
   const [running, setRunning] = useState(false);
-  const [wordWrap, setWordWrap] = useState(() => localStorage.getItem('livy-ui-word-wrap') !== 'off');
+  const [wordWrap, setWordWrap] = useState(() => {
+    const saved = localStorage.getItem('livy-ui-word-wrap');
+    if (saved !== null) return saved !== 'off';
+    return settings["editor.wordWrap"] !== "off";
+  });
+
+  const toggleWordWrap = useCallback(() => {
+    setWordWrap((prev) => {
+      const next = !prev;
+      const nextVal = next ? "on" : "off";
+      localStorage.setItem('livy-ui-word-wrap', nextVal);
+      updateSetting("editor.wordWrap", nextVal);
+      if (editorRef.current) {
+        editorRef.current.updateOptions({ wordWrap: nextVal });
+      }
+      return next;
+    });
+  }, [updateSetting]);
+
+  // Keep editor word wrap updated when settings change externally
+  useEffect(() => {
+    if (settings["editor.wordWrap"]) {
+      const isWrapOn = settings["editor.wordWrap"] !== "off";
+      setWordWrap(isWrapOn);
+      localStorage.setItem('livy-ui-word-wrap', settings["editor.wordWrap"]);
+      if (editorRef.current) {
+        editorRef.current.updateOptions({ wordWrap: settings["editor.wordWrap"] });
+      }
+    }
+  }, [settings["editor.wordWrap"]]);
+
   const [glyphPopup, setGlyphPopup] = useState(null);
   const glyphPopupRef = useRef(null);
   const abortRef = useRef(false);
@@ -568,6 +619,7 @@ const SqlEditor = forwardRef(function SqlEditor({
   const handleRunSqlRef = useRef(null);
   const handleFormatRef = useRef(null);
   const handleMinifyRef = useRef(null);
+  const toggleWordWrapRef = useRef(null);
 
   // SQL Static Validation state & refs
   const lastSyntaxErrorsRef = useRef([]);
@@ -841,7 +893,7 @@ const SqlEditor = forwardRef(function SqlEditor({
       contextMenuGroupId: "1_sql",
       contextMenuOrder: 3,
       run: () => {
-        setWordWrap(prev => !prev);
+        toggleWordWrapRef.current?.();
       },
     });
 
@@ -1501,6 +1553,7 @@ const SqlEditor = forwardRef(function SqlEditor({
   handleRunSqlRef.current = handleRunSql;
   handleFormatRef.current = handleFormat;
   handleMinifyRef.current = handleMinify;
+  toggleWordWrapRef.current = toggleWordWrap;
 
   const handleRun = () => handleRunSql();
 
@@ -1516,6 +1569,8 @@ const SqlEditor = forwardRef(function SqlEditor({
     isRunning: () => running,
     canRun: () => canRun,
     minify: handleMinify,
+    toggleWordWrap,
+    isWordWrap: () => wordWrap,
     insertText: (text) => {
       const editor = editorRef.current;
       if (!editor) return;
@@ -1664,7 +1719,7 @@ const SqlEditor = forwardRef(function SqlEditor({
             },
             lineNumbers: settings["editor.lineNumbers"] || "on",
             scrollBeyondLastLine: false,
-            wordWrap: settings["editor.wordWrap"] || (wordWrap ? "on" : "off"),
+            wordWrap: wordWrap ? "on" : "off",
             automaticLayout: true,
             tabSize: settings["editor.tabSize"] || 2,
             cursorBlinking: settings["editor.cursorBlinking"] || "smooth",
@@ -1672,12 +1727,17 @@ const SqlEditor = forwardRef(function SqlEditor({
             suggestOnTriggerCharacters: true,
             acceptSuggestionOnEnter: settings["editor.acceptSuggestionOnEnter"] || "smart",
             tabCompletion: "on",
-            quickSuggestions: {
-              other: true,
-              comments: false,
-              strings: false,
+            quickSuggestions: true,
+            wordBasedSuggestions: "currentDocument",
+            suggest: {
+              showKeywords: true,
+              showFunctions: true,
+              showSnippets: true,
+              showClasses: true,
+              showModules: true,
+              showFields: true,
+              showWords: true,
             },
-            wordBasedSuggestions: "off",
             padding: { top: 8 },
             renderLineHighlight: "all",
             bracketPairColorization: { enabled: true },
