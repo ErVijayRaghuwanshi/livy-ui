@@ -574,6 +574,11 @@ const SqlEditor = forwardRef(function SqlEditor({
   const schemaDataRef = useRef({ databases: [], tables: {}, columns: {} });
   const { addToast } = useToast();
   const { settings, updateSetting } = useSettings();
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const onSyntaxErrorsChangeRef = useRef(onSyntaxErrorsChange);
+  onSyntaxErrorsChangeRef.current = onSyntaxErrorsChange;
+  const scheduleSqlValidationRef = useRef(null);
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
   const viewStatesRef = useRef({});
@@ -630,16 +635,17 @@ const SqlEditor = forwardRef(function SqlEditor({
   const runSqlValidation = useCallback((model) => {
     if (!model || model.isDisposed() || !monacoRef.current) return;
 
-    const isValidationEnabled = settings["editor.sqlValidation.enabled"] ?? true;
+    const currentSettings = settingsRef.current || {};
+    const isValidationEnabled = currentSettings["editor.sqlValidation.enabled"] ?? true;
     if (!isValidationEnabled) {
       monacoRef.current.editor.setModelMarkers(model, "sql-validator", []);
       lastSyntaxErrorsRef.current = [];
-      onSyntaxErrorsChange?.([]);
+      onSyntaxErrorsChangeRef.current?.([]);
       return;
     }
 
     const sql = model.getValue();
-    const dialect = settings["editor.sqlValidation.dialect"] || "spark";
+    const dialect = currentSettings["editor.sqlValidation.dialect"] || "spark";
     const result = validateSql(sql, dialect);
 
     if (model.isDisposed()) return;
@@ -647,7 +653,7 @@ const SqlEditor = forwardRef(function SqlEditor({
     if (result.isValid || result.errors.length === 0) {
       monacoRef.current.editor.setModelMarkers(model, "sql-validator", []);
       lastSyntaxErrorsRef.current = [];
-      onSyntaxErrorsChange?.([]);
+      onSyntaxErrorsChangeRef.current?.([]);
     } else {
       const markers = result.errors.map((err) => ({
         startLineNumber: Math.max(1, err.startLine),
@@ -659,15 +665,27 @@ const SqlEditor = forwardRef(function SqlEditor({
       }));
       monacoRef.current.editor.setModelMarkers(model, "sql-validator", markers);
       lastSyntaxErrorsRef.current = result.errors;
-      onSyntaxErrorsChange?.(result.errors);
+      onSyntaxErrorsChangeRef.current?.(result.errors);
     }
-  }, [settings, onSyntaxErrorsChange]);
+  }, []);
 
   const scheduleSqlValidation = useCallback((model, immediate = false) => {
     if (validateDebounceTimerRef.current) {
       clearTimeout(validateDebounceTimerRef.current);
       validateDebounceTimerRef.current = null;
     }
+
+    const currentSettings = settingsRef.current || {};
+    const isValidationEnabled = currentSettings["editor.sqlValidation.enabled"] ?? true;
+    if (!isValidationEnabled) {
+      if (model && !model.isDisposed() && monacoRef.current) {
+        monacoRef.current.editor.setModelMarkers(model, "sql-validator", []);
+      }
+      lastSyntaxErrorsRef.current = [];
+      onSyntaxErrorsChangeRef.current?.([]);
+      return;
+    }
+
     if (immediate) {
       runSqlValidation(model);
     } else {
@@ -677,32 +695,40 @@ const SqlEditor = forwardRef(function SqlEditor({
     }
   }, [runSqlValidation]);
 
+  scheduleSqlValidationRef.current = scheduleSqlValidation;
+
   const toggleSqlValidation = useCallback(() => {
-    const isCurrentlyEnabled = settings["editor.sqlValidation.enabled"] ?? true;
+    const isCurrentlyEnabled = settingsRef.current?.["editor.sqlValidation.enabled"] ?? true;
     const nextVal = !isCurrentlyEnabled;
     updateSetting("editor.sqlValidation.enabled", nextVal);
 
+    if (validateDebounceTimerRef.current) {
+      clearTimeout(validateDebounceTimerRef.current);
+      validateDebounceTimerRef.current = null;
+    }
+
     if (!nextVal) {
-      if (editorRef.current && monacoRef.current) {
-        const model = editorRef.current.getModel();
-        if (model) {
-          monacoRef.current.editor.setModelMarkers(model, "sql-validator", []);
-        }
+      if (monacoRef.current) {
+        modelsRef.current.forEach((mod) => {
+          if (mod && !mod.isDisposed()) {
+            monacoRef.current.editor.setModelMarkers(mod, "sql-validator", []);
+          }
+        });
       }
       lastSyntaxErrorsRef.current = [];
-      onSyntaxErrorsChange?.([]);
+      onSyntaxErrorsChangeRef.current?.([]);
       addToast("cancelled", "Real-time SQL validation is now disabled", null, "SQL Validation: OFF");
     } else {
       if (editorRef.current) {
         const model = editorRef.current.getModel();
         if (model) {
-          scheduleSqlValidation(model, true);
+          scheduleSqlValidationRef.current?.(model, true);
         }
       }
       addToast("ok", "Real-time SQL validation is now enabled", null, "SQL Validation: ON");
     }
     return nextVal;
-  }, [settings, updateSetting, scheduleSqlValidation, onSyntaxErrorsChange, addToast]);
+  }, [updateSetting, addToast]);
 
   const handleValidate = useCallback(() => {
     const editor = editorRef.current;
@@ -710,19 +736,26 @@ const SqlEditor = forwardRef(function SqlEditor({
     const model = editor.getModel();
     if (!model || model.isDisposed()) return;
 
+    const currentSettings = settingsRef.current || {};
+    const isValidationEnabled = currentSettings["editor.sqlValidation.enabled"] ?? true;
+    if (!isValidationEnabled) {
+      addToast("cancelled", "SQL validation is currently turned OFF. Enable it to see syntax diagnostics.", null, "Validation Disabled");
+      return;
+    }
+
     const sql = model.getValue();
     if (!sql.trim()) {
       addToast("ok", "SQL editor is empty", null, "SQL Validation");
       return;
     }
 
-    const dialect = settings["editor.sqlValidation.dialect"] || "spark";
+    const dialect = currentSettings["editor.sqlValidation.dialect"] || "spark";
     const result = validateSql(sql, dialect);
 
     if (result.isValid || result.errors.length === 0) {
       monacoRef.current.editor.setModelMarkers(model, "sql-validator", []);
       lastSyntaxErrorsRef.current = [];
-      onSyntaxErrorsChange?.([]);
+      onSyntaxErrorsChangeRef.current?.([]);
       addToast("ok", `SQL syntax is valid (${dialect.toUpperCase()})`, null, "SQL Validation");
     } else {
       const markers = result.errors.map((err) => ({
@@ -735,7 +768,7 @@ const SqlEditor = forwardRef(function SqlEditor({
       }));
       monacoRef.current.editor.setModelMarkers(model, "sql-validator", markers);
       lastSyntaxErrorsRef.current = result.errors;
-      onSyntaxErrorsChange?.(result.errors);
+      onSyntaxErrorsChangeRef.current?.(result.errors);
 
       const first = result.errors[0];
       editor.revealLineInCenter(first.startLine);
@@ -748,7 +781,7 @@ const SqlEditor = forwardRef(function SqlEditor({
         `SQL Validation (${result.errors.length} error${result.errors.length === 1 ? "" : "s"})`
       );
     }
-  }, [settings, onSyntaxErrorsChange, addToast]);
+  }, [addToast]);
 
   // Re-run or clear validation when settings change
   useEffect(() => {
@@ -864,13 +897,13 @@ const SqlEditor = forwardRef(function SqlEditor({
         model.onDidChangeContent(() => {
           const val = model.getValue();
           handleChangeRef.current?.(val);
-          scheduleSqlValidation(model, false);
+          scheduleSqlValidationRef.current?.(model, false);
         });
         modelsRef.current.set(activeFileRef.current.id, model);
       }
       editor.setModel(model);
       prevActiveFileIdRef.current = activeFileRef.current.id;
-      scheduleSqlValidation(model, true);
+      scheduleSqlValidationRef.current?.(model, true);
     }
 
     updateDecorations(editor);
@@ -1225,7 +1258,7 @@ const SqlEditor = forwardRef(function SqlEditor({
       newModel.onDidChangeContent(() => {
         const val = newModel.getValue();
         handleChangeRef.current?.(val);
-        scheduleSqlValidation(newModel, false);
+        scheduleSqlValidationRef.current?.(newModel, false);
       });
       modelsRef.current.set(activeFile.id, newModel);
     }
@@ -1245,10 +1278,10 @@ const SqlEditor = forwardRef(function SqlEditor({
       editor.setPosition({ lineNumber: 1, column: 1 });
     }
 
-    scheduleSqlValidation(newModel, true);
+    scheduleSqlValidationRef.current?.(newModel, true);
     updateDecorations(editor);
     editor.focus();
-  }, [activeFile?.id, updateDecorations, scheduleSqlValidation]);
+  }, [activeFile?.id, updateDecorations]);
 
   // External Content Syncer Effect
   useEffect(() => {
@@ -1326,6 +1359,9 @@ const SqlEditor = forwardRef(function SqlEditor({
       const formatted = formattedParts.filter(p => p !== "").join(";\n\n") + (text.trim().endsWith(";") ? ";" : "");
       editor.executeEdits("format-sql", [{ range, text: formatted }]);
       editor.pushUndoStop();
+      if (!(settingsRef.current?.["editor.sqlValidation.enabled"] ?? true)) {
+        monaco.editor.setModelMarkers(model, "sql-validator", []);
+      }
     } catch { /* ignore */ }
   };
 
@@ -1356,6 +1392,9 @@ const SqlEditor = forwardRef(function SqlEditor({
       const minified = minifiedParts.join(";\n") + (minifiedParts.length > 0 ? ";" : "");
       editor.executeEdits("minify-sql", [{ range, text: minified }]);
       editor.pushUndoStop();
+      if (!(settingsRef.current?.["editor.sqlValidation.enabled"] ?? true)) {
+        monaco.editor.setModelMarkers(model, "sql-validator", []);
+      }
     } catch { /* ignore */ }
   };
 
@@ -1381,6 +1420,9 @@ const SqlEditor = forwardRef(function SqlEditor({
       const fullRange = editor.getModel().getFullModelRange();
       editor.executeEdits("format-sql", [{ range: fullRange, text: formatted }]);
       editor.pushUndoStop();
+      if (!(settingsRef.current?.["editor.sqlValidation.enabled"] ?? true)) {
+        monaco.editor.setModelMarkers(editor.getModel(), "sql-validator", []);
+      }
     } catch {
       // formatting failed, ignore
     }
@@ -1412,6 +1454,9 @@ const SqlEditor = forwardRef(function SqlEditor({
       const fullRange = editor.getModel().getFullModelRange();
       editor.executeEdits("minify-sql", [{ range: fullRange, text: minified }]);
       editor.pushUndoStop();
+      if (!(settingsRef.current?.["editor.sqlValidation.enabled"] ?? true)) {
+        monaco.editor.setModelMarkers(editor.getModel(), "sql-validator", []);
+      }
     } catch {
       // minify failed, ignore
     }
