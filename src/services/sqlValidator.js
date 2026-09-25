@@ -24,6 +24,24 @@ function getParser(dialect = "spark") {
 }
 
 /**
+ * Masks query template placeholders ($var, ${var}, {{var}}, :var, @var) outside strings/comments
+ * with equal-length dummy identifiers so the parser does not produce false-positive syntax errors,
+ * while preserving identical line and column offsets for any real errors.
+ *
+ * @param {string} sql
+ * @returns {string}
+ */
+export function maskPlaceholdersForValidation(sql) {
+  if (!sql) return "";
+  const pattern = /('(?:''|[^'])*'|"(?:""|[^"])*"|`(?:``|[^`])*`|--[^\r\n]*|\/\*[\s\S]*?\*\/)|(\$\{[\w.-]+\}|\{\{[\s\S]*?\}\}|\$[a-zA-Z0-9_]+|:[a-zA-Z0-9_]+|@[a-zA-Z0-9_]+)/g;
+
+  return sql.replace(pattern, (match, literal, placeholder) => {
+    if (literal || !placeholder) return match;
+    return "_" + "x".repeat(Math.max(0, placeholder.length - 1));
+  });
+}
+
+/**
  * Validates a SQL query string using dt-sql-parser.
  *
  * @param {string} sql - SQL string to validate
@@ -37,7 +55,8 @@ export function validateSql(sql, dialect = "spark") {
 
   try {
     const parser = getParser(dialect);
-    const rawErrors = parser.validate(sql) || [];
+    const maskedSql = maskPlaceholdersForValidation(sql);
+    const rawErrors = parser.validate(maskedSql) || [];
 
     const errors = rawErrors.map((err) => {
       const startLine = Number(err.startLine) || 1;

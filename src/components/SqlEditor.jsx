@@ -495,6 +495,67 @@ function stripComments(sql) {
   return result;
 }
 
+export const SQL_PARAM_TYPES = {
+  custom: [
+    { regex: String.raw`\$\{[\w.-]+\}` },
+    { regex: String.raw`\{\{[\w\s.|'"-]+\}\}` },
+    { regex: String.raw`\$[a-zA-Z0-9_]+` },
+    { regex: String.raw`:[a-zA-Z0-9_]+` },
+    { regex: String.raw`@[a-zA-Z0-9_]+` },
+  ],
+  positional: true,
+};
+
+/**
+ * Formats a SQL statement using sql-formatter with support for parameter placeholders
+ * ($var, ${var}, {{var}}, :var, @var) and a safe masking fallback for complex templating.
+ *
+ * @param {string} statement - Single SQL statement to format
+ * @param {number} [tabWidth=2] - Indentation width
+ * @returns {string} - Formatted SQL statement
+ */
+export function formatSqlStatement(statement, tabWidth = 2) {
+  const trimmed = statement.trim();
+  if (!trimmed) return "";
+
+  // 1. Primary: format directly using sql-formatter configured with custom paramTypes
+  try {
+    return format(trimmed, {
+      language: "spark",
+      tabWidth,
+      paramTypes: SQL_PARAM_TYPES,
+    });
+  } catch {
+    // 2. Fallback: mask custom placeholders outside strings and comments, format, and restore
+    try {
+      const placeholderMap = new Map();
+      let counter = 0;
+      const placeholderRegex = /('(?:''|[^'])*'|"(?:""|[^"])*"|`(?:``|[^`])*`|--[^\r\n]*|\/\*[\s\S]*?\*\/)|(\$\{[\w.-]+\}|\{\{[\s\S]*?\}\}|\$[a-zA-Z0-9_]+|:[a-zA-Z0-9_]+|@[a-zA-Z0-9_]+)/g;
+
+      const masked = trimmed.replace(placeholderRegex, (match, literal, placeholder) => {
+        if (literal || !placeholder) return match;
+        const key = `__LIVY_PARAM_${counter++}__`;
+        placeholderMap.set(key, placeholder);
+        return key;
+      });
+
+      let formattedMasked = format(masked, {
+        language: "spark",
+        tabWidth,
+        paramTypes: SQL_PARAM_TYPES,
+      });
+
+      for (const [key, original] of placeholderMap.entries()) {
+        formattedMasked = formattedMasked.split(key).join(original);
+      }
+      return formattedMasked;
+    } catch {
+      // If formatting still fails (e.g. invalid syntax), safely return trimmed original
+      return trimmed;
+    }
+  }
+}
+
 const SqlEditor = forwardRef(function SqlEditor({
   onCursorPositionChange,
   theme,
@@ -981,7 +1042,10 @@ const SqlEditor = forwardRef(function SqlEditor({
     editor.addAction({
       id: "format-sql",
       label: "Format SQL",
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF],
+      keybindings: [
+        monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF,
+        monaco.KeyMod.Alt | monaco.KeyMod.Shift | monaco.KeyCode.KeyF,
+      ],
       contextMenuGroupId: "1_sql",
       contextMenuOrder: 1,
       run: () => handleFormatRef.current?.(),
@@ -1350,11 +1414,7 @@ const SqlEditor = forwardRef(function SqlEditor({
         if (!trimmed) return "";
         const withoutComments = stripComments(trimmed).trim();
         if (!withoutComments) return trimmed;
-        try {
-          return format(trimmed, { language: "spark", tabWidth: 2 });
-        } catch {
-          return trimmed;
-        }
+        return formatSqlStatement(trimmed, 2);
       });
       const formatted = formattedParts.filter(p => p !== "").join(";\n\n") + (text.trim().endsWith(";") ? ";" : "");
       editor.executeEdits("format-sql", [{ range, text: formatted }]);
@@ -1410,11 +1470,7 @@ const SqlEditor = forwardRef(function SqlEditor({
         if (!trimmed) return "";
         const withoutComments = stripComments(trimmed).trim();
         if (!withoutComments) return trimmed;
-        try {
-          return format(trimmed, { language: "spark", tabWidth: 2 });
-        } catch {
-          return trimmed;
-        }
+        return formatSqlStatement(trimmed, 2);
       });
       const formatted = formattedParts.filter(p => p !== "").join(";\n\n") + (value.trim().endsWith(";") ? ";" : "");
       const fullRange = editor.getModel().getFullModelRange();
