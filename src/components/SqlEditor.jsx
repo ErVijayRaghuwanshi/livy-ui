@@ -556,6 +556,158 @@ export function formatSqlStatement(statement, tabWidth = 2) {
   }
 }
 
+/**
+ * Minifies a single SQL statement by compressing redundant whitespace while strictly
+ * preserving comments (leading line/block comments, inline comments, and standalone comments)
+ * and string literals.
+ *
+ * @param {string} statement - Single SQL statement to minify
+ * @returns {string} - Minified SQL statement
+ */
+export function minifySqlStatement(statement) {
+  const trimmed = statement.trim();
+  if (!trimmed) return "";
+
+  const tokens = [];
+  let i = 0;
+  const len = trimmed.length;
+
+  while (i < len) {
+    const ch = trimmed[i];
+    const next = trimmed[i + 1];
+
+    if (ch === "-" && next === "-") {
+      let end = trimmed.indexOf("\n", i + 2);
+      if (end === -1) end = len;
+      tokens.push({ type: "line-comment", text: trimmed.slice(i, end).trim() });
+      i = end;
+    } else if (ch === "/" && next === "*") {
+      let end = trimmed.indexOf("*/", i + 2);
+      if (end === -1) end = len;
+      else end += 2;
+      tokens.push({ type: "block-comment", text: trimmed.slice(i, end) });
+      i = end;
+    } else if (ch === "'") {
+      let j = i + 1;
+      while (j < len) {
+        if (trimmed[j] === "'") {
+          if (trimmed[j + 1] === "'") {
+            j += 2;
+          } else {
+            j++;
+            break;
+          }
+        } else if (trimmed[j] === "\\") {
+          j += 2;
+        } else {
+          j++;
+        }
+      }
+      tokens.push({ type: "string", text: trimmed.slice(i, j) });
+      i = j;
+    } else if (ch === '"') {
+      let j = i + 1;
+      while (j < len) {
+        if (trimmed[j] === '"') {
+          if (trimmed[j + 1] === '"') {
+            j += 2;
+          } else {
+            j++;
+            break;
+          }
+        } else if (trimmed[j] === "\\") {
+          j += 2;
+        } else {
+          j++;
+        }
+      }
+      tokens.push({ type: "string", text: trimmed.slice(i, j) });
+      i = j;
+    } else if (ch === "`") {
+      let j = i + 1;
+      while (j < len) {
+        if (trimmed[j] === "`") {
+          if (trimmed[j + 1] === "`") {
+            j += 2;
+          } else {
+            j++;
+            break;
+          }
+        } else if (trimmed[j] === "\\") {
+          j += 2;
+        } else {
+          j++;
+        }
+      }
+      tokens.push({ type: "string", text: trimmed.slice(i, j) });
+      i = j;
+    } else if (/\s/.test(ch)) {
+      while (i < len && /\s/.test(trimmed[i])) {
+        i++;
+      }
+      tokens.push({ type: "space", text: " " });
+    } else {
+      let j = i;
+      while (
+        j < len &&
+        !/\s/.test(trimmed[j]) &&
+        trimmed[j] !== "'" &&
+        trimmed[j] !== '"' &&
+        trimmed[j] !== "`" &&
+        !(trimmed[j] === "-" && trimmed[j + 1] === "-") &&
+        !(trimmed[j] === "/" && trimmed[j + 1] === "*")
+      ) {
+        j++;
+      }
+      tokens.push({ type: "code", text: trimmed.slice(i, j) });
+      i = j;
+    }
+  }
+
+  // Find index of first executable code or string token
+  const firstCodeIndex = tokens.findIndex((t) => t.type === "code" || t.type === "string");
+  if (firstCodeIndex === -1) {
+    // Statement consists entirely of comments: preserve them all
+    return tokens
+      .filter((t) => t.type === "line-comment" || t.type === "block-comment")
+      .map((t) => t.text)
+      .join("\n");
+  }
+
+  const leadingComments = [];
+  for (let k = 0; k < firstCodeIndex; k++) {
+    if (tokens[k].type === "line-comment" || tokens[k].type === "block-comment") {
+      leadingComments.push(tokens[k].text);
+    }
+  }
+
+  const bodyParts = [];
+  for (let k = firstCodeIndex; k < tokens.length; k++) {
+    const tok = tokens[k];
+    if (tok.type === "line-comment") {
+      bodyParts.push("\n" + tok.text + "\n");
+    } else if (tok.type === "block-comment") {
+      bodyParts.push(" " + tok.text + " ");
+    } else if (tok.type === "space") {
+      bodyParts.push(" ");
+    } else {
+      bodyParts.push(tok.text);
+    }
+  }
+
+  let body = bodyParts.join("");
+  body = body
+    .split("\n")
+    .map((line) => line.trim().replace(/[ \t]+/g, " "))
+    .filter(Boolean)
+    .join("\n");
+
+  if (leadingComments.length > 0) {
+    return leadingComments.join("\n") + "\n" + body;
+  }
+  return body;
+}
+
 const SqlEditor = forwardRef(function SqlEditor({
   onCursorPositionChange,
   theme,
@@ -1438,18 +1590,10 @@ const SqlEditor = forwardRef(function SqlEditor({
         .map((part) => {
           const trimmed = part.trim();
           if (!trimmed) return "";
-          const withoutComments = stripComments(trimmed).trim();
-          if (!withoutComments) return "";
-          return withoutComments
-            .split("\n")
-            .map((line) => line.trim())
-            .filter(Boolean)
-            .join(" ")
-            .replace(/\s+/g, " ")
-            .trim();
+          return minifySqlStatement(trimmed);
         })
         .filter(Boolean);
-      const minified = minifiedParts.join(";\n") + (minifiedParts.length > 0 ? ";" : "");
+      const minified = minifiedParts.join(";\n\n") + (text.trim().endsWith(";") ? ";" : "");
       editor.executeEdits("minify-sql", [{ range, text: minified }]);
       editor.pushUndoStop();
       if (!(settingsRef.current?.["editor.sqlValidation.enabled"] ?? true)) {
@@ -1495,18 +1639,10 @@ const SqlEditor = forwardRef(function SqlEditor({
         .map((part) => {
           const trimmed = part.trim();
           if (!trimmed) return "";
-          const withoutComments = stripComments(trimmed).trim();
-          if (!withoutComments) return "";
-          return withoutComments
-            .split("\n")
-            .map((line) => line.trim())
-            .filter(Boolean)
-            .join(" ")
-            .replace(/\s+/g, " ")
-            .trim();
+          return minifySqlStatement(trimmed);
         })
         .filter(Boolean);
-      const minified = minifiedParts.join(";\n") + (minifiedParts.length > 0 ? ";" : "");
+      const minified = minifiedParts.join(";\n\n") + (value.trim().endsWith(";") ? ";" : "");
       const fullRange = editor.getModel().getFullModelRange();
       editor.executeEdits("minify-sql", [{ range: fullRange, text: minified }]);
       editor.pushUndoStop();
