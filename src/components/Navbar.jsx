@@ -118,7 +118,7 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
           <div className="flex items-center gap-1.5 sm:gap-2.5">
             <Zap size={18} className="sm:w-5 sm:h-5 text-(--color-accent)" />
             <span className="text-sm sm:text-base font-bold tracking-tight text-(--color-text-primary)">
-              <span className="hidden sm:inline">Livy SQL</span>
+              <span className="hidden sm:inline">Livy UI</span>
               <span className="sm:hidden">Livy</span>
             </span>
           </div>
