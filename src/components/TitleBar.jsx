@@ -23,7 +23,7 @@ export default function TitleBar({ onOpenCommandPalette }) {
       {/* Left: Brand logo & name */}
       <div className="flex items-center gap-2 font-semibold text-(--color-text-primary) z-10">
         <Zap size={14} className="text-(--color-accent) fill-current" />
-        <span className="tracking-tight text-[11px] font-medium">Livy SQL</span>
+        <span className="tracking-tight text-[11px] font-medium">Livy UI</span>
       </div>
 
       {/* Center: Command Center Pill (Dead Centered Horizontally) */}
