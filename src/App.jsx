@@ -544,7 +544,6 @@ export default function App() {
           setCommandPaletteInitialQuery("");
           setShowCommandPalette(true);
         }}
-        onOpenWorkspaceModal={() => setShowWorkspaceModal(true)}
       />
 
       <div className={`flex flex-1 min-h-0 bg-(--color-bg-workbench) ${isSidebarDragging ? "select-none" : ""}`}>
