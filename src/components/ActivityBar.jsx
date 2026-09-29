@@ -1,4 +1,4 @@
-import { Folder, Search, Database, Settings } from "lucide-react";
+import { Folder, Search, Database, Settings, HardDrive, GitBranch } from "lucide-react";
 import { useSqlFiles } from "../context/SqlFilesContext";
 
 const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
@@ -10,8 +10,9 @@ export default function ActivityBar({
   setSidebarCollapsed,
   isSettingsOpen,
   onOpenSettings,
+  onOpenWorkspaceModal,
 }) {
-  const { openSettingsTab, activeTabId } = useSqlFiles();
+  const { openSettingsTab, activeTabId, workspace } = useSqlFiles();
 
   const handleTabClick = (tab) => {
     if (sidebarCollapsed) {
@@ -74,6 +75,32 @@ export default function ActivityBar({
             <span className="absolute left-0 top-0 bottom-0 w-[2px] bg-white" />
           )}
           <Database size={20} />
+        </button>
+
+        {/* Local Workspace / Git Directory Sync */}
+        <button
+          onClick={onOpenWorkspaceModal}
+          className={`relative flex items-center justify-center w-12 h-12 transition-colors cursor-pointer ${
+            workspace?.isConnected ? "text-emerald-400 hover:text-emerald-300" : "text-[#858585] hover:text-white"
+          }`}
+          title={
+            workspace?.isConnected
+              ? `Local Workspace: ${workspace.name}${workspace.git?.isGit ? ` (${workspace.git.branch})` : ""} — Click to manage`
+              : "Open or Create Local Workspace / Git Repo"
+          }
+        >
+          {workspace?.isConnected ? (
+            workspace.git?.isGit ? (
+              <GitBranch size={19} className="text-blue-400" />
+            ) : (
+              <HardDrive size={19} className="text-emerald-400" />
+            )
+          ) : (
+            <HardDrive size={19} />
+          )}
+          {workspace?.isConnected && (
+            <span className="absolute bottom-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+          )}
         </button>
       </div>
 

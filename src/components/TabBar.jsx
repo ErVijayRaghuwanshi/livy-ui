@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, X, FileCode, Play, Loader2, Settings, Database } from "lucide-react";
+import { Plus, X, FileCode, FileText, Play, Loader2, Settings, Database } from "lucide-react";
 import { useSqlFiles, SETTINGS_FILE } from "../context/SqlFilesContext";
 
 function stripExtension(name) {
@@ -158,6 +158,8 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
           >
             {file.id === "settings" ? (
               <Settings size={13} className={`shrink-0 ${file.id === activeTabId ? "text-(--color-accent)" : "text-(--color-text-muted)"}`} />
+            ) : file.name?.toLowerCase().endsWith(".md") ? (
+              <FileText size={13} className={`shrink-0 ${file.id === activeTabId ? "text-sky-400" : "text-sky-400/60"}`} />
             ) : (
               <Database size={13} className={`shrink-0 ${file.id === activeTabId ? "text-[#ff7b72]" : "text-[#ff7b72]/60"}`} />
             )}

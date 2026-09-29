@@ -1,11 +1,18 @@
-import { FilePlus, Search, Database, Keyboard, Sparkles, Terminal, History, RotateCcw } from "lucide-react";
+import { FilePlus, Search, Database, Keyboard, Sparkles, Terminal, History, RotateCcw, FolderGit2 } from "lucide-react";
 
 const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 const mod = isMac ? "⌘" : "Ctrl";
 const alt = isMac ? "⌥" : "Alt";
 
-export default function WelcomeScreen({ onCreateFile, onFocusFiles, onFocusSchema, onShowShortcuts, onShowHistory, onRestoreTab, hasClosedTabs }) {
+export default function WelcomeScreen({ onCreateFile, onFocusFiles, onFocusSchema, onShowShortcuts, onShowHistory, onRestoreTab, hasClosedTabs, onOpenWorkspace }) {
   const actions = [
+    {
+      icon: FolderGit2,
+      label: "Open Local Folder / Git Repo",
+      shortcut: [mod, "O"],
+      onClick: onOpenWorkspace,
+      highlight: true,
+    },
     {
       icon: FilePlus,
       label: "New SQL File",
@@ -63,10 +70,20 @@ export default function WelcomeScreen({ onCreateFile, onFocusFiles, onFocusSchem
             <button
               key={idx}
               onClick={action.onClick}
-              className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-(--color-bg-secondary)/40 hover:bg-(--color-bg-tertiary)/75 border border-(--color-border)/40 hover:border-(--color-accent)/30 text-left transition-all active:scale-[0.99] group shadow-sm cursor-pointer"
+              className={`flex items-center justify-between w-full px-4 py-3 rounded-xl border text-left transition-all active:scale-[0.99] group shadow-sm cursor-pointer ${
+                action.highlight
+                  ? "bg-(--color-accent)/10 hover:bg-(--color-accent)/15 border-(--color-accent)/40"
+                  : "bg-(--color-bg-secondary)/40 hover:bg-(--color-bg-tertiary)/75 border-(--color-border)/40 hover:border-(--color-accent)/30"
+              }`}
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-(--color-bg-primary) border border-(--color-border)/30 text-(--color-text-secondary) group-hover:text-(--color-accent) transition-colors">
+                <div
+                  className={`p-2 rounded-lg border text-(--color-text-secondary) group-hover:text-(--color-accent) transition-colors ${
+                    action.highlight
+                      ? "bg-(--color-accent)/20 border-(--color-accent)/30 text-(--color-accent)"
+                      : "bg-(--color-bg-primary) border-(--color-border)/30"
+                  }`}
+                >
                   <Icon size={14} />
                 </div>
                 <span className="text-xs font-medium text-(--color-text-secondary) group-hover:text-(--color-text-primary) transition-colors">

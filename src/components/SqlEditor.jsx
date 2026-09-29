@@ -40,6 +40,16 @@ if (sqlLanguage && sqlLanguage.tokenizer) {
   }
 }
 
+export function getLanguageForFile(fileName = "") {
+  const lower = (fileName || "").toLowerCase();
+  if (lower.endsWith(".sql") || lower.endsWith(".sparksql") || lower.endsWith(".hql")) return "sql";
+  if (lower.endsWith(".md")) return "markdown";
+  if (lower.endsWith(".json")) return "json";
+  if (lower.endsWith(".py")) return "python";
+  if (lower.endsWith(".sh") || lower.endsWith(".bash")) return "shell";
+  return "plaintext";
+}
+
 export const VSCODE_DARK_CUSTOM = "vscode-dark-custom";
 
 monaco.editor.defineTheme(VSCODE_DARK_CUSTOM, {
@@ -754,6 +764,7 @@ const SqlEditor = forwardRef(function SqlEditor({
   const closedModelsRef = useRef(new Map());
   const prevActiveFileIdRef = useRef(null);
   const handleChangeRef = useRef(null);
+  const isApplyingExternalUpdateRef = useRef(false);
 
   useEffect(() => {
     activeFileRef.current = activeFile;
@@ -847,6 +858,16 @@ const SqlEditor = forwardRef(function SqlEditor({
 
   const runSqlValidation = useCallback((model) => {
     if (!model || model.isDisposed() || !monacoRef.current) return;
+
+    // Only validate SQL files
+    const fileName = activeFileRef.current?.name || "";
+    const isSqlFile = !fileName || /\.(sql|sparksql|hql)$/i.test(fileName);
+    if (!isSqlFile) {
+      monacoRef.current.editor.setModelMarkers(model, "sql-validator", []);
+      lastSyntaxErrorsRef.current = [];
+      onSyntaxErrorsChangeRef.current?.([]);
+      return;
+    }
 
     const currentSettings = settingsRef.current || {};
     const isValidationEnabled = currentSettings["editor.sqlValidation.enabled"] ?? true;
@@ -950,6 +971,14 @@ const SqlEditor = forwardRef(function SqlEditor({
     if (!model || model.isDisposed()) return;
 
     const currentSettings = settingsRef.current || {};
+
+    const fileName = activeFileRef.current?.name || "";
+    const isSqlFile = !fileName || /\.(sql|sparksql|hql)$/i.test(fileName);
+    if (!isSqlFile) {
+      addToast("info", "Validation is only supported for SQL files", null, "Validation Skipped");
+      return;
+    }
+
     const isValidationEnabled = currentSettings["editor.sqlValidation.enabled"] ?? true;
     if (!isValidationEnabled) {
       addToast("cancelled", "SQL validation is currently turned OFF. Enable it to see syntax diagnostics.", null, "Validation Disabled");
@@ -1102,13 +1131,16 @@ const SqlEditor = forwardRef(function SqlEditor({
         }
       }
       if (!model) {
+        const lang = getLanguageForFile(activeFileRef.current.name);
         model = monaco.editor.createModel(
           activeFileRef.current.content,
-          "sql",
-          monaco.Uri.parse(`inmemory://model-${activeFileRef.current.id}.sql`)
+          lang,
+          monaco.Uri.parse(`inmemory://model-${activeFileRef.current.id}.${lang === "markdown" ? "md" : lang}`)
         );
         model.onDidChangeContent(() => {
+          if (isApplyingExternalUpdateRef.current) return;
           const val = model.getValue();
+          if (activeFileRef.current && val === activeFileRef.current.content) return;
           handleChangeRef.current?.(val);
           scheduleSqlValidationRef.current?.(model, false);
         });
@@ -1429,6 +1461,7 @@ const SqlEditor = forwardRef(function SqlEditor({
   const handleChange = useCallback(
     (value) => {
       if (activeFileRef.current) {
+        if (value === activeFileRef.current.content) return;
         updateContent(activeFileRef.current.id, value || "");
       }
     },
@@ -1466,13 +1499,16 @@ const SqlEditor = forwardRef(function SqlEditor({
     }
 
     if (!newModel) {
+      const lang = getLanguageForFile(activeFile.name);
       newModel = monaco.editor.createModel(
         activeFile.content,
-        "sql",
-        monaco.Uri.parse(`inmemory://model-${activeFile.id}.sql`)
+        lang,
+        monaco.Uri.parse(`inmemory://model-${activeFile.id}.${lang === "markdown" ? "md" : lang}`)
       );
       newModel.onDidChangeContent(() => {
+        if (isApplyingExternalUpdateRef.current) return;
         const val = newModel.getValue();
+        if (activeFileRef.current && val === activeFileRef.current.content) return;
         handleChangeRef.current?.(val);
         scheduleSqlValidationRef.current?.(newModel, false);
       });
@@ -1481,7 +1517,9 @@ const SqlEditor = forwardRef(function SqlEditor({
 
     // Synchronize content if changed externally (e.g. initial load, external reload)
     if (newModel.getValue() !== activeFile.content) {
+      isApplyingExternalUpdateRef.current = true;
       newModel.setValue(activeFile.content);
+      isApplyingExternalUpdateRef.current = false;
     }
 
     // Set model and restore view state
@@ -1499,7 +1537,7 @@ const SqlEditor = forwardRef(function SqlEditor({
     editor.focus();
   }, [activeFile?.id, updateDecorations]);
 
-  // External Content Syncer Effect
+  // External Content Syncer Effect (Active Model)
   useEffect(() => {
     const editor = editorRef.current;
     const monaco = monacoRef.current;
@@ -1507,9 +1545,29 @@ const SqlEditor = forwardRef(function SqlEditor({
 
     const currentModel = editor.getModel();
     if (currentModel && currentModel.getValue() !== activeFile.content) {
+      isApplyingExternalUpdateRef.current = true;
+      const viewState = editor.saveViewState();
       currentModel.setValue(activeFile.content);
+      if (viewState) {
+        editor.restoreViewState(viewState);
+      }
+      isApplyingExternalUpdateRef.current = false;
     }
   }, [activeFile?.content]);
+
+  // Synchronize non-active open models in background when files change externally
+  useEffect(() => {
+    if (!files) return;
+    for (const f of files) {
+      if (f.id === activeFile?.id) continue;
+      const model = modelsRef.current.get(f.id);
+      if (model && model.getValue() !== f.content) {
+        isApplyingExternalUpdateRef.current = true;
+        model.setValue(f.content);
+        isApplyingExternalUpdateRef.current = false;
+      }
+    }
+  }, [files, activeFile?.id]);
 
   // Closed Tabs Tracker & Retention Cleaner Effect
   useEffect(() => {
@@ -1697,6 +1755,13 @@ const SqlEditor = forwardRef(function SqlEditor({
 
   const handleRunSql = async (sqlOverride, startLine, endLine) => {
     if (!canRun) return;
+
+    const fileName = activeFileRef.current?.name || "";
+    const isSqlFile = !fileName || /\.(sql|sparksql|hql)$/i.test(fileName);
+    if (!isSqlFile) {
+      addToast("info", "Cannot execute non-SQL file as a Spark SQL query", null, "SQL Execution");
+      return;
+    }
 
     let sql = "";
     let finalStartLine = startLine;

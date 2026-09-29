@@ -30,6 +30,12 @@ export default function CommandPalette({
     setActiveTab,
     previewFile,
     openSettingsTab,
+    openWorkspaceFolder,
+    refreshWorkspace,
+    disconnectWorkspace,
+    openSingleFile,
+    saveCurrentFileAs,
+    workspace,
   } = useSqlFiles();
   const { settings, updateSetting } = useSettings();
 
@@ -97,6 +103,45 @@ export default function CommandPalette({
       shortcut: isMac ? "⌘S" : "Ctrl+S",
       action: () => saveFile(activeTabId),
     },
+    {
+      id: "save-file-as-disk",
+      name: "Save SQL File As to Local Disk...",
+      category: "File",
+      shortcut: isMac ? "⌘⇧S" : "Ctrl+Shift+S",
+      action: () => saveCurrentFileAs(activeTabId),
+    },
+    {
+      id: "open-workspace-folder",
+      name: "Open Local Workspace Folder (Sync with disk)",
+      category: "File",
+      shortcut: isMac ? "⌘O" : "Ctrl+O",
+      action: () => openWorkspaceFolder(),
+    },
+    {
+      id: "open-file-disk",
+      name: "Open SQL File from Local Disk...",
+      category: "File",
+      shortcut: "",
+      action: () => openSingleFile(),
+    },
+    ...(workspace?.isConnected
+      ? [
+          {
+            id: "refresh-workspace",
+            name: `Sync / Refresh Workspace ("${workspace.name}")`,
+            category: "File",
+            shortcut: "",
+            action: () => refreshWorkspace(),
+          },
+          {
+            id: "disconnect-workspace",
+            name: `Disconnect Local Workspace ("${workspace.name}")`,
+            category: "File",
+            shortcut: "",
+            action: () => disconnectWorkspace(),
+          },
+        ]
+      : []),
     {
       id: "close-active",
       name: "Close Active File",

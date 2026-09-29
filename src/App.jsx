@@ -17,6 +17,7 @@ import BounceGame from "./components/BounceGame";
 import SnakeGame from "./components/SnakeGame";
 import SettingsTab from "./components/SettingsTab";
 import SettingsModal from "./components/SettingsModal";
+import WorkspaceModal from "./components/WorkspaceModal";
 import { useSettings } from "./context/SettingsContext";
 
 const SIDEBAR_CACHE_KEY = "livy-ui-explorer-collapsed";
@@ -73,6 +74,7 @@ export default function App() {
   const [showHistory, setShowHistory] = useState(false);
   const { settings } = useSettings();
   const [showConnectionModal, setShowConnectionModal] = useState(false);
+  const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(null);
   const [syntaxErrors, setSyntaxErrors] = useState([]);
@@ -210,6 +212,13 @@ export default function App() {
       if (ctrl && e.altKey && !e.shiftKey && (e.key.toLowerCase() === "w" || e.code === "KeyW")) {
         e.preventDefault();
         requestCloseFile(activeTabId);
+        return;
+      }
+
+      // Ctrl+O / Cmd+O — open local workspace folder or Git repo
+      if (ctrl && !e.shiftKey && (e.key.toLowerCase() === "o" || e.code === "KeyO")) {
+        e.preventDefault();
+        setShowWorkspaceModal(true);
         return;
       }
 
@@ -526,11 +535,16 @@ export default function App() {
         toggleTheme={toggleTheme}
         setShowConnectionModal={setShowConnectionModal}
       />
+      <WorkspaceModal
+        isOpen={showWorkspaceModal}
+        onClose={() => setShowWorkspaceModal(false)}
+      />
       <TitleBar
         onOpenCommandPalette={() => {
           setCommandPaletteInitialQuery("");
           setShowCommandPalette(true);
         }}
+        onOpenWorkspaceModal={() => setShowWorkspaceModal(true)}
       />
 
       <div className={`flex flex-1 min-h-0 bg-(--color-bg-workbench) ${isSidebarDragging ? "select-none" : ""}`}>
@@ -542,6 +556,7 @@ export default function App() {
           setSidebarCollapsed={setSidebarCollapsed}
           isSettingsOpen={isSettingsOpen}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenWorkspaceModal={() => setShowWorkspaceModal(true)}
         />
 
         {/* Floating Workspace Islands Container */}
@@ -558,6 +573,7 @@ export default function App() {
             toggleTheme={toggleTheme}
             showConnectionModal={showConnectionModal}
             setShowConnectionModal={setShowConnectionModal}
+            onOpenWorkspaceModal={() => setShowWorkspaceModal(true)}
           />
 
           <div
@@ -692,6 +708,7 @@ export default function App() {
                   onShowHistory={() => setShowHistory(true)}
                   onRestoreTab={restoreLastClosedTab}
                   hasClosedTabs={closedTabsHistory && closedTabsHistory.length > 0}
+                  onOpenWorkspace={() => setShowWorkspaceModal(true)}
                 />
               )}
             </div>

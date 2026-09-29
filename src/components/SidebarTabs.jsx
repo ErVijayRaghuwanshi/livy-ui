@@ -1,5 +1,20 @@
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
-import { FileCode, ChevronDown, ChevronRight, CircleMinus, RefreshCw, FilePlus, Loader2, X, PanelLeftClose } from "lucide-react";
+import {
+  FileCode,
+  FileText,
+  ChevronDown,
+  ChevronRight,
+  CircleMinus,
+  RefreshCw,
+  FilePlus,
+  FolderPlus,
+  Loader2,
+  X,
+  PanelLeftClose,
+  FolderOpen,
+  GitBranch,
+  HardDrive,
+} from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import SchemaExplorer from "./SchemaExplorer";
 import SearchPanel from "./SearchPanel";
@@ -18,7 +33,8 @@ const SidebarTabs = forwardRef(({
   theme,
   toggleTheme,
   showConnectionModal,
-  setShowConnectionModal
+  setShowConnectionModal,
+  onOpenWorkspaceModal,
 }, ref) => {
   const { 
     files, 
@@ -31,7 +47,10 @@ const SidebarTabs = forwardRef(({
     addFile, 
     dirtyFiles,
     previewTabId,
-    promotePreviewTab
+    promotePreviewTab,
+    workspace,
+    refreshWorkspace,
+    disconnectWorkspace,
   } = useSqlFiles();
 
   const { refreshSchema, loading } = useSchema();
@@ -178,6 +197,7 @@ const SidebarTabs = forwardRef(({
       style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
       className="flex flex-col bg-(--color-bg-secondary) rounded-xl border border-(--color-border) shadow-xs shrink-0 overflow-hidden h-full"
     >
+      {/* Explorer Top Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border) bg-(--color-bg-secondary)/10">
         <span className="text-[11px] font-bold text-(--color-text-primary) uppercase tracking-wider">
           Explorer
@@ -192,7 +212,7 @@ const SidebarTabs = forwardRef(({
       </div>
 
       {/* 1. OPEN EDITORS Section */}
-      <div className={`flex flex-col border-b border-(--color-border) ${expandedSections.openEditors ? "max-h-[250px] shrink-0" : "h-auto"}`}>
+      <div className={`flex flex-col border-b border-(--color-border) ${expandedSections.openEditors ? "max-h-[220px] shrink-0" : "h-auto"}`}>
         <div 
           onClick={() => toggleSection("openEditors")}
           className="flex items-center justify-between px-2 py-1.5 bg-(--color-bg-secondary) hover:bg-(--color-bg-tertiary)/15 cursor-pointer select-none group"
@@ -227,7 +247,7 @@ const SidebarTabs = forwardRef(({
         </div>
 
         {expandedSections.openEditors && (
-          <div className="overflow-y-auto py-1 border-t border-(--color-border)/35 bg-(--color-bg-secondary)/15 max-h-[200px]">
+          <div className="overflow-y-auto py-1 border-t border-(--color-border)/35 bg-(--color-bg-secondary)/15 max-h-[170px]">
             {openFilesData.length === 0 ? (
               <div className="px-5 py-3 text-[11px] text-(--color-text-muted) italic text-center">
                 No open editors
@@ -284,28 +304,73 @@ const SidebarTabs = forwardRef(({
           onClick={() => toggleSection("files")}
           className="flex items-center justify-between px-2 py-1.5 bg-(--color-bg-secondary) hover:bg-(--color-bg-tertiary)/15 cursor-pointer select-none group"
         >
-          <div className="flex items-center gap-1">
-            {expandedSections.files ? <ChevronDown size={14} className="text-(--color-text-muted)" /> : <ChevronRight size={14} className="text-(--color-text-muted)" />}
-            <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wider">
-              File Explorer
+          <div className="flex items-center gap-1.5 min-w-0">
+            {expandedSections.files ? <ChevronDown size={14} className="text-(--color-text-muted) shrink-0" /> : <ChevronRight size={14} className="text-(--color-text-muted) shrink-0" />}
+            <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wider truncate">
+              {workspace?.isConnected
+                ? workspace.name.toUpperCase()
+                : "Files"}
             </span>
+            {workspace?.isConnected && workspace.git?.isGit && (
+              <span className="flex items-center gap-1 text-[9px] px-1.5 py-0.2 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono shrink-0">
+                <GitBranch size={9} />
+                <span className="truncate max-w-20">{workspace.git.branch || "git"}</span>
+              </span>
+            )}
           </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpandedSections((prev) => ({ ...prev, files: true }));
-              addFile();
-            }}
-            className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
-            title="New SQL File"
-          >
-            <FilePlus size={13} />
-          </button>
+          <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => {
+                setExpandedSections((prev) => ({ ...prev, files: true }));
+                addFile();
+              }}
+              className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"
+              title={workspace?.isConnected ? "New SQL File in Workspace" : "New SQL File"}
+            >
+              <FilePlus size={12} />
+            </button>
+            {workspace?.isConnected && (
+              <button
+                onClick={() => {
+                  setExpandedSections((prev) => ({ ...prev, files: true }));
+                  refreshWorkspace();
+                }}
+                className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"
+                title="Sync / Refresh from Disk"
+              >
+                <RefreshCw size={11} className={workspace.isSyncing ? "animate-spin text-(--color-accent)" : ""} />
+              </button>
+            )}
+            <button
+              onClick={() => {
+                setExpandedSections((prev) => ({ ...prev, files: true }));
+                if (onOpenWorkspaceModal) onOpenWorkspaceModal();
+              }}
+              className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"
+              title={workspace?.isConnected ? "Switch Workspace Folder..." : "Open Local Workspace..."}
+            >
+              <FolderOpen size={12} />
+            </button>
+            {workspace?.isConnected && (
+              <button
+                onClick={() => disconnectWorkspace()}
+                className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-error) transition-colors cursor-pointer"
+                title="Close Workspace (Return to scratchpad)"
+              >
+                <X size={11} />
+              </button>
+            )}
+          </div>
         </div>
 
         {expandedSections.files && (
-          <div className="flex-1 min-h-0 border-t border-(--color-border)/35">
-            <FileExplorer ref={fileExplorerRef} onInsertAtCursor={onInsertAtCursor} showHeaderFooter={false} />
+          <div className="flex-1 min-h-0 border-t border-(--color-border)/35 overflow-hidden">
+            <FileExplorer
+              ref={fileExplorerRef}
+              onInsertAtCursor={onInsertAtCursor}
+              showHeaderFooter={false}
+              onOpenWorkspaceModal={onOpenWorkspaceModal}
+            />
           </div>
         )}
       </div>

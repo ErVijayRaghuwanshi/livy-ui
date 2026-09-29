@@ -1,7 +1,7 @@
 import { useLivy } from "../context/LivyContext";
 import { SESSION_STATES } from "../utils/constants";
 import { useSqlFiles } from "../context/SqlFilesContext";
-import { Keyboard, History, AlertCircle, Check, WrapText } from "lucide-react";
+import { Keyboard, History, AlertCircle, Check, WrapText, HardDrive, GitBranch } from "lucide-react";
 
 const stateLabels = {
   [SESSION_STATES.NOT_STARTED]: "No Session",
@@ -39,7 +39,7 @@ export default function StatusBar({
   onToggleSqlValidation,
 }) {
   const { activeHost, sessionId, sessionState, isOnline, isServerReachable } = useLivy();
-  const { activeResult, activeFile, autoSave, toggleAutoSave } = useSqlFiles();
+  const { activeResult, activeFile, autoSave, toggleAutoSave, workspace } = useSqlFiles();
 
   const rowCount = activeResult?.status === "ok" && activeResult?.data?.["application/json"]
     ? activeResult.data["application/json"].data?.length ?? null
@@ -49,6 +49,27 @@ export default function StatusBar({
     <div className="flex items-center justify-between px-3 py-1 bg-(--color-bg-workbench) border-t border-(--color-border) shrink-0 text-[11px] text-(--color-text-muted) select-none">
       {/* Left */}
       <div className="flex items-center gap-3">
+        {/* Workspace status badge */}
+        {workspace?.isConnected && (
+          <div
+            className="flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono"
+            title={`Local Workspace: ${workspace.name}${workspace.git?.isGit ? ` (Branch: ${workspace.git.branch})` : ""}`}
+          >
+            {workspace.git?.isGit ? (
+              <>
+                <GitBranch size={10} className="text-blue-400" />
+                <span className="text-blue-400 font-semibold">{workspace.git.branch || "git"}</span>
+                <span className="text-(--color-text-muted) truncate max-w-24">({workspace.name})</span>
+              </>
+            ) : (
+              <>
+                <HardDrive size={10} />
+                <span className="truncate max-w-28">{workspace.name}</span>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Session state */}
         <div className="flex items-center gap-1.5">
           <span className={`w-1.5 h-1.5 rounded-full ${stateColors[sessionState] || "bg-gray-500"}`} />

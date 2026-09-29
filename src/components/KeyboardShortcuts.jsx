@@ -18,6 +18,7 @@ const SHORTCUTS = [
   { keys: [`${mod}+Shift+K`], description: "Focus Schema Explorer" },
   { keys: [`${mod}+.`], description: "Manage Livy hosts" },
   { keys: [`${mod}+\``], description: "Toggle result panel" },
+  { keys: [`${mod}+O`], description: "Open local folder or Git repository" },
   { keys: [isMac ? "⌘+⌥+N" : "Ctrl+Alt+N"], description: "New SQL file" },
   { keys: [isMac ? "⌘+⌥+W" : "Ctrl+Alt+W"], description: "Close active tab" },
   { keys: [`${mod}+Shift+T`, isMac ? "⌘+⌥+T" : "Ctrl+Alt+T"], description: "Restore last closed tab" },
