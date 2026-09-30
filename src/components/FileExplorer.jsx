@@ -21,6 +21,9 @@ import {
   Upload,
   Info,
   Sparkles,
+  Globe,
+  Database,
+  ArrowRight,
 } from "lucide-react";
 import { useSqlFiles } from "../context/SqlFilesContext";
 import { useToast } from "./Toast";
@@ -73,6 +76,8 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
     removeFile,
     renameFile,
     addFile,
+    addBrowserFile,
+    saveBrowserFileToWorkspace,
     dirtyFiles,
     workspace,
     isFsSupported,
@@ -96,6 +101,18 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
   const [showUnsupportedModal, setShowUnsupportedModal] = useState(false);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
 
+  const [expandedSections, setExpandedSections] = useState({
+    workspace: true,
+    browser: true,
+  });
+
+  const toggleSection = (section) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
+
   const handleOpenWorkspace = () => {
     if (onOpenWorkspaceModal) {
       onOpenWorkspaceModal();
@@ -105,6 +122,20 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
   };
 
   const [deleteConfirmTarget, setDeleteConfirmTarget] = useState(null); // { type: 'file'|'folder', id, name, handle, parentHandle }
+
+  const workspaceFiles = files.filter((f) => f.isLocalDisk);
+  const browserFiles = files.filter((f) => !f.isLocalDisk);
+
+  const handleCopyToWorkspace = async (file, e) => {
+    e?.stopPropagation();
+    if (!workspace.isConnected || !workspace.handle) return;
+    try {
+      await saveBrowserFileToWorkspace(file.id);
+      addToast("ok", `Copied "${file.name}" to workspace folder`, null, "Saved to Workspace");
+    } catch (err) {
+      addToast("error", err.message || "Failed to copy file to workspace", null, "Copy Error");
+    }
+  };
 
   // Expanded folders state: map of folder path -> boolean
   const [expandedFolders, setExpandedFolders] = useState({});
@@ -541,6 +572,92 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
     );
   };
 
+  const renderBrowserFileRow = (file) => {
+    const isSelected = selectedFileId === file.id;
+    const isActive = activeTabId === file.id;
+
+    return (
+      <div
+        key={file.id}
+        onClick={() => handleFileClick(file.id)}
+        onDoubleClick={() => handleFileDoubleClick(file.id)}
+        className={`group flex items-center gap-1.5 px-3 py-1.5 text-xs cursor-pointer transition-colors ${
+          isSelected
+            ? "bg-(--color-bg-primary) text-(--color-text-primary)"
+            : "text-(--color-text-secondary) hover:bg-(--color-bg-tertiary)/60"
+        } ${isActive ? "border-l-2 border-l-(--color-accent)" : ""}`}
+      >
+        <FileItemIcon
+          fileName={file.name}
+          isActive={isActive}
+          isOpen={isFileOpen(file.id)}
+          size={13}
+        />
+
+        {renamingId === file.id ? (
+          <div className="flex items-center gap-1 flex-1" onClick={(e) => e.stopPropagation()}>
+            <input
+              autoFocus
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleFinishRename(file.id);
+                if (e.key === "Escape") setRenamingId(null);
+              }}
+              onBlur={() => handleFinishRename(file.id)}
+              className="flex-1 bg-(--color-bg-primary) border border-(--color-accent) rounded px-1 py-0.5 text-xs text-(--color-text-primary) outline-none"
+            />
+            <span className="text-[10px] text-(--color-text-muted)">.sql</span>
+          </div>
+        ) : (
+          <>
+            <span className="flex-1 truncate text-[11px]">{file.name}</span>
+
+            {dirtyFiles?.[file.id] && (
+              <span
+                className="w-1.5 h-1.5 rounded-full bg-white shrink-0 mr-1 group-hover:hidden"
+                title="Unsaved changes"
+              />
+            )}
+
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
+              {workspace.isConnected && (
+                <button
+                  onClick={(e) => handleCopyToWorkspace(file, e)}
+                  className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors"
+                  title="Copy to Workspace Folder"
+                >
+                  <ArrowRight size={11} />
+                </button>
+              )}
+              <button
+                onClick={(e) => handleSaveAs(file.id, e)}
+                className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-emerald-400 transition-colors"
+                title="Save As to Local Disk"
+              >
+                <Download size={11} />
+              </button>
+              <button
+                onClick={(e) => handleStartRename(file, e)}
+                className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors"
+                title="Rename (F2)"
+              >
+                <Edit2 size={11} />
+              </button>
+              <button
+                onClick={(e) => handleDeleteFile(file, e)}
+                className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-error) transition-colors"
+                title="Delete (Del)"
+              >
+                <Trash2 size={11} />
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div
       ref={containerRef}
@@ -557,7 +674,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
             </span>
             {workspace.isConnected && (
               <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono shrink-0">
-                DISK
+                DISK & BROWSER
               </span>
             )}
           </div>
@@ -745,102 +862,59 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
           </div>
         )}
 
-        {filteredFiles.length === 0 && !workspace.tree?.children?.length ? (
-          <div className="flex flex-col items-center justify-center h-48 text-center px-4">
-            <FolderOpen size={32} className="text-(--color-text-muted) mb-2" />
-            <p className="text-xs text-(--color-text-muted) mb-2">
-              {searchQuery
-                ? "No files found"
-                : workspace.isConnected
-                ? "Folder contains no SQL files"
-                : "No workspace connected"}
-            </p>
-            {!searchQuery && (
-              <div className="flex flex-col gap-2 w-full max-w-48">
-                <button
-                  onClick={handleOpenWorkspace}
-                  className="px-3 py-1.5 text-xs text-white bg-(--color-accent) hover:bg-(--color-accent-hover) rounded-lg transition-colors font-medium flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                >
-                  <Sparkles size={13} />
-                  <span>Choose or Create Folder</span>
-                </button>
-                <button
-                  onClick={() => addFile()}
-                  className="px-3 py-1.5 text-xs text-(--color-text-secondary) hover:text-(--color-text-primary) bg-(--color-bg-tertiary)/60 hover:bg-(--color-bg-tertiary) border border-(--color-border) rounded-lg transition-colors cursor-pointer"
-                >
-                  New In-Browser File
-                </button>
-              </div>
-            )}
-          </div>
-        ) : searchQuery ? (
-          // If searching, show clean flat filtered view
+        {searchQuery ? (
+          // If searching, show clean flat filtered view across both disk and browser files
           <div className="py-1">
-            {filteredFiles.map((file) => (
-              <div
-                key={file.id}
-                onClick={() => handleFileClick(file.id)}
-                onDoubleClick={() => handleFileDoubleClick(file.id)}
-                className={`group flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer transition-colors ${
-                  selectedFileId === file.id
-                    ? "bg-(--color-bg-primary) text-(--color-text-primary)"
-                    : "text-(--color-text-secondary) hover:bg-(--color-bg-tertiary)"
-                } ${activeTabId === file.id ? "border-l-2 border-l-(--color-accent)" : ""}`}
-              >
-                <FileItemIcon fileName={file.name} isActive={activeTabId === file.id} isOpen={isFileOpen(file.id)} size={13} />
-                <div className="flex-1 min-w-0">
-                  <div className="truncate font-medium">{file.name}</div>
-                  {file.relativePath && file.relativePath !== file.name && (
-                    <div className="text-[9px] text-(--color-text-muted) truncate font-mono">
-                      {file.relativePath}
+            {filteredFiles.length === 0 ? (
+              <div className="px-5 py-6 text-center text-xs text-(--color-text-muted)">
+                No files matching "{searchQuery}"
+              </div>
+            ) : (
+              filteredFiles.map((file) => {
+                const isSelected = selectedFileId === file.id;
+                const isActive = activeTabId === file.id;
+                return (
+                  <div
+                    key={file.id}
+                    onClick={() => handleFileClick(file.id)}
+                    onDoubleClick={() => handleFileDoubleClick(file.id)}
+                    className={`group flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer transition-colors ${
+                      isSelected
+                        ? "bg-(--color-bg-primary) text-(--color-text-primary)"
+                        : "text-(--color-text-secondary) hover:bg-(--color-bg-tertiary)"
+                    } ${isActive ? "border-l-2 border-l-(--color-accent)" : ""}`}
+                  >
+                    <FileItemIcon fileName={file.name} isActive={isActive} isOpen={isFileOpen(file.id)} size={13} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="truncate font-medium">{file.name}</span>
+                        {file.isLocalDisk ? (
+                          <span className="px-1 py-0.2 rounded text-[8px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+                            DISK
+                          </span>
+                        ) : (
+                          <span className="px-1 py-0.2 rounded text-[8px] font-mono bg-sky-500/10 text-sky-400 border border-sky-500/20 shrink-0">
+                            BROWSER
+                          </span>
+                        )}
+                      </div>
+                      {file.relativePath && file.relativePath !== file.name && (
+                        <div className="text-[9px] text-(--color-text-muted) truncate font-mono">
+                          {file.relativePath}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : workspace.isConnected && workspace.tree?.children ? (
-          // Hierarchical tree view when workspace is active
-          <div className="py-1">
-            {workspace.tree.children.map((child) => renderTreeNode(child, 0))}
-          </div>
-        ) : (
-          // Default scratchpad list
-          <div className="py-1">
-            {files.map((file) => (
-              <div
-                key={file.id}
-                onClick={() => handleFileClick(file.id)}
-                onDoubleClick={() => handleFileDoubleClick(file.id)}
-                className={`group flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer transition-colors ${
-                  selectedFileId === file.id
-                    ? "bg-(--color-bg-primary) text-(--color-text-primary)"
-                    : "text-(--color-text-secondary) hover:bg-(--color-bg-tertiary)"
-                } ${activeTabId === file.id ? "border-l-2 border-l-(--color-accent)" : ""}`}
-              >
-                <FileItemIcon fileName={file.name} isActive={activeTabId === file.id} isOpen={isFileOpen(file.id)} size={14} />
-                {renamingId === file.id ? (
-                  <div className="flex items-center gap-1 flex-1" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      autoFocus
-                      value={renameValue}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleFinishRename(file.id);
-                        if (e.key === "Escape") setRenamingId(null);
-                      }}
-                      onBlur={() => handleFinishRename(file.id)}
-                      className="flex-1 bg-(--color-bg-primary) border border-(--color-accent) rounded px-1 py-0.5 text-xs text-(--color-text-primary) outline-none"
-                    />
-                    <span className="text-[10px] text-(--color-text-muted)">.sql</span>
-                  </div>
-                ) : (
-                  <>
-                    <span className="flex-1 truncate">{file.name}</span>
-                    {dirtyFiles?.[file.id] && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0 mr-1 group-hover:hidden" />
-                    )}
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 shrink-0">
+
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
+                      {!file.isLocalDisk && workspace.isConnected && (
+                        <button
+                          onClick={(e) => handleCopyToWorkspace(file, e)}
+                          className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors"
+                          title="Copy to Workspace Folder"
+                        >
+                          <ArrowRight size={11} />
+                        </button>
+                      )}
                       <button
                         onClick={(e) => handleSaveAs(file.id, e)}
                         className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-emerald-400 transition-colors"
@@ -855,20 +929,186 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
                       >
                         <Edit2 size={11} />
                       </button>
-                      {files.length > 1 && (
-                        <button
-                          onClick={(e) => handleDeleteFile(file, e)}
-                          className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-error) transition-colors"
-                          title="Delete (Del)"
-                        >
-                          <Trash2 size={11} />
-                        </button>
-                      )}
+                      <button
+                        onClick={(e) => handleDeleteFile(file, e)}
+                        className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-error) transition-colors"
+                        title="Delete (Del)"
+                      >
+                        <Trash2 size={11} />
+                      </button>
                     </div>
-                  </>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        ) : workspace.isConnected ? (
+          // WORKSPACE CONNECTED: Render Workspace Tree AND Browser Storage Sections
+          <div className="flex flex-col">
+            {/* SECTION 1: Local Workspace Directory Tree */}
+            <div className="border-b border-(--color-border)/40">
+              <div
+                onClick={() => toggleSection("workspace")}
+                className="flex items-center justify-between px-2.5 py-1.5 bg-(--color-bg-secondary)/60 hover:bg-(--color-bg-tertiary)/30 cursor-pointer select-none group"
+              >
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {expandedSections.workspace ? (
+                    <ChevronDown size={13} className="text-(--color-text-muted) shrink-0" />
+                  ) : (
+                    <ChevronRight size={13} className="text-(--color-text-muted) shrink-0" />
+                  )}
+                  <HardDrive size={12} className="text-emerald-400 shrink-0" />
+                  <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wider truncate">
+                    {workspace.name || "WORKSPACE"}
+                  </span>
+                  {workspace.git?.isGit && (
+                    <span className="flex items-center gap-0.5 text-[9px] px-1 py-0.2 rounded bg-blue-500/10 text-blue-400 font-mono shrink-0">
+                      <GitBranch size={9} />
+                      <span className="truncate max-w-16">{workspace.git.branch || "git"}</span>
+                    </span>
+                  )}
+                  <span className="px-1 py-0.2 text-[9px] bg-(--color-bg-tertiary) text-(--color-text-muted) rounded-full font-semibold shrink-0">
+                    {workspaceFiles.length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => handleStartCreate(workspace.handle, "", "file")}
+                    className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors"
+                    title="New SQL File on Disk"
+                  >
+                    <FilePlus size={12} />
+                  </button>
+                  <button
+                    onClick={() => handleStartCreate(workspace.handle, "", "folder")}
+                    className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-amber-400 transition-colors"
+                    title="New Subfolder on Disk"
+                  >
+                    <FolderPlus size={12} />
+                  </button>
+                  <button
+                    onClick={handleRefresh}
+                    disabled={workspace.isSyncing}
+                    className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors"
+                    title="Sync / Refresh Disk"
+                  >
+                    <RefreshCw size={11} className={workspace.isSyncing ? "animate-spin text-(--color-accent)" : ""} />
+                  </button>
+                </div>
+              </div>
+
+              {expandedSections.workspace && (
+                <div className="py-1">
+                  {workspace.tree?.children?.length ? (
+                    workspace.tree.children.map((child) => renderTreeNode(child, 0))
+                  ) : (
+                    <div className="px-6 py-3 text-[11px] text-(--color-text-muted) italic">
+                      Folder contains no SQL files
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* SECTION 2: Browser Storage Files */}
+            <div>
+              <div
+                onClick={() => toggleSection("browser")}
+                className="flex items-center justify-between px-2.5 py-1.5 bg-(--color-bg-secondary)/60 hover:bg-(--color-bg-tertiary)/30 cursor-pointer select-none group"
+              >
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {expandedSections.browser ? (
+                    <ChevronDown size={13} className="text-(--color-text-muted) shrink-0" />
+                  ) : (
+                    <ChevronRight size={13} className="text-(--color-text-muted) shrink-0" />
+                  )}
+                  <Globe size={12} className="text-sky-400 shrink-0" />
+                  <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wider truncate">
+                    Browser Storage
+                  </span>
+                  <span className="px-1 py-0.2 text-[9px] bg-(--color-bg-tertiary) text-(--color-text-muted) rounded-full font-semibold shrink-0">
+                    {browserFiles.length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => addBrowserFile()}
+                    className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors"
+                    title="New In-Browser SQL File"
+                  >
+                    <FilePlus size={12} />
+                  </button>
+                </div>
+              </div>
+
+              {expandedSections.browser && (
+                <div className="py-1">
+                  {browserFiles.length === 0 ? (
+                    <div className="px-6 py-3 text-[11px] text-(--color-text-muted) italic flex items-center justify-between">
+                      <span>No in-browser files</span>
+                      <button
+                        onClick={() => addBrowserFile()}
+                        className="text-[10px] text-(--color-accent) hover:underline cursor-pointer"
+                      >
+                        + Create
+                      </button>
+                    </div>
+                  ) : (
+                    browserFiles.map(renderBrowserFileRow)
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          // WORKSPACE DISCONNECTED: Browser Storage Files List with Folder Open Option
+          <div className="flex flex-col">
+            <div
+              onClick={() => toggleSection("browser")}
+              className="flex items-center justify-between px-2.5 py-1.5 bg-(--color-bg-secondary)/60 hover:bg-(--color-bg-tertiary)/30 cursor-pointer select-none group border-b border-(--color-border)/40"
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                {expandedSections.browser ? (
+                  <ChevronDown size={13} className="text-(--color-text-muted) shrink-0" />
+                ) : (
+                  <ChevronRight size={13} className="text-(--color-text-muted) shrink-0" />
+                )}
+                <Globe size={12} className="text-sky-400 shrink-0" />
+                <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wider truncate">
+                  Browser Storage
+                </span>
+                <span className="px-1 py-0.2 text-[9px] bg-(--color-bg-tertiary) text-(--color-text-muted) rounded-full font-semibold shrink-0">
+                  {browserFiles.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => addBrowserFile()}
+                  className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"
+                  title="New In-Browser SQL File"
+                >
+                  <FilePlus size={12} />
+                </button>
+              </div>
+            </div>
+
+            {expandedSections.browser && (
+              <div className="py-1">
+                {browserFiles.length === 0 ? (
+                  <div className="px-6 py-6 text-center text-xs text-(--color-text-muted)">
+                    <p className="mb-2">No in-browser files</p>
+                    <button
+                      onClick={() => addBrowserFile()}
+                      className="px-3 py-1 text-xs text-white bg-(--color-accent) rounded-md cursor-pointer hover:bg-(--color-accent-hover)"
+                    >
+                      Create File
+                    </button>
+                  </div>
+                ) : (
+                  browserFiles.map(renderBrowserFileRow)
                 )}
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
@@ -877,7 +1117,15 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
       {showHeaderFooter && (
         <div className="flex items-center justify-between px-3 py-1.5 border-t border-(--color-border) text-[10px] text-(--color-text-muted)">
           <div className="truncate">
-            {filteredFiles.length} {filteredFiles.length === 1 ? "file" : "files"}
+            {workspace.isConnected ? (
+              <span>
+                {workspaceFiles.length} disk · {browserFiles.length} browser
+              </span>
+            ) : (
+              <span>
+                {browserFiles.length} {browserFiles.length === 1 ? "file" : "files"}
+              </span>
+            )}
             {searchQuery && ` (filtered from ${files.length})`}
           </div>
           {workspace.isConnected && (

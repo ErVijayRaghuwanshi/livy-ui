@@ -267,9 +267,14 @@ const SidebarTabs = forwardRef(({
                           ? "bg-(--color-bg-primary) text-(--color-text-primary) border-l-2 border-l-(--color-accent)"
                           : "text-(--color-text-secondary) hover:bg-(--color-bg-tertiary)/40"
                       }`}
+                      title={file.isLocalDisk ? `Local Disk: ${file.relativePath || file.name}` : `Browser Storage: ${file.name}`}
                     >
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <FileCode size={13} className={`shrink-0 ${isActive ? "text-[#ff7b72]" : "text-[#ff7b72]/60"}`} />
+                        {file.isLocalDisk ? (
+                          <HardDrive size={13} className={`shrink-0 ${isActive ? "text-emerald-400" : "text-emerald-400/60"}`} />
+                        ) : (
+                          <FileCode size={13} className={`shrink-0 ${isActive ? "text-[#ff7b72]" : "text-[#ff7b72]/60"}`} />
+                        )}
                         <span className={`truncate ${isActive ? "font-semibold text-(--color-text-primary)" : ""} ${file.id === previewTabId ? "italic text-(--color-text-secondary)/80" : ""}`}>
                           {file.name}
                         </span>
@@ -308,7 +313,7 @@ const SidebarTabs = forwardRef(({
             {expandedSections.files ? <ChevronDown size={14} className="text-(--color-text-muted) shrink-0" /> : <ChevronRight size={14} className="text-(--color-text-muted) shrink-0" />}
             <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wider truncate">
               {workspace?.isConnected
-                ? workspace.name.toUpperCase()
+                ? "WORKSPACE & FILES"
                 : "Files"}
             </span>
             {workspace?.isConnected && workspace.git?.isGit && (

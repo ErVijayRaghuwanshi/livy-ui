@@ -71,17 +71,35 @@ export const SETTINGS_FILE = {
   isReadOnly: true,
 };
 
-const storedFiles = getItem(STORAGE_KEYS.SQL_FILES, [defaultFile]).map(f => ({
+// Recover any previously backed up scratchpad files if available
+const storedScratchpad = getItem(STORAGE_KEYS.SCRATCHPAD_FILES, null);
+let initialBrowserFiles = getItem(STORAGE_KEYS.SQL_FILES, [defaultFile]);
+
+if (Array.isArray(storedScratchpad) && storedScratchpad.length > 0) {
+  const existingIds = new Set(initialBrowserFiles.map((f) => f.id));
+  for (const sf of storedScratchpad) {
+    if (!existingIds.has(sf.id)) {
+      initialBrowserFiles.push({ ...sf, isLocalDisk: false });
+    }
+  }
+}
+
+initialBrowserFiles = initialBrowserFiles.map((f) => ({
   ...f,
   lastSavedContent: f.lastSavedContent || f.content,
-  isLocalDisk: !!f.isLocalDisk,
+  isLocalDisk: false,
 }));
+
+if (initialBrowserFiles.length === 0) {
+  initialBrowserFiles = [defaultFile];
+}
+
 const storedOpenFiles = getItem(STORAGE_KEYS.OPEN_FILES, null);
 
 const initialState = {
-  files: storedFiles,
-  openFiles: storedOpenFiles || [],
-  activeTabId: getItem(STORAGE_KEYS.ACTIVE_TAB, "default"),
+  files: initialBrowserFiles,
+  openFiles: storedOpenFiles || [initialBrowserFiles[0].id],
+  activeTabId: getItem(STORAGE_KEYS.ACTIVE_TAB, initialBrowserFiles[0].id),
   results: {},
   dirtyFiles: {},
   closedTabsHistory: [],
@@ -114,8 +132,54 @@ function reducer(state, action) {
         files,
         openFiles: openFiles || (files.length > 0 ? [files[0].id] : []),
         activeTabId: activeTabId || (files.length > 0 ? files[0].id : null),
-        dirtyFiles: dirtyFiles !== undefined ? dirtyFiles : {},
-        previewTabId: previewTabId !== undefined ? previewTabId : null,
+        dirtyFiles: dirtyFiles !== undefined ? dirtyFiles : state.dirtyFiles,
+        previewTabId: previewTabId !== undefined ? previewTabId : state.previewTabId,
+      };
+    }
+
+    case "MERGE_WORKSPACE_FILES": {
+      const { diskFiles, openFiles: explicitOpen, activeTabId: explicitActive } = action.payload;
+      // Preserve all current in-browser storage files
+      const browserFiles = state.files.filter((f) => !f.isLocalDisk);
+      const combinedFiles = [...diskFiles, ...browserFiles];
+
+      const availableIds = new Set(combinedFiles.map((f) => f.id));
+      const nextOpenFiles = explicitOpen || state.openFiles.filter((id) => availableIds.has(id));
+      if (nextOpenFiles.length === 0 && combinedFiles.length > 0) {
+        nextOpenFiles.push(diskFiles[0]?.id || combinedFiles[0].id);
+      }
+      const nextActiveId = explicitActive || (availableIds.has(state.activeTabId)
+        ? state.activeTabId
+        : (nextOpenFiles.length > 0 ? nextOpenFiles[0] : (diskFiles[0]?.id || combinedFiles[0]?.id)));
+
+      return {
+        ...state,
+        files: combinedFiles,
+        openFiles: nextOpenFiles,
+        activeTabId: nextActiveId,
+      };
+    }
+
+    case "DISCONNECT_WORKSPACE_FILES": {
+      // Retain all in-browser storage files
+      let browserFiles = state.files.filter((f) => !f.isLocalDisk);
+      if (browserFiles.length === 0) {
+        browserFiles = [defaultFile];
+      }
+      const availableIds = new Set(browserFiles.map((f) => f.id));
+      const nextOpenFiles = state.openFiles.filter((id) => availableIds.has(id));
+      if (nextOpenFiles.length === 0) {
+        nextOpenFiles.push(browserFiles[0].id);
+      }
+      const nextActiveId = availableIds.has(state.activeTabId)
+        ? state.activeTabId
+        : nextOpenFiles[0];
+
+      return {
+        ...state,
+        files: browserFiles,
+        openFiles: nextOpenFiles,
+        activeTabId: nextActiveId,
       };
     }
 
@@ -643,18 +707,10 @@ export function SqlFilesProvider({ children }) {
             },
           });
           if (flatFiles.length > 0) {
-            const availableIds = new Set(flatFiles.map((f) => f.id));
-            const nextOpenFiles = state.openFiles.filter((id) => availableIds.has(id));
-            const nextActiveId = availableIds.has(state.activeTabId)
-              ? state.activeTabId
-              : (nextOpenFiles.length > 0 ? nextOpenFiles[0] : flatFiles[0].id);
-
             dispatch({
-              type: "SET_WORKSPACE_FILES",
+              type: "MERGE_WORKSPACE_FILES",
               payload: {
-                files: flatFiles,
-                openFiles: nextOpenFiles.length > 0 ? nextOpenFiles : [flatFiles[0].id],
-                activeTabId: nextActiveId,
+                diskFiles: flatFiles,
               },
             });
           }
@@ -695,10 +751,12 @@ export function SqlFilesProvider({ children }) {
 
   const toggleAutoSave = useCallback(() => setAutoSave((prev) => !prev), []);
 
-  // Persist files (omit raw file handles which cannot be stringified)
+  // Persist only in-browser files to localStorage (never store disk files which require live handles)
   useEffect(() => {
-    const serializable = state.files.map(({ fileHandle, parentDirHandle, ...rest }) => rest);
-    setItem(STORAGE_KEYS.SQL_FILES, serializable);
+    const browserFiles = state.files
+      .filter((f) => !f.isLocalDisk)
+      .map(({ fileHandle, parentDirHandle, ...rest }) => rest);
+    setItem(STORAGE_KEYS.SQL_FILES, browserFiles.length > 0 ? browserFiles : [defaultFile]);
   }, [state.files]);
 
   // Persist open files
@@ -783,12 +841,6 @@ export function SqlFilesProvider({ children }) {
     try {
       const { dirHandle, name, files: loadedFiles, tree, git } = await openLocalWorkspace();
 
-      // Backup current scratchpad files if this is the first time connecting
-      if (!state.workspace.isConnected) {
-        const scratchpadFiles = state.files.map(({ fileHandle, parentDirHandle, ...rest }) => rest);
-        setItem(STORAGE_KEYS.SCRATCHPAD_FILES, scratchpadFiles);
-      }
-
       let activeFiles = loadedFiles;
       let activeTree = tree;
 
@@ -839,11 +891,11 @@ export function SqlFilesProvider({ children }) {
       });
 
       dispatch({
-        type: "SET_WORKSPACE_FILES",
+        type: "MERGE_WORKSPACE_FILES",
         payload: {
-          files: activeFiles,
-          openFiles: [activeFiles[0].id],
-          activeTabId: activeFiles[0].id,
+          diskFiles: activeFiles,
+          openFiles: activeFiles.length > 0 ? [activeFiles[0].id] : undefined,
+          activeTabId: activeFiles.length > 0 ? activeFiles[0].id : undefined,
         },
       });
 
@@ -855,7 +907,7 @@ export function SqlFilesProvider({ children }) {
       console.error("Failed to open local workspace:", err);
       throw err;
     }
-  }, [state.workspace.isConnected, state.files]);
+  }, []);
 
   // Create New Local SQL Project / Repo
   const createNewWorkspaceProject = useCallback(async ({ templateType = "git", projectName = "spark-sql-workspace" } = {}) => {
@@ -888,11 +940,11 @@ export function SqlFilesProvider({ children }) {
       });
 
       dispatch({
-        type: "SET_WORKSPACE_FILES",
+        type: "MERGE_WORKSPACE_FILES",
         payload: {
-          files: flatFiles,
-          openFiles: flatFiles.length > 0 ? [flatFiles[0].id] : [],
-          activeTabId: flatFiles.length > 0 ? flatFiles[0].id : null,
+          diskFiles: flatFiles,
+          openFiles: flatFiles.length > 0 ? [flatFiles[0].id] : undefined,
+          activeTabId: flatFiles.length > 0 ? flatFiles[0].id : undefined,
         },
       });
 
@@ -937,20 +989,10 @@ export function SqlFilesProvider({ children }) {
         },
       });
       if (loadedFiles.length > 0) {
-        const availableIds = new Set(loadedFiles.map((f) => f.id));
-        const nextOpenFiles = state.openFiles.filter((id) => availableIds.has(id));
-        const nextActiveId = availableIds.has(state.activeTabId)
-          ? state.activeTabId
-          : (nextOpenFiles.length > 0 ? nextOpenFiles[0] : loadedFiles[0].id);
-
         dispatch({
-          type: "SET_WORKSPACE_FILES",
+          type: "MERGE_WORKSPACE_FILES",
           payload: {
-            files: loadedFiles,
-            openFiles: nextOpenFiles.length > 0 ? nextOpenFiles : [loadedFiles[0].id],
-            activeTabId: nextActiveId,
-            dirtyFiles: state.dirtyFiles,
-            previewTabId: state.previewTabId,
+            diskFiles: loadedFiles,
           },
         });
       }
@@ -959,9 +1001,9 @@ export function SqlFilesProvider({ children }) {
       console.error("Reconnect workspace failed:", err);
       return false;
     }
-  }, [state.workspace, state.files, state.openFiles, state.activeTabId, state.dirtyFiles, state.previewTabId]);
+  }, [state.workspace, state.files]);
 
-  // Refresh Workspace (re-read from disk)
+  // Refresh Workspace (re-read from disk and keep browser storage files intact)
   const refreshWorkspace = useCallback(async () => {
     if (!state.workspace.handle || !state.workspace.isConnected) return;
     try {
@@ -983,7 +1025,7 @@ export function SqlFilesProvider({ children }) {
         existingByPath.set(f.name, f);
       }
 
-      const nextFiles = diskFiles.map((df) => {
+      const nextDiskFiles = diskFiles.map((df) => {
         const existing = existingById.get(df.id) || existingByPath.get(df.relativePath) || existingByPath.get(df.name);
         if (existing) {
           const isDirty = !!state.dirtyFiles[existing.id];
@@ -999,17 +1041,21 @@ export function SqlFilesProvider({ children }) {
         return df;
       });
 
-      const availableIds = new Set(nextFiles.map((f) => f.id));
-      const nextOpenFiles = state.openFiles.filter((id) => availableIds.has(id));
-      const nextActiveId = availableIds.has(state.activeTabId)
-        ? state.activeTabId
-        : (nextOpenFiles.length > 0 ? nextOpenFiles[0] : (nextFiles[0]?.id || null));
-
-      for (const f of nextFiles) {
+      for (const f of nextDiskFiles) {
         if (f.lastModified && f.id) {
           fileLastModifiedRef.current[f.id] = f.lastModified;
         }
       }
+
+      // Preserve all current in-browser storage files!
+      const browserFiles = state.files.filter((f) => !f.isLocalDisk);
+      const combinedFiles = [...nextDiskFiles, ...browserFiles];
+
+      const availableIds = new Set(combinedFiles.map((f) => f.id));
+      const nextOpenFiles = state.openFiles.filter((id) => availableIds.has(id));
+      const nextActiveId = availableIds.has(state.activeTabId)
+        ? state.activeTabId
+        : (nextOpenFiles.length > 0 ? nextOpenFiles[0] : (nextDiskFiles[0]?.id || combinedFiles[0]?.id || null));
 
       dispatch({
         type: "UPDATE_WORKSPACE",
@@ -1019,8 +1065,8 @@ export function SqlFilesProvider({ children }) {
       dispatch({
         type: "SET_WORKSPACE_FILES",
         payload: {
-          files: nextFiles.length > 0 ? nextFiles : [defaultFile],
-          openFiles: nextOpenFiles.length > 0 ? nextOpenFiles : (nextFiles[0] ? [nextFiles[0].id] : [defaultFile.id]),
+          files: combinedFiles.length > 0 ? combinedFiles : [defaultFile],
+          openFiles: nextOpenFiles.length > 0 ? nextOpenFiles : (combinedFiles[0] ? [combinedFiles[0].id] : [defaultFile.id]),
           activeTabId: nextActiveId || defaultFile.id,
           dirtyFiles: state.dirtyFiles,
           previewTabId: state.previewTabId,
@@ -1106,7 +1152,8 @@ export function SqlFilesProvider({ children }) {
           state.files
         );
 
-        const currentPaths = new Set(state.files.map((f) => f.relativePath || f.name));
+        const currentDiskStateFiles = state.files.filter((f) => f.isLocalDisk);
+        const currentPaths = new Set(currentDiskStateFiles.map((f) => f.relativePath || f.name));
         const diskPaths = new Set(currentDiskFiles.map((f) => f.relativePath || f.name));
 
         const hasStructureChanged =
@@ -1233,10 +1280,9 @@ export function SqlFilesProvider({ children }) {
     await refreshWorkspace();
   }, [state.workspace, state.files.length, refreshWorkspace]);
 
-  // Disconnect Workspace (return to scratchpad files)
+  // Disconnect Workspace (cleanly detaches local disk files while retaining all in-browser files)
   const disconnectWorkspace = useCallback(async () => {
     await clearWorkspaceHandleFromIDB();
-    const savedScratchpad = getItem(STORAGE_KEYS.SCRATCHPAD_FILES, [defaultFile]);
     dispatch({
       type: "SET_WORKSPACE",
       payload: {
@@ -1249,12 +1295,7 @@ export function SqlFilesProvider({ children }) {
       },
     });
     dispatch({
-      type: "SET_WORKSPACE_FILES",
-      payload: {
-        files: savedScratchpad,
-        openFiles: [savedScratchpad[0].id],
-        activeTabId: savedScratchpad[0].id,
-      },
+      type: "DISCONNECT_WORKSPACE_FILES",
     });
   }, []);
 
@@ -1295,19 +1336,25 @@ export function SqlFilesProvider({ children }) {
     }
   }, [state.activeTabId]);
 
-  // Add File (integrates with local disk if in workspace mode)
+  // Add File (integrates with local disk if target is workspace, or browser storage if target is browser or disconnected)
   const addFile = useCallback(async (payload) => {
+    const target = payload?.target; // 'browser' | 'workspace'
+    const isBrowserTarget = target === "browser" || !state.workspace.isConnected || !state.workspace.handle;
+
     const fileName = payload?.name || `Query_${state.files.length + 1}.sql`;
     const content = payload?.content || "-- Write your Spark SQL here\nSELECT 1;\n";
     const newId = uuidv4();
 
     let fileHandle = null;
     let isLocalDisk = false;
+    let parentDirHandle = null;
 
-    if (state.workspace.isConnected && state.workspace.handle) {
+    if (!isBrowserTarget && state.workspace.isConnected && state.workspace.handle) {
+      const parent = payload?.parentDirHandle || state.workspace.handle;
       try {
-        fileHandle = await createFileInDirectory(state.workspace.handle, fileName, content);
+        fileHandle = await createFileInDirectory(parent, fileName, content);
         isLocalDisk = true;
+        parentDirHandle = parent;
       } catch (err) {
         console.warn("Could not create file on disk:", err);
       }
@@ -1321,11 +1368,35 @@ export function SqlFilesProvider({ children }) {
         content,
         isLocalDisk,
         fileHandle,
-        parentDirHandle: state.workspace.handle,
+        parentDirHandle,
         open: payload?.open,
       },
     });
-  }, [state.workspace, state.files.length]);
+
+    if (isLocalDisk) {
+      await refreshWorkspace();
+    }
+  }, [state.workspace, state.files.length, refreshWorkspace]);
+
+  // Explicitly add an in-browser storage file
+  const addBrowserFile = useCallback((payload) => {
+    return addFile({ ...payload, target: "browser" });
+  }, [addFile]);
+
+  // Copy/save an in-browser file directly into the local workspace folder
+  const saveBrowserFileToWorkspace = useCallback(async (fileId, targetFolderHandle) => {
+    const file = filesRef.current.find((f) => f.id === fileId);
+    if (!file || !state.workspace.isConnected || !state.workspace.handle) return null;
+    const parent = targetFolderHandle || state.workspace.handle;
+    try {
+      const fileHandle = await createFileInDirectory(parent, file.name, file.content);
+      await refreshWorkspace();
+      return fileHandle;
+    } catch (err) {
+      console.error("Failed to copy browser file to workspace:", err);
+      throw err;
+    }
+  }, [state.workspace, refreshWorkspace]);
 
   // Remove File (deletes from local disk if in workspace mode)
   const removeFile = useCallback(async (id) => {
@@ -1443,6 +1514,8 @@ export function SqlFilesProvider({ children }) {
     promptCloseFileId,
     setPromptCloseFileId,
     requestCloseFile,
+    addBrowserFile,
+    saveBrowserFileToWorkspace,
     // File system sync methods
     openWorkspaceFolder,
     createNewWorkspaceProject,

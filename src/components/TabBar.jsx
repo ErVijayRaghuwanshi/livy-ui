@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, X, FileCode, FileText, Play, Loader2, Settings, Database } from "lucide-react";
+import { Plus, X, FileCode, FileText, Play, Loader2, Settings, Database, HardDrive, Globe } from "lucide-react";
 import { useSqlFiles, SETTINGS_FILE } from "../context/SqlFilesContext";
 
 function stripExtension(name) {
@@ -155,11 +155,20 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
                 ? "bg-(--color-bg-elevated) text-(--color-text-primary) border border-(--color-border) shadow-xs font-medium"
                 : "text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary)/40 border border-transparent"
             }`}
+            title={
+              file.isSpecial
+                ? "Settings"
+                : file.isLocalDisk
+                ? `Local Disk: ${file.relativePath || file.name}`
+                : `Browser Storage: ${file.name}`
+            }
           >
             {file.id === "settings" ? (
               <Settings size={13} className={`shrink-0 ${file.id === activeTabId ? "text-(--color-accent)" : "text-(--color-text-muted)"}`} />
             ) : file.name?.toLowerCase().endsWith(".md") ? (
               <FileText size={13} className={`shrink-0 ${file.id === activeTabId ? "text-sky-400" : "text-sky-400/60"}`} />
+            ) : file.isLocalDisk ? (
+              <HardDrive size={13} className={`shrink-0 ${file.id === activeTabId ? "text-emerald-400" : "text-emerald-400/60"}`} />
             ) : (
               <Database size={13} className={`shrink-0 ${file.id === activeTabId ? "text-[#ff7b72]" : "text-[#ff7b72]/60"}`} />
             )}
