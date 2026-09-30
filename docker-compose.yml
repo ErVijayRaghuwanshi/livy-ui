@@ -1,59 +1,10 @@
 services:
-
-  spark:
-    build:
-      context: ./spark
-      dockerfile: Dockerfile.spark
-    image: livy-spark:4.1.2
-    container_name: spark-master
-    hostname: spark-master
-    user: "root"
-    ports:
-      - '7077:7077'
-      - '8080:8080'      # Spark Master UI
-      - '18080:18080'    # Spark History Server UI
-      - '15002:15002'    # Spark Connect Server port
-      - '8998:8998'      # livy-next REST API (with built-in CORS)
-    stop_grace_period: 30s
-    volumes:
-      - ./spark/start-spark.sh:/opt/start-spark.sh:ro
-      - ./spark/data:/opt/spark/data
-      - ./spark/data:/tmp/data
-      - ./spark/work-dir:/opt/spark/work-dir
-      - spark_event_logs:/opt/spark/event_logs
-      - spark_ivy_cache:/tmp/.ivy
-      - spark_warehouse:/opt/spark/warehouse
-      - spark_metastore:/opt/spark/metastore
-    networks:
-      - data-platform
-
   livy-ui:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        GIT_REPO: https://github.com/ErVijayRaghuwanshi/livy-ui.git
-        GIT_BRANCH: feature/v1.5.0
-    image: livy-ui:latest
+    image: ghcr.io/ervijayraghuwanshi/livy-ui:latest
     container_name: livy-ui
     ports:
       - '4173:4173'
-    depends_on:
-      - spark
-    networks:
-      - data-platform
-
-
-# ==============================================================================
-# Network & Volume Bindings
-# ==============================================================================
-networks:
-  data-platform:
-    driver: bridge
-    name: data-platform
-
-volumes:
-  spark_event_logs:
-  spark_ivy_cache:
-  spark_warehouse:
-  spark_metastore:
+    restart: unless-stopped

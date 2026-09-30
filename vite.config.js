@@ -3,8 +3,10 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
+const basePath = process.env.VITE_BASE_PATH || '/livy-ui/';
+
 export default defineConfig({
-  base: '/livy-ui/',
+  base: basePath,
   plugins: [
     react(),
     tailwindcss(),
@@ -21,8 +23,8 @@ export default defineConfig({
         theme_color: "#0f172a",
         background_color: "#0f172a",
         display: "standalone",
-        scope: "/livy-ui/",
-        start_url: "/livy-ui/",
+        scope: basePath,
+        start_url: basePath,
         icons: [
           {
             src: "pwa-192.png",

@@ -198,90 +198,80 @@ SELECT * FROM parquet.`hdfs://namenode/path/to/data` LIMIT 100
 
 ## Docker
 
-The multi-stage Dockerfile fetches source directly from GitHub — no local checkout needed.
+Pre-built multi-platform container images (`linux/amd64` and `linux/arm64`) are published automatically to the GitHub Container Registry (GHCR).
 
-### Multi-Stage Build
-
-| Stage | Base Image | Purpose |
-|-------|------------|--------|
-| **Stage 0** (`git-fetch`) | `alpine/git` | Shallow-clones the repo from GitHub |
-| **Stage 1** (`build`) | `node:22-alpine` | Installs dependencies and builds the app |
-| **Stage 2** (production) | `node:22-alpine` | Serves the production build via `vite preview` |
-
-### Build & Run
+### Run with Pre-built Image (GHCR)
 
 ```bash
-# Build the image (fetches code from GitHub automatically)
-docker build -t livy-ui .
-
-# Build from a specific branch
-docker build --build-arg GIT_BRANCH=feature/v1.4.7 -t livy-ui .
-
-# Run the container
-docker run -p 4173:4173 livy-ui
+# Pull and run the latest image from GitHub Container Registry
+docker run -d -p 4173:4173 --name livy-ui ghcr.io/ervijayraghuwanshi/livy-ui:latest
 ```
 
-Open [http://localhost:4173](http://localhost:4173).
+Open [http://localhost:4173](http://localhost:4173) in your browser.
+
+### Build & Run Locally
+
+The multi-stage Dockerfile uses Node 22 for fast asset compilation and a lightweight Caddy 2 web server image (~30MB) with gzip/zstd compression and SPA routing:
+
+```bash
+# Build the local Docker image
+docker build -t livy-ui .
+
+# Run the container
+docker run -d -p 4173:4173 --name livy-ui livy-ui
+```
 
 ### Docker Compose
 
-The `docker-compose.yml` spins up both the **Livy server** and **Livy UI** together:
+You can also run Livy UI with Docker Compose:
 
 ```bash
-# Start all services
-docker compose up --build
+# Start Livy UI
+docker compose up -d
 
-# Start in detached mode
-docker compose up --build -d
-
-# Stop all services
+# Stop Livy UI
 docker compose down
-```
-
-| Service | Container | Ports | Description |
-|---------|-----------|-------|-------------|
-| `spark` | `spark-master` | `7077`, `8080`, `18080`, `15002`, `8998` | Hardened Spark Master, History Server, Spark Connect & `livy-next` REST API |
-| `livy-ui` | `livy-ui` | `4173` | Livy UI web application |
-
-After starting, open [http://localhost:4173](http://localhost:4173) for the UI, [http://localhost:8998](http://localhost:8998) for `livy-next`, and [http://localhost:8080](http://localhost:8080) for the Spark Master UI.
-
-#### Customizing the Compose Build
-
-You can override the Git repo and branch in `docker-compose.yml` under `livy-ui.build.args`:
-
-```yaml
-args:
-  GIT_REPO: https://github.com/ErVijayRaghuwanshi/livy-ui.git
-  GIT_BRANCH: feature/v1.5.0
 ```
 
 ## Project Structure
 
 ```
 livy-ui/
-├── Dockerfile                  # Multi-stage frontend UI build
-├── docker-compose.yml          # Compose: Spark master (with livy-next) + Livy UI
-├── index.html
+├── .github/
+│   └── workflows/
+│       ├── docker-publish.yml  # Multi-platform image build & push to GHCR
+│       └── deploy-gh-pages.yml # Continuous deployment to GitHub Pages
+├── Dockerfile                  # Multi-stage production build (Node 22 + Caddy 2)
+├── docker-compose.yml          # Production container compose definition
+├── index.html                  # HTML entry point
 ├── package.json
-├── vite.config.js              # Vite config + PWA options
+├── vite.config.js              # Vite 7 + Tailwind 4 + PWA Workbox config
 ├── CHANGELOG.md                 # Version changelog history
 ├── PRIVACY.md                   # Privacy policy & data handling documentation
-├── release-notes/               # Version release notes (v1.1.1 through v2.0.0)
-├── src/                        # React 19 + Vite 7 Frontend application code
-└── spark/                      # Backend sidecar directory (Spark + livy-next)
-    ├── Dockerfile.spark        # Unified Spark + livy-next Dockerfile
-    ├── start-spark.sh          # Startup script (HistoryServer, SparkConnect, livy-next, Master)
-    ├── bin/
-    │   └── livy-next           # Pre-built livy-next binary with native CORS
-    ├── conf/
-    │   └── spark-defaults.conf # Declarative packages (Delta, Kafka, Avro, Sedona, Postgres)
-    ├── data/                   # Mounted data files
-    ├── jars/                   # Custom connector JARs
-    ├── spark-events/           # Persistent Spark History event logs
-    └── work-dir/               # Spark working directory
-    ├── main.jsx                # App entry point
-    ├── App.jsx                 # Root layout with sidebar + resizable panels
-    ├── index.css               # Tailwind v4 + CSS variables (dark theme)
+├── release-notes/               # Version release notes
+├── public/                     # Static assets, PWA icons, manifest
+└── src/                        # React 19 frontend application source
+    ├── main.jsx                # Application root mount
+    ├── App.jsx                 # Top-level workspace layout & panels
+    ├── index.css               # Tailwind v4 theme & CSS design system
+    ├── components/             # Reusable UI components
+    │   ├── ActivityBar.jsx     # Primary left icon navigation bar
+    │   ├── SidebarTabs.jsx     # Explorer, Schema, History sidebars
+    │   ├── FileExplorer.jsx    # Local workspace & file tree explorer
+    │   ├── TabBar.jsx          # Monaco multi-tab editor header
+    │   ├── SqlEditor.jsx       # Monaco SQL editor with autocomplete
+    │   ├── ResultTable.jsx     # Query result grid & statistics
+    │   ├── TitleBar.jsx        # Compact window header & quick command search
+    │   └── StatusBar.jsx       # Bottom status bar with session metrics
+    ├── context/                # React state providers
+    │   ├── LivyContext.jsx     # Livy REST sessions, hosts & compute config
+    │   └── SqlFilesContext.jsx # Local file system sync & tabs state
+    ├── services/               # Background services
+    │   ├── fileSystemService.js# File System Access API & IndexedDB handles
+    │   ├── axiosConfig.js      # Livy API HTTP client
+    │   └── livyApi.js          # Spark query submission & status polling
+    └── utils/                  # Functions catalog, snippets, helpers
+```
     ├── components/
     │   ├── Navbar.jsx          # Connection status, session controls
     │   ├── ConnectionModal.jsx # Host management + session configuration
@@ -333,13 +323,11 @@ sequenceDiagram
     LivyNext-->>Browser: Return JSON + CORS Approval Headers
 ```
 
-### 1. Unified Spark + `livy-next` Container
-The backend runs `livy-next` directly on port `8998` with `--cors-allowed-origins "*"`:
-- `livy-next` handles browser preflight `OPTIONS` requests natively without requiring external proxying (like Nginx) or extra sidecars.
-- It connects directly to Spark Connect (`sc://spark-master:15002`), ensuring fast, lightweight execution of Spark SQL sessions.
-- Spark packages (`Delta Lake`, `Kafka`, `Avro`, `Apache Sedona`, `PostgreSQL`) are declaratively resolved via `spark/conf/spark-defaults.conf`.
-
-This means your local Spark server is natively CORS-compliant out of the box for any developer UI (GitHub Pages, local server, or local network IPs).
+### 1. Livy & livy-next Connectivity
+Livy UI is a standalone client-side web application designed to connect to any remote or local Apache Livy or `livy-next` server:
+- Supports standard Livy REST APIs on port `8998` (or custom host port) with configurable CORS or direct intranet access.
+- Submits queries asynchronously, monitors statement execution states, and renders formatted tabular results.
+- Works with remote Spark clusters, Databricks/EMR endpoints, or local containerized Spark environments.
 
 ### 2. Progressive Web App (PWA) & Offline Capabilities
 The UI uses `vite-plugin-pwa` with Workbox to cache all static pages, assets, and the Monaco SQL editor:
