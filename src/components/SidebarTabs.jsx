@@ -267,11 +267,19 @@ const SidebarTabs = forwardRef(({
                           ? "bg-(--color-bg-primary) text-(--color-text-primary) border-l-2 border-l-(--color-accent)"
                           : "text-(--color-text-secondary) hover:bg-(--color-bg-tertiary)/40"
                       }`}
-                      title={file.isLocalDisk ? `Local Disk: ${file.relativePath || file.name}` : `Browser Storage: ${file.name}`}
+                      title={
+                        file.isUntitled
+                          ? `${file.name} (Unsaved)`
+                          : file.isLocalDisk
+                          ? `Local Disk: ${file.relativePath || file.name}`
+                          : `Browser Storage: ${file.name}`
+                      }
                     >
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         {file.name?.toLowerCase().endsWith(".md") ? (
                           <FileText size={13} className={`shrink-0 ${isActive ? "text-sky-400" : "text-sky-400/70"}`} />
+                        ) : file.isUntitled ? (
+                          <FileCode size={13} className={`shrink-0 ${isActive ? "text-(--color-accent)" : "text-(--color-text-muted)"}`} />
                         ) : (
                           <FileCode size={13} className={`shrink-0 ${isActive ? "text-[#ff7b72]" : "text-[#ff7b72]/70"}`} />
                         )}

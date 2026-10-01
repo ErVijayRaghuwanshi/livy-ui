@@ -130,7 +130,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
   const [deleteConfirmTarget, setDeleteConfirmTarget] = useState(null); // { type: 'file'|'folder', id, name, handle, parentHandle }
 
   const workspaceFiles = files.filter((f) => f.isLocalDisk);
-  const browserFiles = files.filter((f) => !f.isLocalDisk);
+  const browserFiles = files.filter((f) => !f.isLocalDisk && !f.isUntitled);
 
   const handleCopyToWorkspace = async (file, e) => {
     e?.stopPropagation();
@@ -300,7 +300,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
   };
 
   const filteredFiles = files.filter((file) =>
-    (file.relativePath || file.name).toLowerCase().includes(searchQuery.toLowerCase())
+    !file.isUntitled && (file.relativePath || file.name).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleFileClick = (fileId) => {

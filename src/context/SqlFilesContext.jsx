@@ -28,10 +28,11 @@ const SqlFilesContext = createContext(null);
 
 const defaultFile = {
   id: "default",
-  name: "Untitled.sql",
+  name: "Untitled-1.sql",
   content: "-- Write your Spark SQL here\nSELECT 1;\n",
-  lastSavedContent: "-- Write your Spark SQL here\nSELECT 1;\n",
+  lastSavedContent: null,
   isLocalDisk: false,
+  isUntitled: true,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
@@ -86,7 +87,7 @@ if (Array.isArray(storedScratchpad) && storedScratchpad.length > 0) {
 
 initialBrowserFiles = initialBrowserFiles.map((f) => ({
   ...f,
-  lastSavedContent: f.lastSavedContent || f.content,
+  lastSavedContent: f.isUntitled ? null : (f.lastSavedContent || f.content),
   isLocalDisk: false,
 }));
 
@@ -96,6 +97,13 @@ if (initialBrowserFiles.length === 0) {
 
 const storedOpenFiles = getItem(STORAGE_KEYS.OPEN_FILES, null);
 
+const initialDirtyFiles = {};
+initialBrowserFiles.forEach((f) => {
+  if (f.isUntitled) {
+    initialDirtyFiles[f.id] = true;
+  }
+});
+
 const initialState = {
   files: initialBrowserFiles,
   openFiles: Array.isArray(storedOpenFiles) ? storedOpenFiles : [initialBrowserFiles[0].id],
@@ -103,7 +111,7 @@ const initialState = {
     ? null
     : getItem(STORAGE_KEYS.ACTIVE_TAB, initialBrowserFiles[0]?.id || null),
   results: {},
-  dirtyFiles: {},
+  dirtyFiles: initialDirtyFiles,
   closedTabsHistory: [],
   pendingLineReveal: null,
   previewTabId: getItem(STORAGE_KEYS.PREVIEW_TAB, null),
@@ -186,12 +194,14 @@ function reducer(state, action) {
     }
 
     case "ADD_FILE_COMPLETE": {
+      const isUntitled = !!action.payload.isUntitled;
       const newFile = {
         id: action.payload.id || uuidv4(),
         name: action.payload.name,
         content: action.payload.content,
-        lastSavedContent: action.payload.content,
+        lastSavedContent: isUntitled ? null : action.payload.content,
         isLocalDisk: !!action.payload.isLocalDisk,
+        isUntitled,
         fileHandle: action.payload.fileHandle || null,
         parentDirHandle: action.payload.parentDirHandle || null,
         createdAt: new Date().toISOString(),
@@ -206,7 +216,7 @@ function reducer(state, action) {
         activeTabId: shouldOpen ? newFile.id : state.activeTabId,
         dirtyFiles: {
           ...state.dirtyFiles,
-          [newFile.id]: false,
+          [newFile.id]: isUntitled ? true : (action.payload.isDirty || false),
         },
         closedTabsHistory: nextClosedHistory,
       };
@@ -239,6 +249,7 @@ function reducer(state, action) {
               relativePath: relativePath || (f.relativePath ? f.relativePath.replace(/[^/]+$/, name || f.name) : (name || f.name)),
               path: relativePath || (f.path ? f.path.replace(/[^/]+$/, name || f.name) : (name || f.name)),
               isLocalDisk: true,
+              isUntitled: false,
               fileHandle: fileHandle || f.fileHandle,
               parentDirHandle: parentDirHandle || f.parentDirHandle,
               lastSavedContent: f.content,
@@ -255,16 +266,45 @@ function reducer(state, action) {
       };
     }
 
+    case "SAVE_FILE_SUCCESS": {
+      const { id, isLocalDisk, fileHandle, parentDirHandle, relativePath, name } = action.payload;
+      const files = state.files.map((f) =>
+        f.id === id
+          ? {
+              ...f,
+              name: name || f.name,
+              isUntitled: false,
+              isLocalDisk: !!isLocalDisk,
+              fileHandle: fileHandle !== undefined ? fileHandle : f.fileHandle,
+              parentDirHandle: parentDirHandle !== undefined ? parentDirHandle : f.parentDirHandle,
+              relativePath: relativePath || f.relativePath || f.name,
+              path: relativePath || f.path || f.name,
+              lastSavedContent: f.content,
+            }
+          : f
+      );
+      return {
+        ...state,
+        files,
+        dirtyFiles: {
+          ...state.dirtyFiles,
+          [id]: false,
+        },
+      };
+    }
+
     case "ADD_FILE": {
+      const isUntitled = action.payload?.isUntitled ?? !action.payload?.name;
       const newFile = {
         id: uuidv4(),
-        name: action.payload?.name || `Query_${state.files.length + 1}.sql`,
-        content: action.payload?.content || "-- Write your Spark SQL here\n",
+        name: action.payload?.name || `Untitled-1.sql`,
+        content: action.payload?.content || "-- Write your Spark SQL here\nSELECT 1;\n",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         isLocalDisk: false,
+        isUntitled,
       };
-      newFile.lastSavedContent = newFile.content;
+      newFile.lastSavedContent = isUntitled ? null : newFile.content;
       const shouldOpen = action.payload?.open !== false;
       const nextClosedHistory = state.closedTabsHistory.filter((id) => id !== newFile.id);
       return {
@@ -274,7 +314,7 @@ function reducer(state, action) {
         activeTabId: shouldOpen ? newFile.id : state.activeTabId,
         dirtyFiles: {
           ...state.dirtyFiles,
-          [newFile.id]: false,
+          [newFile.id]: isUntitled ? true : false,
         },
         closedTabsHistory: nextClosedHistory,
       };
@@ -291,7 +331,7 @@ function reducer(state, action) {
       const isPreviewActive = state.previewTabId === action.payload;
       const nextPreviewTabId = isPreviewActive ? null : state.previewTabId;
       if (filtered.length === 0) {
-        return { files: [defaultFile], openFiles: [defaultFile.id], activeTabId: defaultFile.id, results: {}, dirtyFiles: {}, closedTabsHistory: [], previewTabId: null };
+        return { files: [], openFiles: [], activeTabId: null, results: {}, dirtyFiles: {}, closedTabsHistory: [], previewTabId: null };
       }
       const newActiveId =
         state.activeTabId === action.payload
@@ -341,17 +381,26 @@ function reducer(state, action) {
     }
 
     case "CLEAR_ALL_DIRTY": {
-      const files = state.files.map(f => ({ ...f, lastSavedContent: f.content }));
+      const files = state.files.map(f => {
+        if (f.isUntitled) return f;
+        return { ...f, lastSavedContent: f.content };
+      });
+      const nextDirty = {};
+      state.files.forEach(f => {
+        if (f.isUntitled && state.dirtyFiles[f.id]) {
+          nextDirty[f.id] = true;
+        }
+      });
       return {
         ...state,
         files,
-        dirtyFiles: {},
+        dirtyFiles: nextDirty,
       };
     }
 
     case "SAVE_FILE": {
       const files = state.files.map((f) =>
-        f.id === action.payload ? { ...f, lastSavedContent: f.content } : f
+        f.id === action.payload ? { ...f, isUntitled: false, lastSavedContent: f.content } : f
       );
       return {
         ...state,
@@ -560,26 +609,38 @@ function reducer(state, action) {
 
     case "CLOSE_FILE": {
       const fileId = action.payload;
+      const closedFile = state.files.find((f) => f.id === fileId);
+      const isUntitled = closedFile?.isUntitled;
+
       const filteredOpen = state.openFiles.filter((id) => id !== fileId);
       const newActiveId =
         state.activeTabId === fileId
           ? (filteredOpen.length > 0 ? filteredOpen[filteredOpen.length - 1] : null)
           : state.activeTabId;
 
-      const files = state.files.map((f) => {
-        if (f.id === fileId && state.dirtyFiles[fileId]) {
-          return { ...f, content: f.lastSavedContent || f.content };
-        }
-        return f;
-      });
+      const files = isUntitled
+        ? state.files.filter((f) => f.id !== fileId)
+        : state.files.map((f) => {
+            if (f.id === fileId && state.dirtyFiles[fileId]) {
+              return { ...f, content: f.lastSavedContent || f.content };
+            }
+            return f;
+          });
 
       const nextDirty = { ...state.dirtyFiles };
       delete nextDirty[fileId];
 
-      const nextClosedHistory = [
-        ...(state.closedTabsHistory || []).filter((id) => id !== fileId),
-        fileId
-      ];
+      const nextResults = { ...state.results };
+      if (isUntitled) {
+        delete nextResults[fileId];
+      }
+
+      const nextClosedHistory = isUntitled
+        ? (state.closedTabsHistory || []).filter((id) => id !== fileId)
+        : [
+            ...(state.closedTabsHistory || []).filter((id) => id !== fileId),
+            fileId
+          ];
 
       const nextPreviewTabId = state.previewTabId === fileId ? null : state.previewTabId;
 
@@ -589,6 +650,7 @@ function reducer(state, action) {
         openFiles: filteredOpen,
         activeTabId: newActiveId,
         dirtyFiles: nextDirty,
+        results: nextResults,
         closedTabsHistory: nextClosedHistory,
         previewTabId: nextPreviewTabId,
       };
@@ -598,9 +660,15 @@ function reducer(state, action) {
       const cleanOpen = state.openFiles.filter(id => !state.dirtyFiles[id]);
       const dirtyOpen = state.openFiles.filter(id => state.dirtyFiles[id]);
 
+      const cleanUntitledIds = new Set(
+        cleanOpen.filter(id => state.files.find(f => f.id === id)?.isUntitled)
+      );
+
+      const files = state.files.filter(f => !cleanUntitledIds.has(f.id));
+
       const nextClosedHistory = [
         ...(state.closedTabsHistory || []).filter(id => !cleanOpen.includes(id)),
-        ...cleanOpen
+        ...cleanOpen.filter(id => !cleanUntitledIds.has(id))
       ];
 
       const newActiveId = dirtyOpen.length > 0 ? dirtyOpen[0] : null;
@@ -609,6 +677,7 @@ function reducer(state, action) {
 
       return {
         ...state,
+        files,
         openFiles: dirtyOpen,
         activeTabId: newActiveId,
         closedTabsHistory: nextClosedHistory,
@@ -859,17 +928,21 @@ export function SqlFilesProvider({ children }) {
   }, []);
 
   const updateContent = useCallback((id, content) => {
-    dispatch({ type: "UPDATE_FILE_CONTENT", payload: { id, content, isDirty: !autoSave } });
-    if (autoSave) {
+    const file = filesRef.current.find((f) => f.id === id);
+    const isUntitled = file?.isUntitled;
+    const isDirty = isUntitled ? true : !autoSave;
+    dispatch({ type: "UPDATE_FILE_CONTENT", payload: { id, content, isDirty } });
+    if (autoSave && !isUntitled) {
       triggerDiskSave(id, content);
     }
   }, [autoSave, triggerDiskSave]);
 
   const saveFile = useCallback(async (id) => {
     const file = filesRef.current.find((f) => f.id === id);
-    dispatch({ type: "SAVE_FILE", payload: id });
+    if (!file) return;
 
-    if (file?.fileHandle) {
+    if (file.fileHandle) {
+      dispatch({ type: "SAVE_FILE", payload: id });
       if (diskSaveTimeoutsRef.current[id]) {
         clearTimeout(diskSaveTimeoutsRef.current[id]);
       }
@@ -879,8 +952,108 @@ export function SqlFilesProvider({ children }) {
       } catch (err) {
         console.error(`Save to disk failed for ${file.name}:`, err);
       }
+      return;
     }
-  }, []);
+
+    if (file.isUntitled) {
+      if (state.workspace.isConnected && state.workspace.handle) {
+        try {
+          let targetName = file.name;
+          const currentDiskFiles = filesRef.current.filter((f) => f.isLocalDisk);
+          const existingDiskNames = new Set(currentDiskFiles.map((f) => f.name.toLowerCase()));
+
+          if (existingDiskNames.has(targetName.toLowerCase())) {
+            const extMatch = targetName.match(/\.[^.]+$/);
+            const ext = extMatch ? extMatch[0] : ".sql";
+            const base = targetName.replace(new RegExp(`\\${ext}$`, "i"), "");
+            let counter = 1;
+            while (existingDiskNames.has(`${base}_${counter}${ext}`.toLowerCase())) {
+              counter++;
+            }
+            targetName = `${base}_${counter}${ext}`;
+          }
+
+          let counter = 1;
+          const extMatch = targetName.match(/\.[^.]+$/);
+          const ext = extMatch ? extMatch[0] : ".sql";
+          const baseName = targetName.replace(new RegExp(`\\${ext}$`, "i"), "");
+          while (true) {
+            try {
+              await state.workspace.handle.getFileHandle(targetName);
+              counter++;
+              targetName = `${baseName}_${counter}${ext}`;
+            } catch (_) {
+              break;
+            }
+          }
+
+          const fileHandle = await createFileInDirectory(state.workspace.handle, targetName, file.content);
+          const lastModified = Date.now();
+          fileLastModifiedRef.current[id] = lastModified;
+
+          filesRef.current = filesRef.current.map((f) =>
+            f.id === id
+              ? {
+                  ...f,
+                  name: targetName,
+                  isUntitled: false,
+                  isLocalDisk: true,
+                  fileHandle,
+                  parentDirHandle: state.workspace.handle,
+                  relativePath: targetName,
+                  path: targetName,
+                  lastSavedContent: f.content,
+                }
+              : f
+          );
+
+          dispatch({
+            type: "SAVE_FILE_SUCCESS",
+            payload: {
+              id,
+              name: targetName,
+              isLocalDisk: true,
+              fileHandle,
+              parentDirHandle: state.workspace.handle,
+              relativePath: targetName,
+            },
+          });
+
+          await refreshWorkspace({
+            openFileId: id,
+            openFileName: targetName,
+            activeTabId: id,
+          });
+        } catch (err) {
+          console.error(`Failed to save untitled file to workspace:`, err);
+        }
+      } else {
+        filesRef.current = filesRef.current.map((f) =>
+          f.id === id
+            ? {
+                ...f,
+                isUntitled: false,
+                isLocalDisk: false,
+                lastSavedContent: f.content,
+              }
+            : f
+        );
+
+        dispatch({
+          type: "SAVE_FILE_SUCCESS",
+          payload: {
+            id,
+            isLocalDisk: false,
+            fileHandle: null,
+            parentDirHandle: null,
+          },
+        });
+      }
+      return;
+    }
+
+    dispatch({ type: "SAVE_FILE", payload: id });
+  }, [state.workspace, refreshWorkspace]);
 
   // Open Local Workspace Folder
   const openWorkspaceFolder = useCallback(async () => {
@@ -1467,37 +1640,24 @@ export function SqlFilesProvider({ children }) {
   // Add File (integrates with local disk if target is workspace, or browser storage if target is browser or disconnected)
   const addFile = useCallback(async (payload) => {
     const target = payload?.target; // 'browser' | 'workspace'
-    const isBrowserTarget = target === "browser" || !state.workspace.isConnected || !state.workspace.handle;
+    const isUntitledRequested = payload?.isUntitled === true || (!payload?.name && target !== "browser");
 
     let fileName = payload?.name;
-    if (!fileName) {
-      const currentFiles = filesRef.current || state.files;
-      const existingNames = new Set(currentFiles.map((f) => f.name.toLowerCase()));
-      let counter = 1;
+    const currentFiles = filesRef.current || state.files;
+    const existingNames = new Set(currentFiles.map((f) => f.name.toLowerCase()));
 
-      if (!isBrowserTarget && state.workspace.isConnected && state.workspace.handle) {
-        const parent = payload?.parentDirHandle || state.workspace.handle;
-        while (true) {
-          const candidate = `Query_${counter}.sql`;
-          let onDisk = false;
-          try {
-            await parent.getFileHandle(candidate);
-            onDisk = true;
-          } catch (_) {
-            onDisk = false;
-          }
-          if (!onDisk && !existingNames.has(candidate.toLowerCase())) {
-            fileName = candidate;
-            break;
-          }
-          counter++;
-        }
-      } else {
-        while (existingNames.has(`query_${counter}.sql`.toLowerCase())) {
-          counter++;
-        }
-        fileName = `Query_${counter}.sql`;
+    if (isUntitledRequested) {
+      let counter = 1;
+      while (existingNames.has(`untitled-${counter}.sql`.toLowerCase())) {
+        counter++;
       }
+      fileName = `Untitled-${counter}.sql`;
+    } else if (!fileName) {
+      let counter = 1;
+      while (existingNames.has(`query_${counter}.sql`.toLowerCase())) {
+        counter++;
+      }
+      fileName = `Query_${counter}.sql`;
     }
 
     const content = payload?.content || "-- Write your Spark SQL here\nSELECT 1;\n";
@@ -1507,7 +1667,7 @@ export function SqlFilesProvider({ children }) {
     let isLocalDisk = false;
     let parentDirHandle = null;
 
-    if (!isBrowserTarget && state.workspace.isConnected && state.workspace.handle) {
+    if (!isUntitledRequested && target !== "browser" && state.workspace.isConnected && state.workspace.handle) {
       const parent = payload?.parentDirHandle || state.workspace.handle;
       try {
         fileHandle = await createFileInDirectory(parent, fileName, content);
@@ -1523,10 +1683,12 @@ export function SqlFilesProvider({ children }) {
       id: newId,
       name: fileName,
       content,
+      isUntitled: isUntitledRequested,
       isLocalDisk,
       fileHandle,
       parentDirHandle,
       open: shouldOpen,
+      isDirty: isUntitledRequested,
     };
 
     if (shouldOpen) {
@@ -1536,11 +1698,12 @@ export function SqlFilesProvider({ children }) {
       }
       activeTabIdRef.current = newId;
     }
+
     filesRef.current = [
       ...(filesRef.current || state.files),
       {
         ...filePayload,
-        lastSavedContent: content,
+        lastSavedContent: isUntitledRequested ? null : content,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -1716,6 +1879,16 @@ export function SqlFilesProvider({ children }) {
   const promotePreviewTab = useCallback((id) => dispatch({ type: "PROMOTE_PREVIEW_TAB", payload: id }), []);
   const closeFile = useCallback((id) => {
     if (!id) return;
+    const closedFile = filesRef.current.find((f) => f.id === id);
+    if (closedFile?.isUntitled) {
+      filesRef.current = filesRef.current.filter((f) => f.id !== id);
+    }
+    openFilesRef.current = openFilesRef.current.filter((fid) => fid !== id);
+    if (activeTabIdRef.current === id) {
+      activeTabIdRef.current = openFilesRef.current.length > 0
+        ? openFilesRef.current[openFilesRef.current.length - 1]
+        : null;
+    }
     dispatch({ type: "CLOSE_FILE", payload: id });
   }, []);
   const reorderFiles = useCallback((fromIndex, toIndex) => dispatch({ type: "REORDER_FILES", payload: { fromIndex, toIndex } }), []);

@@ -192,6 +192,8 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
             title={
               file.isSpecial
                 ? "Settings"
+                : file.isUntitled
+                ? `${file.name} (Unsaved)`
                 : file.isLocalDisk
                 ? `Local Disk: ${file.relativePath || file.name}`
                 : `Browser Storage: ${file.name}`
@@ -199,6 +201,8 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
           >
             {file.id === "settings" ? (
               <Settings size={13} className={`shrink-0 ${file.id === activeTabId ? "text-(--color-accent)" : "text-(--color-text-muted)"}`} />
+            ) : file.isUntitled ? (
+              <FileCode size={13} className={`shrink-0 ${file.id === activeTabId ? "text-(--color-accent)" : "text-(--color-text-muted)"}`} />
             ) : file.name?.toLowerCase().endsWith(".md") ? (
               <FileText size={13} className={`shrink-0 ${file.id === activeTabId ? "text-sky-400" : "text-sky-400/60"}`} />
             ) : file.isLocalDisk ? (
