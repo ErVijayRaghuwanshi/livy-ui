@@ -673,6 +673,10 @@ export function SqlFilesProvider({ children }) {
   const lastDirCheckTimeRef = useRef(0);
   const filesRef = useRef(state.files);
   filesRef.current = state.files;
+  const openFilesRef = useRef(state.openFiles);
+  openFilesRef.current = state.openFiles;
+  const activeTabIdRef = useRef(state.activeTabId);
+  activeTabIdRef.current = state.activeTabId;
 
   const isFsSupported = isFileSystemAccessSupported();
 
@@ -1046,21 +1050,22 @@ export function SqlFilesProvider({ children }) {
   }, [state.workspace, state.files]);
 
   // Refresh Workspace (re-read from disk and keep browser storage files intact)
-  const refreshWorkspace = useCallback(async () => {
+  const refreshWorkspace = useCallback(async (options) => {
     if (!state.workspace.handle || !state.workspace.isConnected) return;
     try {
       dispatch({ type: "UPDATE_WORKSPACE", payload: { isSyncing: true } });
+      const currentFiles = filesRef.current || state.files;
       const { flatFiles: diskFiles, tree } = await readDirectoryTreeAndFiles(
         state.workspace.handle,
         "",
         4,
-        state.files
+        currentFiles
       );
       const git = await detectGitRepository(state.workspace.handle);
 
-      const existingById = new Map(state.files.map((f) => [f.id, f]));
+      const existingById = new Map(currentFiles.map((f) => [f.id, f]));
       const existingByPath = new Map();
-      for (const f of state.files) {
+      for (const f of currentFiles) {
         if (!f) continue;
         if (f.relativePath) existingByPath.set(f.relativePath, f);
         if (f.path) existingByPath.set(f.path, f);
@@ -1090,14 +1095,43 @@ export function SqlFilesProvider({ children }) {
       }
 
       // Preserve all current in-browser storage files!
-      const browserFiles = state.files.filter((f) => !f.isLocalDisk);
+      const browserFiles = currentFiles.filter((f) => !f.isLocalDisk);
       const combinedFiles = [...nextDiskFiles, ...browserFiles];
 
       const availableIds = new Set(combinedFiles.map((f) => f.id));
-      const nextOpenFiles = state.openFiles.filter((id) => availableIds.has(id));
-      const nextActiveId = availableIds.has(state.activeTabId)
-        ? state.activeTabId
-        : (nextOpenFiles.length > 0 ? nextOpenFiles[0] : (nextDiskFiles[0]?.id || combinedFiles[0]?.id || null));
+
+      const currentOpenFiles = openFilesRef.current || state.openFiles;
+      const currentActiveId = activeTabIdRef.current || state.activeTabId;
+
+      let nextOpenFiles = currentOpenFiles.filter((id) => availableIds.has(id));
+
+      let preferredActiveId = options?.activeTabId;
+      if (options?.openFileId) {
+        let targetId = options.openFileId;
+        if (!availableIds.has(targetId) && options.openFileName) {
+          const match = combinedFiles.find(
+            (f) => f.name === options.openFileName || f.relativePath === options.openFileName
+          );
+          if (match) targetId = match.id;
+        }
+        if (availableIds.has(targetId)) {
+          if (!nextOpenFiles.includes(targetId)) {
+            nextOpenFiles = [...nextOpenFiles, targetId];
+          }
+          preferredActiveId = targetId;
+        }
+      }
+
+      let nextActiveId = preferredActiveId && availableIds.has(preferredActiveId)
+        ? preferredActiveId
+        : (availableIds.has(currentActiveId)
+            ? currentActiveId
+            : (nextOpenFiles.length > 0 ? nextOpenFiles[0] : (nextDiskFiles[0]?.id || combinedFiles[0]?.id || null)));
+
+      // Sync refs immediately
+      filesRef.current = combinedFiles;
+      openFilesRef.current = nextOpenFiles;
+      activeTabIdRef.current = nextActiveId;
 
       dispatch({
         type: "UPDATE_WORKSPACE",
@@ -1290,7 +1324,34 @@ export function SqlFilesProvider({ children }) {
   // Add file to specific folder or root
   const addFileToFolder = useCallback(async (parentDirHandle, fileName, content) => {
     const parent = parentDirHandle || state.workspace.handle;
-    const name = fileName || `Query_${state.files.length + 1}.sql`;
+    let name = fileName;
+    if (!name) {
+      const currentFiles = filesRef.current || state.files;
+      const existingNames = new Set(currentFiles.map((f) => f.name.toLowerCase()));
+      let counter = 1;
+      if (parent) {
+        while (true) {
+          const candidate = `Query_${counter}.sql`;
+          let onDisk = false;
+          try {
+            await parent.getFileHandle(candidate);
+            onDisk = true;
+          } catch (_) {
+            onDisk = false;
+          }
+          if (!onDisk && !existingNames.has(candidate.toLowerCase())) {
+            name = candidate;
+            break;
+          }
+          counter++;
+        }
+      } else {
+        while (existingNames.has(`query_${counter}.sql`.toLowerCase())) {
+          counter++;
+        }
+        name = `Query_${counter}.sql`;
+      }
+    }
     const text = content || "-- Write your Spark SQL here\nSELECT 1;\n";
     const newId = uuidv4();
 
@@ -1306,21 +1367,46 @@ export function SqlFilesProvider({ children }) {
       }
     }
 
+    const filePayload = {
+      id: newId,
+      name,
+      content: text,
+      isLocalDisk,
+      fileHandle,
+      parentDirHandle: parent,
+      open: true,
+    };
+
+    const currentOpen = openFilesRef.current || state.openFiles;
+    if (!currentOpen.includes(newId)) {
+      openFilesRef.current = [...currentOpen, newId];
+    }
+    activeTabIdRef.current = newId;
+    filesRef.current = [
+      ...(filesRef.current || state.files),
+      {
+        ...filePayload,
+        lastSavedContent: text,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+
     dispatch({
       type: "ADD_FILE_COMPLETE",
-      payload: {
-        id: newId,
-        name,
-        content: text,
-        isLocalDisk,
-        fileHandle,
-        parentDirHandle: parent,
-        open: true,
-      },
+      payload: filePayload,
     });
 
-    await refreshWorkspace();
-  }, [state.workspace, state.files.length, refreshWorkspace]);
+    if (isLocalDisk) {
+      await refreshWorkspace({
+        openFileId: newId,
+        openFileName: name,
+        activeTabId: newId,
+      });
+    }
+
+    return newId;
+  }, [state.workspace, state.files, state.openFiles, state.activeTabId, refreshWorkspace]);
 
   // Disconnect Workspace (cleanly detaches local disk files while retaining all in-browser files)
   const disconnectWorkspace = useCallback(async () => {
@@ -1383,7 +1469,37 @@ export function SqlFilesProvider({ children }) {
     const target = payload?.target; // 'browser' | 'workspace'
     const isBrowserTarget = target === "browser" || !state.workspace.isConnected || !state.workspace.handle;
 
-    const fileName = payload?.name || `Query_${state.files.length + 1}.sql`;
+    let fileName = payload?.name;
+    if (!fileName) {
+      const currentFiles = filesRef.current || state.files;
+      const existingNames = new Set(currentFiles.map((f) => f.name.toLowerCase()));
+      let counter = 1;
+
+      if (!isBrowserTarget && state.workspace.isConnected && state.workspace.handle) {
+        const parent = payload?.parentDirHandle || state.workspace.handle;
+        while (true) {
+          const candidate = `Query_${counter}.sql`;
+          let onDisk = false;
+          try {
+            await parent.getFileHandle(candidate);
+            onDisk = true;
+          } catch (_) {
+            onDisk = false;
+          }
+          if (!onDisk && !existingNames.has(candidate.toLowerCase())) {
+            fileName = candidate;
+            break;
+          }
+          counter++;
+        }
+      } else {
+        while (existingNames.has(`query_${counter}.sql`.toLowerCase())) {
+          counter++;
+        }
+        fileName = `Query_${counter}.sql`;
+      }
+    }
+
     const content = payload?.content || "-- Write your Spark SQL here\nSELECT 1;\n";
     const newId = uuidv4();
 
@@ -1402,23 +1518,49 @@ export function SqlFilesProvider({ children }) {
       }
     }
 
+    const shouldOpen = payload?.open !== false;
+    const filePayload = {
+      id: newId,
+      name: fileName,
+      content,
+      isLocalDisk,
+      fileHandle,
+      parentDirHandle,
+      open: shouldOpen,
+    };
+
+    if (shouldOpen) {
+      const currentOpen = openFilesRef.current || state.openFiles;
+      if (!currentOpen.includes(newId)) {
+        openFilesRef.current = [...currentOpen, newId];
+      }
+      activeTabIdRef.current = newId;
+    }
+    filesRef.current = [
+      ...(filesRef.current || state.files),
+      {
+        ...filePayload,
+        lastSavedContent: content,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+
     dispatch({
       type: "ADD_FILE_COMPLETE",
-      payload: {
-        id: newId,
-        name: fileName,
-        content,
-        isLocalDisk,
-        fileHandle,
-        parentDirHandle,
-        open: payload?.open,
-      },
+      payload: filePayload,
     });
 
     if (isLocalDisk) {
-      await refreshWorkspace();
+      await refreshWorkspace({
+        openFileId: newId,
+        openFileName: fileName,
+        activeTabId: newId,
+      });
     }
-  }, [state.workspace, state.files.length, refreshWorkspace]);
+
+    return newId;
+  }, [state.workspace, state.files, state.openFiles, state.activeTabId, refreshWorkspace]);
 
   // Explicitly add an in-browser storage file
   const addBrowserFile = useCallback((payload) => {
