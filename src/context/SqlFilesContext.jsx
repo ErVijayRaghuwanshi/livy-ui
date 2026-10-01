@@ -937,6 +937,111 @@ export function SqlFilesProvider({ children }) {
     }
   }, [autoSave, triggerDiskSave]);
 
+  // Refresh Workspace (re-read from disk and keep browser storage files intact)
+  const refreshWorkspace = useCallback(async (options) => {
+    if (!state.workspace.handle || !state.workspace.isConnected) return;
+    try {
+      dispatch({ type: "UPDATE_WORKSPACE", payload: { isSyncing: true } });
+      const currentFiles = filesRef.current || state.files;
+      const { flatFiles: diskFiles, tree } = await readDirectoryTreeAndFiles(
+        state.workspace.handle,
+        "",
+        4,
+        currentFiles
+      );
+      const git = await detectGitRepository(state.workspace.handle);
+
+      const existingById = new Map(currentFiles.map((f) => [f.id, f]));
+      const existingByPath = new Map();
+      for (const f of currentFiles) {
+        if (!f) continue;
+        if (f.relativePath) existingByPath.set(f.relativePath, f);
+        if (f.path) existingByPath.set(f.path, f);
+        existingByPath.set(f.name, f);
+      }
+
+      const nextDiskFiles = diskFiles.map((df) => {
+        const existing = existingById.get(df.id) || existingByPath.get(df.relativePath) || existingByPath.get(df.name);
+        if (existing) {
+          const isDirty = !!state.dirtyFiles[existing.id];
+          return {
+            ...df,
+            id: existing.id,
+            content: isDirty ? existing.content : df.content,
+            lastSavedContent: df.content,
+            createdAt: existing.createdAt || df.createdAt,
+            updatedAt: df.updatedAt,
+          };
+        }
+        return df;
+      });
+
+      for (const f of nextDiskFiles) {
+        if (f.lastModified && f.id) {
+          fileLastModifiedRef.current[f.id] = f.lastModified;
+        }
+      }
+
+      // Preserve all current in-browser storage files!
+      const browserFiles = currentFiles.filter((f) => !f.isLocalDisk);
+      const combinedFiles = [...nextDiskFiles, ...browserFiles];
+
+      const availableIds = new Set(combinedFiles.map((f) => f.id));
+
+      const currentOpenFiles = openFilesRef.current || state.openFiles;
+      const currentActiveId = activeTabIdRef.current || state.activeTabId;
+
+      let nextOpenFiles = currentOpenFiles.filter((id) => availableIds.has(id));
+
+      let preferredActiveId = options?.activeTabId;
+      if (options?.openFileId) {
+        let targetId = options.openFileId;
+        if (!availableIds.has(targetId) && options.openFileName) {
+          const match = combinedFiles.find(
+            (f) => f.name === options.openFileName || f.relativePath === options.openFileName
+          );
+          if (match) targetId = match.id;
+        }
+        if (availableIds.has(targetId)) {
+          if (!nextOpenFiles.includes(targetId)) {
+            nextOpenFiles = [...nextOpenFiles, targetId];
+          }
+          preferredActiveId = targetId;
+        }
+      }
+
+      let nextActiveId = preferredActiveId && availableIds.has(preferredActiveId)
+        ? preferredActiveId
+        : (availableIds.has(currentActiveId)
+            ? currentActiveId
+            : (nextOpenFiles.length > 0 ? nextOpenFiles[0] : (nextDiskFiles[0]?.id || combinedFiles[0]?.id || null)));
+
+      // Sync refs immediately
+      filesRef.current = combinedFiles;
+      openFilesRef.current = nextOpenFiles;
+      activeTabIdRef.current = nextActiveId;
+
+      dispatch({
+        type: "UPDATE_WORKSPACE",
+        payload: { tree, git, isSyncing: false },
+      });
+
+      dispatch({
+        type: "SET_WORKSPACE_FILES",
+        payload: {
+          files: combinedFiles.length > 0 ? combinedFiles : [defaultFile],
+          openFiles: nextOpenFiles.length > 0 ? nextOpenFiles : (combinedFiles[0] ? [combinedFiles[0].id] : [defaultFile.id]),
+          activeTabId: nextActiveId || defaultFile.id,
+          dirtyFiles: state.dirtyFiles,
+          previewTabId: state.previewTabId,
+        },
+      });
+    } catch (err) {
+      console.error("Refresh workspace failed:", err);
+      dispatch({ type: "UPDATE_WORKSPACE", payload: { isSyncing: false } });
+    }
+  }, [state.workspace, state.files, state.dirtyFiles, state.openFiles, state.activeTabId, state.previewTabId]);
+
   const saveFile = useCallback(async (id) => {
     const file = filesRef.current.find((f) => f.id === id);
     if (!file) return;
@@ -1221,111 +1326,6 @@ export function SqlFilesProvider({ children }) {
       return false;
     }
   }, [state.workspace, state.files]);
-
-  // Refresh Workspace (re-read from disk and keep browser storage files intact)
-  const refreshWorkspace = useCallback(async (options) => {
-    if (!state.workspace.handle || !state.workspace.isConnected) return;
-    try {
-      dispatch({ type: "UPDATE_WORKSPACE", payload: { isSyncing: true } });
-      const currentFiles = filesRef.current || state.files;
-      const { flatFiles: diskFiles, tree } = await readDirectoryTreeAndFiles(
-        state.workspace.handle,
-        "",
-        4,
-        currentFiles
-      );
-      const git = await detectGitRepository(state.workspace.handle);
-
-      const existingById = new Map(currentFiles.map((f) => [f.id, f]));
-      const existingByPath = new Map();
-      for (const f of currentFiles) {
-        if (!f) continue;
-        if (f.relativePath) existingByPath.set(f.relativePath, f);
-        if (f.path) existingByPath.set(f.path, f);
-        existingByPath.set(f.name, f);
-      }
-
-      const nextDiskFiles = diskFiles.map((df) => {
-        const existing = existingById.get(df.id) || existingByPath.get(df.relativePath) || existingByPath.get(df.name);
-        if (existing) {
-          const isDirty = !!state.dirtyFiles[existing.id];
-          return {
-            ...df,
-            id: existing.id,
-            content: isDirty ? existing.content : df.content,
-            lastSavedContent: df.content,
-            createdAt: existing.createdAt || df.createdAt,
-            updatedAt: df.updatedAt,
-          };
-        }
-        return df;
-      });
-
-      for (const f of nextDiskFiles) {
-        if (f.lastModified && f.id) {
-          fileLastModifiedRef.current[f.id] = f.lastModified;
-        }
-      }
-
-      // Preserve all current in-browser storage files!
-      const browserFiles = currentFiles.filter((f) => !f.isLocalDisk);
-      const combinedFiles = [...nextDiskFiles, ...browserFiles];
-
-      const availableIds = new Set(combinedFiles.map((f) => f.id));
-
-      const currentOpenFiles = openFilesRef.current || state.openFiles;
-      const currentActiveId = activeTabIdRef.current || state.activeTabId;
-
-      let nextOpenFiles = currentOpenFiles.filter((id) => availableIds.has(id));
-
-      let preferredActiveId = options?.activeTabId;
-      if (options?.openFileId) {
-        let targetId = options.openFileId;
-        if (!availableIds.has(targetId) && options.openFileName) {
-          const match = combinedFiles.find(
-            (f) => f.name === options.openFileName || f.relativePath === options.openFileName
-          );
-          if (match) targetId = match.id;
-        }
-        if (availableIds.has(targetId)) {
-          if (!nextOpenFiles.includes(targetId)) {
-            nextOpenFiles = [...nextOpenFiles, targetId];
-          }
-          preferredActiveId = targetId;
-        }
-      }
-
-      let nextActiveId = preferredActiveId && availableIds.has(preferredActiveId)
-        ? preferredActiveId
-        : (availableIds.has(currentActiveId)
-            ? currentActiveId
-            : (nextOpenFiles.length > 0 ? nextOpenFiles[0] : (nextDiskFiles[0]?.id || combinedFiles[0]?.id || null)));
-
-      // Sync refs immediately
-      filesRef.current = combinedFiles;
-      openFilesRef.current = nextOpenFiles;
-      activeTabIdRef.current = nextActiveId;
-
-      dispatch({
-        type: "UPDATE_WORKSPACE",
-        payload: { tree, git, isSyncing: false },
-      });
-
-      dispatch({
-        type: "SET_WORKSPACE_FILES",
-        payload: {
-          files: combinedFiles.length > 0 ? combinedFiles : [defaultFile],
-          openFiles: nextOpenFiles.length > 0 ? nextOpenFiles : (combinedFiles[0] ? [combinedFiles[0].id] : [defaultFile.id]),
-          activeTabId: nextActiveId || defaultFile.id,
-          dirtyFiles: state.dirtyFiles,
-          previewTabId: state.previewTabId,
-        },
-      });
-    } catch (err) {
-      console.error("Refresh workspace failed:", err);
-      dispatch({ type: "UPDATE_WORKSPACE", payload: { isSyncing: false } });
-    }
-  }, [state.workspace, state.files, state.dirtyFiles, state.openFiles, state.activeTabId, state.previewTabId]);
 
   // Bi-directional external disk change detector
   const checkFilesForExternalChanges = useCallback(async () => {
