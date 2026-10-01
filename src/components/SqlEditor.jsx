@@ -2,7 +2,8 @@ import { useRef, useCallback, useState, forwardRef, useImperativeHandle, useEffe
 import { loader } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import Editor from "@monaco-editor/react";
-import { Play, Loader2, Ban, AlignLeft, WrapText } from "lucide-react";
+import { Play, Loader2, Ban, AlignLeft, WrapText, FileText, Eye, Columns, Code } from "lucide-react";
+import MarkdownPreview from "./MarkdownPreview";
 import { format } from "sql-formatter";
 import { useSqlFiles } from "../context/SqlFilesContext";
 import { useLivy } from "../context/LivyContext";
@@ -739,7 +740,20 @@ const SqlEditor = forwardRef(function SqlEditor({
   onTriggerSnake,
   onSyntaxErrorsChange,
 }, ref) {
-  const { activeFile, files, openFiles, updateContent, setResult, saveFile, toggleAutoSave, activeResultId, pendingLineReveal, clearPendingLineReveal } = useSqlFiles();
+  const {
+    activeFile,
+    files,
+    openFiles,
+    updateContent,
+    setResult,
+    saveFile,
+    toggleAutoSave,
+    activeResultId,
+    pendingLineReveal,
+    clearPendingLineReveal,
+    markdownViewMode,
+    setMarkdownViewMode,
+  } = useSqlFiles();
   const activeFileRef = useRef(activeFile);
   const toggleAutoSaveRef = useRef(toggleAutoSave);
   const onPrevTabRef = useRef(onPrevTab);
@@ -1051,11 +1065,21 @@ const SqlEditor = forwardRef(function SqlEditor({
     return () => window.removeEventListener("focus", resetTitle);
   }, []);
 
+  const isMarkdownFile = activeFile?.name?.toLowerCase().endsWith(".md");
+
   const canRun =
+    !isMarkdownFile &&
     sessionState === SESSION_STATES.IDLE &&
     sessionId !== null &&
     !running &&
     (isServerReachable === true || (isOnline && isServerReachable === null));
+
+  // Trigger Monaco layout recalculation on markdown view mode changes
+  useEffect(() => {
+    if (editorRef.current) {
+      editorRef.current.layout();
+    }
+  }, [markdownViewMode]);
 
   // Persist word wrap preference
   useEffect(() => {
@@ -2046,100 +2070,187 @@ const SqlEditor = forwardRef(function SqlEditor({
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* Monaco Editor */}
-      <div className="flex-1 min-h-0 relative">
-        {/* Glyph popup menu */}
-        {glyphPopup && (
+      {/* Markdown Document Mode Bar */}
+      {isMarkdownFile && (
+        <div className="flex items-center justify-between px-3 py-1.5 bg-(--color-bg-secondary) border-b border-(--color-border) text-xs shrink-0 select-none">
+          <div className="flex items-center gap-2 min-w-0">
+            <FileText size={14} className="text-sky-400 shrink-0" />
+            <span className="font-semibold text-(--color-text-primary) truncate text-[11px]">
+              {activeFile?.name}
+            </span>
+            <span className="text-[9px] px-1.5 py-0.2 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 font-mono shrink-0">
+              MARKDOWN
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center bg-(--color-bg-primary) p-0.5 rounded-md border border-(--color-border)">
+              <button
+                onClick={() => setMarkdownViewMode("edit")}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                  markdownViewMode === "edit"
+                    ? "bg-(--color-bg-elevated) text-(--color-text-primary) shadow-2xs font-semibold"
+                    : "text-(--color-text-muted) hover:text-(--color-text-primary)"
+                }`}
+                title="Code Only"
+              >
+                <Code size={12} />
+                <span>Edit</span>
+              </button>
+              <button
+                onClick={() => setMarkdownViewMode("split")}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                  markdownViewMode === "split"
+                    ? "bg-(--color-bg-elevated) text-(--color-text-primary) shadow-2xs font-semibold"
+                    : "text-(--color-text-muted) hover:text-(--color-text-primary)"
+                }`}
+                title="Side-by-Side Live Preview"
+              >
+                <Columns size={12} />
+                <span>Split</span>
+              </button>
+              <button
+                onClick={() => setMarkdownViewMode("preview")}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                  markdownViewMode === "preview"
+                    ? "bg-(--color-bg-elevated) text-(--color-text-primary) shadow-2xs font-semibold"
+                    : "text-(--color-text-muted) hover:text-(--color-text-primary)"
+                }`}
+                title="Preview Only"
+              >
+                <Eye size={12} />
+                <span>Preview</span>
+              </button>
+            </div>
+
+            <span className="text-[10px] text-(--color-text-muted) hidden md:inline ml-1 font-mono">
+              ({typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0 ? "⌘" : "Ctrl"}+Shift+V)
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Editor & Preview Workspace Area */}
+      <div className="flex-1 min-h-0 relative flex">
+        {/* Monaco Editor Container */}
+        <div
+          className={`h-full relative min-h-0 ${
+            !isMarkdownFile
+              ? "w-full"
+              : markdownViewMode === "edit"
+              ? "w-full"
+              : markdownViewMode === "split"
+              ? "w-1/2 border-r border-(--color-border)"
+              : "hidden"
+          }`}
+        >
+          {/* Glyph popup menu (SQL only) */}
+          {glyphPopup && !isMarkdownFile && (
+            <div
+              ref={glyphPopupRef}
+              onMouseDown={(e) => e.stopPropagation()}
+              className="fixed z-50 bg-(--color-bg-secondary) border border-(--color-border) rounded-lg shadow-2xl py-1 min-w-35 animate-in fade-in zoom-in-95 duration-100"
+              style={{ top: glyphPopup.top, left: glyphPopup.left + 20 }}
+            >
+              <button
+                className={`flex items-center gap-2 w-full px-3 py-1.5 text-xs transition-colors ${
+                  canRun
+                    ? 'text-(--color-text-secondary) hover:bg-(--color-bg-tertiary) hover:text-(--color-success) cursor-pointer'
+                    : 'text-(--color-text-muted) cursor-not-allowed opacity-50'
+                }`}
+                onClick={() => {
+                  if (!canRun) return;
+                  const { stmt } = glyphPopup;
+                  setGlyphPopup(null);
+                  handleRunSqlRef.current?.(stmt.sql, stmt.startLine, stmt.endLine);
+                }}
+                disabled={!canRun}
+              >
+                <Play size={12} /> Run
+              </button>
+              <button
+                className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-(--color-text-secondary) hover:bg-(--color-bg-tertiary) hover:text-(--color-accent) transition-colors"
+                onClick={() => {
+                  const { stmt } = glyphPopup;
+                  setGlyphPopup(null);
+                  formatRange(stmt.startLine, stmt.endLine);
+                }}
+              >
+                <AlignLeft size={12} /> Format
+              </button>
+              <button
+                className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-(--color-text-secondary) hover:bg-(--color-bg-tertiary) hover:text-(--color-accent) transition-colors"
+                onClick={() => {
+                  const { stmt } = glyphPopup;
+                  setGlyphPopup(null);
+                  minifyRange(stmt.startLine, stmt.endLine);
+                }}
+              >
+                <WrapText size={12} /> Minify
+              </button>
+            </div>
+          )}
+          <Editor
+            height="100%"
+            defaultLanguage={getLanguageForFile(activeFile?.name)}
+            theme={theme === "light" ? "light" : VSCODE_DARK_CUSTOM}
+            beforeMount={handleBeforeMount}
+            onMount={handleEditorMount}
+            options={{
+              fontSize: settings["editor.fontSize"] || 14,
+              fontFamily: settings["editor.fontFamily"] || "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
+              glyphMargin: !isMarkdownFile,
+              glyphMarginWidth: isMarkdownFile ? 0 : 16,
+              lineNumbersMinChars: 2,
+              minimap: {
+                enabled: settings["editor.minimap.enabled"] ?? true,
+                side: "right",
+                showSlider: "mouseover",
+                renderCharacters: true,
+                maxColumn: 120,
+              },
+              lineNumbers: settings["editor.lineNumbers"] || "on",
+              scrollBeyondLastLine: false,
+              wordWrap: isMarkdownFile ? "on" : (wordWrap ? "on" : "off"),
+              automaticLayout: true,
+              tabSize: settings["editor.tabSize"] || 2,
+              cursorBlinking: settings["editor.cursorBlinking"] || "smooth",
+              renderWhitespace: settings["editor.renderWhitespace"] || "selection",
+              suggestOnTriggerCharacters: true,
+              acceptSuggestionOnEnter: settings["editor.acceptSuggestionOnEnter"] || "smart",
+              tabCompletion: "on",
+              quickSuggestions: true,
+              wordBasedSuggestions: "currentDocument",
+              suggest: {
+                showKeywords: true,
+                showFunctions: true,
+                showSnippets: true,
+                showClasses: true,
+                showModules: true,
+                showFields: true,
+                showWords: true,
+              },
+              padding: { top: 8 },
+              renderLineHighlight: "all",
+              bracketPairColorization: { enabled: true },
+              guides: { bracketPairs: true },
+            }}
+          />
+        </div>
+
+        {/* Markdown Preview Container */}
+        {isMarkdownFile && (markdownViewMode === "split" || markdownViewMode === "preview") && (
           <div
-            ref={glyphPopupRef}
-            onMouseDown={(e) => e.stopPropagation()}
-            className="fixed z-50 bg-(--color-bg-secondary) border border-(--color-border) rounded-lg shadow-2xl py-1 min-w-35 animate-in fade-in zoom-in-95 duration-100"
-            style={{ top: glyphPopup.top, left: glyphPopup.left + 20 }}
+            className={`h-full min-h-0 overflow-y-auto bg-(--color-bg-primary) ${
+              markdownViewMode === "split" ? "w-1/2" : "w-full"
+            }`}
           >
-            <button
-              className={`flex items-center gap-2 w-full px-3 py-1.5 text-xs transition-colors ${
-                canRun
-                  ? 'text-(--color-text-secondary) hover:bg-(--color-bg-tertiary) hover:text-(--color-success) cursor-pointer'
-                  : 'text-(--color-text-muted) cursor-not-allowed opacity-50'
-              }`}
-              onClick={() => {
-                if (!canRun) return;
-                const { stmt } = glyphPopup;
-                setGlyphPopup(null);
-                handleRunSqlRef.current?.(stmt.sql, stmt.startLine, stmt.endLine);
-              }}
-              disabled={!canRun}
-            >
-              <Play size={12} /> Run
-            </button>
-            <button
-              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-(--color-text-secondary) hover:bg-(--color-bg-tertiary) hover:text-(--color-accent) transition-colors"
-              onClick={() => {
-                const { stmt } = glyphPopup;
-                setGlyphPopup(null);
-                formatRange(stmt.startLine, stmt.endLine);
-              }}
-            >
-              <AlignLeft size={12} /> Format
-            </button>
-            <button
-              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-(--color-text-secondary) hover:bg-(--color-bg-tertiary) hover:text-(--color-accent) transition-colors"
-              onClick={() => {
-                const { stmt } = glyphPopup;
-                setGlyphPopup(null);
-                minifyRange(stmt.startLine, stmt.endLine);
-              }}
-            >
-              <WrapText size={12} /> Minify
-            </button>
+            <MarkdownPreview
+              content={activeFile?.content || ""}
+              theme={theme}
+            />
           </div>
         )}
-        <Editor
-          height="100%"
-          defaultLanguage="sql"
-          theme={theme === "light" ? "light" : VSCODE_DARK_CUSTOM}
-          beforeMount={handleBeforeMount}
-          onMount={handleEditorMount}
-          options={{
-            fontSize: settings["editor.fontSize"] || 14,
-            fontFamily: settings["editor.fontFamily"] || "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
-            glyphMargin: true,
-            glyphMarginWidth: 16,
-            lineNumbersMinChars: 2,
-            minimap: {
-              enabled: settings["editor.minimap.enabled"] ?? true,
-              side: "right",
-              showSlider: "mouseover",
-              renderCharacters: true,
-              maxColumn: 120,
-            },
-            lineNumbers: settings["editor.lineNumbers"] || "on",
-            scrollBeyondLastLine: false,
-            wordWrap: wordWrap ? "on" : "off",
-            automaticLayout: true,
-            tabSize: settings["editor.tabSize"] || 2,
-            cursorBlinking: settings["editor.cursorBlinking"] || "smooth",
-            renderWhitespace: settings["editor.renderWhitespace"] || "selection",
-            suggestOnTriggerCharacters: true,
-            acceptSuggestionOnEnter: settings["editor.acceptSuggestionOnEnter"] || "smart",
-            tabCompletion: "on",
-            quickSuggestions: true,
-            wordBasedSuggestions: "currentDocument",
-            suggest: {
-              showKeywords: true,
-              showFunctions: true,
-              showSnippets: true,
-              showClasses: true,
-              showModules: true,
-              showFields: true,
-              showWords: true,
-            },
-            padding: { top: 8 },
-            renderLineHighlight: "all",
-            bracketPairColorization: { enabled: true },
-            guides: { bracketPairs: true },
-          }}
-        />
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, X, FileCode, FileText, Play, Loader2, Settings, Database, HardDrive, Globe } from "lucide-react";
+import { Plus, X, FileCode, FileText, Play, Loader2, Settings, Database, HardDrive, Globe, Eye, Columns, Code } from "lucide-react";
 import { useSqlFiles, SETTINGS_FILE } from "../context/SqlFilesContext";
 
 function stripExtension(name) {
@@ -14,7 +14,24 @@ function ensureExtension(name) {
 const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 
 export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRef }) {
-  const { files, openFiles, activeTabId, setActiveTab, addFile, closeFile, renameFile, reorderFiles, dirtyFiles, promptCloseFileId, setPromptCloseFileId, requestCloseFile, previewTabId, promotePreviewTab } = useSqlFiles();
+  const {
+    files,
+    openFiles,
+    activeTabId,
+    setActiveTab,
+    addFile,
+    closeFile,
+    renameFile,
+    reorderFiles,
+    dirtyFiles,
+    promptCloseFileId,
+    setPromptCloseFileId,
+    requestCloseFile,
+    previewTabId,
+    promotePreviewTab,
+    markdownViewMode,
+    toggleMarkdownPreview,
+  } = useSqlFiles();
   const [running, setRunning] = useState(false);
   const [canRun, setCanRun] = useState(false);
   
@@ -100,10 +117,27 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
     setDragOverIndex(null);
   };
 
+  const activeFile = allFiles.find((f) => f.id === activeTabId);
+  const isActiveMarkdown = activeFile?.name?.toLowerCase().endsWith(".md");
+
   return (
     <div className="flex items-center bg-(--color-bg-workbench) border-b border-(--color-border) shrink-0 overflow-x-auto px-1.5 py-1 gap-1">
       <div className="flex items-center gap-1 pr-1.5 border-r border-(--color-border)/60 shrink-0">
-        {running ? (
+        {isActiveMarkdown ? (
+          <button
+            onClick={toggleMarkdownPreview}
+            className="group flex items-center justify-center w-6 h-6 rounded-md bg-sky-500/10 text-sky-400 border border-sky-500/30 hover:bg-sky-500/20 active:scale-95 transition-all cursor-pointer select-none shadow-xs"
+            title={`Toggle Markdown Preview (Current: ${markdownViewMode}) - ${isMac ? "⌘+Shift+V" : "Ctrl+Shift+V"}`}
+          >
+            {markdownViewMode === "preview" ? (
+              <Code size={12} />
+            ) : markdownViewMode === "split" ? (
+              <Eye size={12} />
+            ) : (
+              <Columns size={12} />
+            )}
+          </button>
+        ) : running ? (
           <button
             onClick={handleCancel}
             className="group flex items-center justify-center w-6 h-6 rounded-md bg-(--color-error)/15 text-(--color-error) hover:bg-(--color-error)/25 active:scale-95 transition-all cursor-pointer select-none"

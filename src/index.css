@@ -287,4 +287,163 @@ body {
   to { transform: translateY(0) scale(1); opacity: 1; }
 }
 
+/* Markdown Document Preview Theme */
+.markdown-preview-container {
+  color: var(--color-text-primary);
+  line-height: 1.65;
+  font-size: 14px;
+}
+
+.markdown-preview-container h1 {
+  font-size: 1.85rem;
+  font-weight: 700;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.markdown-preview-container h2 {
+  font-size: 1.45rem;
+  font-weight: 600;
+  margin-top: 1.3rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.markdown-preview-container h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-top: 1.1rem;
+  margin-bottom: 0.5rem;
+  color: var(--color-text-primary);
+}
+
+.markdown-preview-container h4,
+.markdown-preview-container h5,
+.markdown-preview-container h6 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 0.9rem;
+  margin-bottom: 0.4rem;
+  color: var(--color-text-secondary);
+}
+
+.markdown-preview-container p {
+  margin-bottom: 1rem;
+}
+
+.markdown-preview-container a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: opacity 0.15s ease;
+}
+
+.markdown-preview-container a:hover {
+  opacity: 0.8;
+}
+
+.markdown-preview-container strong {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.markdown-preview-container ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.markdown-preview-container ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.markdown-preview-container li {
+  margin-bottom: 0.35rem;
+}
+
+.markdown-preview-container blockquote {
+  border-left: 4px solid var(--color-accent);
+  background-color: color-mix(in srgb, var(--color-accent) 6%, transparent);
+  padding: 0.6rem 1rem;
+  margin: 1rem 0;
+  border-radius: 0 0.5rem 0.5rem 0;
+  color: var(--color-text-secondary);
+}
+
+.markdown-preview-container code:not(pre code) {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.85em;
+  background-color: var(--color-bg-tertiary);
+  color: #ff7b72;
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.25rem;
+  border: 1px solid var(--color-border);
+}
+
+.markdown-preview-container pre {
+  background-color: var(--color-bg-workbench);
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  overflow-x: auto;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 1rem 0;
+}
+
+.markdown-preview-container pre code {
+  background: transparent;
+  padding: 0;
+  border: none;
+  color: var(--color-text-primary);
+}
+
+.markdown-preview-container table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.25rem 0;
+  font-size: 13px;
+}
+
+.markdown-preview-container th,
+.markdown-preview-container td {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+}
+
+.markdown-preview-container th {
+  background-color: var(--color-bg-secondary);
+  font-weight: 600;
+  text-align: left;
+}
+
+.markdown-preview-container tr:nth-child(even) {
+  background-color: color-mix(in srgb, var(--color-bg-tertiary) 40%, transparent);
+}
+
+.markdown-preview-container hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1.75rem 0;
+}
+
+.markdown-preview-container img {
+  max-width: 100%;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+.markdown-preview-container input[type="checkbox"] {
+  margin-right: 0.4rem;
+  accent-color: var(--color-accent);
+}
+
 

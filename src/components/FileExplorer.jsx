@@ -78,6 +78,8 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
     addFile,
     addBrowserFile,
     saveBrowserFileToWorkspace,
+    copyWorkspaceFileToBrowser,
+    moveWorkspaceFile,
     dirtyFiles,
     workspace,
     isFsSupported,
@@ -100,6 +102,10 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
   const [renameValue, setRenameValue] = useState("");
   const [showUnsupportedModal, setShowUnsupportedModal] = useState(false);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
+
+  // Fine Drag & Drop state
+  const [draggedItem, setDraggedItem] = useState(null); // { id, name, source: 'workspace'|'browser', file }
+  const [dragOverTarget, setDragOverTarget] = useState(null); // { type: 'workspace'|'browser'|'folder', path?: string, handle?: any }
 
   const [expandedSections, setExpandedSections] = useState({
     workspace: true,
@@ -134,6 +140,134 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
       addToast("ok", `Copied "${file.name}" to workspace folder`, null, "Saved to Workspace");
     } catch (err) {
       addToast("error", err.message || "Failed to copy file to workspace", null, "Copy Error");
+    }
+  };
+
+  // Fine Drag & Drop Event Handlers
+  const handleDragStart = (e, file, source) => {
+    const item = { id: file.id, name: file.name, source, file };
+    setDraggedItem(item);
+    e.dataTransfer.setData("application/json", JSON.stringify({ id: file.id, name: file.name, source }));
+    e.dataTransfer.effectAllowed = "copyMove";
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+    setDragOverTarget(null);
+  };
+
+  const handleDragOver = (e, target) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Disallow dropping onto self or same folder
+    if (draggedItem) {
+      if (target.type === "folder" && draggedItem.source === "workspace") {
+        const file = files.find((f) => f.id === draggedItem.id);
+        if (file && (file.parentDirHandle === target.handle || (!file.parentDirHandle && target.handle === workspace.handle))) {
+          e.dataTransfer.dropEffect = "none";
+          return;
+        }
+      }
+
+      if (target.type === "workspace" && draggedItem.source === "workspace") {
+        const file = files.find((f) => f.id === draggedItem.id);
+        if (!file?.parentDirHandle || file.parentDirHandle === workspace.handle) {
+          e.dataTransfer.dropEffect = "none";
+          return;
+        }
+      }
+
+      if (target.type === "browser" && draggedItem.source === "browser") {
+        e.dataTransfer.dropEffect = "none";
+        return;
+      }
+    }
+
+    e.dataTransfer.dropEffect = "copy";
+    if (
+      dragOverTarget?.id !== target.id ||
+      dragOverTarget?.type !== target.type ||
+      dragOverTarget?.path !== target.path
+    ) {
+      setDragOverTarget(target);
+    }
+  };
+
+  const handleDragLeave = (e, target) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (
+      (target.path && dragOverTarget?.path === target.path) ||
+      (target.type && dragOverTarget?.type === target.type && !target.path)
+    ) {
+      setDragOverTarget(null);
+    }
+  };
+
+  const handleDrop = async (e, target) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const item = draggedItem;
+    setDraggedItem(null);
+    setDragOverTarget(null);
+
+    // Handle OS external files dropped
+    if (!item && e.dataTransfer.files?.length > 0) {
+      try {
+        const file = e.dataTransfer.files[0];
+        const content = await file.text();
+        const fileName = file.name;
+
+        if (target.type === "workspace" || target.type === "folder") {
+          const parent = target.handle || workspace.handle;
+          if (parent) {
+            await addFileToFolder(parent, fileName, content);
+            addToast("ok", `Imported "${fileName}" to workspace`, null, "File Imported");
+            return;
+          }
+        }
+        await addFile({ name: fileName, content, target: "browser" });
+        addToast("ok", `Imported "${fileName}" to Browser Storage`, null, "File Imported");
+      } catch (err) {
+        addToast("error", err.message || "Failed to import dropped file", null, "Import Error");
+      }
+      return;
+    }
+
+    if (!item) return;
+
+    try {
+      if (target.type === "browser") {
+        if (item.source === "workspace") {
+          const copiedName = await copyWorkspaceFileToBrowser(item.id);
+          addToast("ok", `Copied "${copiedName || item.name}" to Browser Storage`, null, "Copied to Browser");
+        }
+      } else if (target.type === "workspace") {
+        if (item.source === "browser") {
+          const res = await saveBrowserFileToWorkspace(item.id, workspace.handle);
+          addToast("ok", `Saved "${res?.name || item.name}" to workspace root`, null, "Saved to Workspace");
+        } else if (item.source === "workspace") {
+          await moveWorkspaceFile(item.id, workspace.handle);
+          addToast("ok", `Moved "${item.name}" to workspace root`, null, "Moved File");
+        }
+      } else if (target.type === "folder") {
+        if (item.source === "browser") {
+          const res = await saveBrowserFileToWorkspace(item.id, target.handle);
+          if (target.path) {
+            setExpandedFolders((prev) => ({ ...prev, [target.path]: true }));
+          }
+          addToast("ok", `Saved "${res?.name || item.name}" into "${target.name}"`, null, "Saved to Folder");
+        } else if (item.source === "workspace") {
+          await moveWorkspaceFile(item.id, target.handle);
+          if (target.path) {
+            setExpandedFolders((prev) => ({ ...prev, [target.path]: true }));
+          }
+          addToast("ok", `Moved "${item.name}" into "${target.name}"`, null, "Moved File");
+        }
+      }
+    } catch (err) {
+      addToast("error", err.message || "Failed to complete drag-and-drop operation", null, "Drag & Drop Error");
     }
   };
 
@@ -401,13 +535,21 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
     if (node.kind === "directory") {
       const expanded = isFolderExpanded(node.path);
       const isCreatingInside = creatingItem && creatingItem.parentHandle === node.handle;
+      const isDropTarget = dragOverTarget?.type === "folder" && dragOverTarget?.path === node.path;
 
       return (
         <div key={node.path || node.name} className="select-none">
           {/* Folder Row */}
           <div
             onClick={() => toggleFolder(node.path)}
-            className="group flex items-center gap-1.5 px-2 py-1 text-xs cursor-pointer text-(--color-text-secondary) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary)/60 transition-colors rounded-sm"
+            onDragOver={(e) => handleDragOver(e, { type: "folder", handle: node.handle, path: node.path, name: node.name })}
+            onDragLeave={(e) => handleDragLeave(e, { type: "folder", handle: node.handle, path: node.path })}
+            onDrop={(e) => handleDrop(e, { type: "folder", handle: node.handle, path: node.path, name: node.name })}
+            className={`group flex items-center gap-1.5 px-2 py-1 text-xs cursor-pointer transition-colors rounded-sm ${
+              isDropTarget
+                ? "ring-2 ring-amber-500/70 bg-amber-500/15 text-amber-300"
+                : "text-(--color-text-secondary) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary)/60"
+            }`}
             style={{ paddingLeft: `${Math.max(depth * 14 + 8, 8)}px` }}
           >
             <span className="shrink-0 text-(--color-text-muted) hover:text-(--color-text-primary)">
@@ -417,6 +559,11 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
               {expanded ? <FolderOpen size={14} /> : <Folder size={14} />}
             </span>
             <span className="truncate flex-1 font-medium text-[11px]">{node.name}</span>
+            {isDropTarget && (
+              <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono shrink-0">
+                Drop here
+              </span>
+            )}
 
             {/* Folder Actions on Hover */}
             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -487,13 +634,19 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
     const file = node;
     const isSelected = selectedFileId === file.id;
     const isActive = activeTabId === file.id;
+    const isBeingDragged = draggedItem?.id === file.id;
 
     return (
       <div
         key={file.id}
+        draggable={renamingId !== file.id}
+        onDragStart={(e) => handleDragStart(e, file, "workspace")}
+        onDragEnd={handleDragEnd}
         onClick={() => handleFileClick(file.id)}
         onDoubleClick={() => handleFileDoubleClick(file.id)}
         className={`group flex items-center gap-1.5 px-2 py-1 text-xs cursor-pointer transition-colors ${
+          isBeingDragged ? "opacity-40" : ""
+        } ${
           isSelected
             ? "bg-(--color-bg-primary) text-(--color-text-primary)"
             : "text-(--color-text-secondary) hover:bg-(--color-bg-tertiary)/60"
@@ -525,7 +678,6 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
         ) : (
           <>
             <span className="flex-1 truncate text-[11px]">{file.name}</span>
-
 
             {dirtyFiles?.[file.id] && (
               <span
@@ -566,13 +718,19 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
   const renderBrowserFileRow = (file) => {
     const isSelected = selectedFileId === file.id;
     const isActive = activeTabId === file.id;
+    const isBeingDragged = draggedItem?.id === file.id;
 
     return (
       <div
         key={file.id}
+        draggable={renamingId !== file.id}
+        onDragStart={(e) => handleDragStart(e, file, "browser")}
+        onDragEnd={handleDragEnd}
         onClick={() => handleFileClick(file.id)}
         onDoubleClick={() => handleFileDoubleClick(file.id)}
         className={`group flex items-center gap-1.5 px-3 py-1.5 text-xs cursor-pointer transition-colors ${
+          isBeingDragged ? "opacity-40" : ""
+        } ${
           isSelected
             ? "bg-(--color-bg-primary) text-(--color-text-primary)"
             : "text-(--color-text-secondary) hover:bg-(--color-bg-tertiary)/60"
@@ -937,7 +1095,16 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
           // WORKSPACE CONNECTED: Render Workspace Tree AND Browser Storage Sections
           <div className="flex flex-col">
             {/* SECTION 1: Local Workspace Directory Tree */}
-            <div className="border-b border-(--color-border)/40">
+            <div
+              className={`border-b border-(--color-border)/40 transition-all ${
+                dragOverTarget?.type === "workspace"
+                  ? "ring-2 ring-emerald-500/70 bg-emerald-500/10 rounded-md m-1"
+                  : ""
+              }`}
+              onDragOver={(e) => handleDragOver(e, { type: "workspace", handle: workspace.handle, name: workspace.name })}
+              onDragLeave={(e) => handleDragLeave(e, { type: "workspace", handle: workspace.handle })}
+              onDrop={(e) => handleDrop(e, { type: "workspace", handle: workspace.handle, name: workspace.name })}
+            >
               <div
                 onClick={() => toggleSection("workspace")}
                 className="flex items-center justify-between px-2.5 py-1.5 bg-(--color-bg-secondary)/60 hover:bg-(--color-bg-tertiary)/30 cursor-pointer select-none group"
@@ -961,6 +1128,11 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
                   <span className="px-1 py-0.2 text-[9px] bg-(--color-bg-tertiary) text-(--color-text-muted) rounded-full font-semibold shrink-0">
                     {workspaceFiles.length}
                   </span>
+                  {dragOverTarget?.type === "workspace" && (
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-mono shrink-0">
+                      Drop to workspace root
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0" onClick={(e) => e.stopPropagation()}>
                   <button
@@ -1016,7 +1188,16 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
             </div>
 
             {/* SECTION 2: Browser Storage Files */}
-            <div>
+            <div
+              className={`transition-all ${
+                dragOverTarget?.type === "browser"
+                  ? "ring-2 ring-sky-500/70 bg-sky-500/10 rounded-md m-1"
+                  : ""
+              }`}
+              onDragOver={(e) => handleDragOver(e, { type: "browser" })}
+              onDragLeave={(e) => handleDragLeave(e, { type: "browser" })}
+              onDrop={(e) => handleDrop(e, { type: "browser" })}
+            >
               <div
                 onClick={() => toggleSection("browser")}
                 className="flex items-center justify-between px-2.5 py-1.5 bg-(--color-bg-secondary)/60 hover:bg-(--color-bg-tertiary)/30 cursor-pointer select-none group"
@@ -1034,6 +1215,11 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
                   <span className="px-1 py-0.2 text-[9px] bg-(--color-bg-tertiary) text-(--color-text-muted) rounded-full font-semibold shrink-0">
                     {browserFiles.length}
                   </span>
+                  {dragOverTarget?.type === "browser" && (
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 font-mono shrink-0">
+                      Drop to browser storage
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
                   <button
@@ -1069,31 +1255,47 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
           // WORKSPACE DISCONNECTED: Browser Storage Files List with Folder Open Option
           <div className="flex flex-col">
             <div
-              onClick={() => toggleSection("browser")}
-              className="flex items-center justify-between px-2.5 py-1.5 bg-(--color-bg-secondary)/60 hover:bg-(--color-bg-tertiary)/30 cursor-pointer select-none group border-b border-(--color-border)/40"
+              className={`transition-all ${
+                dragOverTarget?.type === "browser"
+                  ? "ring-2 ring-sky-500/70 bg-sky-500/10 rounded-md m-1"
+                  : ""
+              }`}
+              onDragOver={(e) => handleDragOver(e, { type: "browser" })}
+              onDragLeave={(e) => handleDragLeave(e, { type: "browser" })}
+              onDrop={(e) => handleDrop(e, { type: "browser" })}
             >
-              <div className="flex items-center gap-1.5 min-w-0">
-                {expandedSections.browser ? (
-                  <ChevronDown size={13} className="text-(--color-text-muted) shrink-0" />
-                ) : (
-                  <ChevronRight size={13} className="text-(--color-text-muted) shrink-0" />
-                )}
-                <Globe size={12} className="text-sky-400 shrink-0" />
-                <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wider truncate">
-                  Browser Storage
-                </span>
-                <span className="px-1 py-0.2 text-[9px] bg-(--color-bg-tertiary) text-(--color-text-muted) rounded-full font-semibold shrink-0">
-                  {browserFiles.length}
-                </span>
-              </div>
-              <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-                <button
-                  onClick={() => addBrowserFile()}
-                  className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"
-                  title="New In-Browser SQL File"
-                >
-                  <FilePlus size={12} />
-                </button>
+              <div
+                onClick={() => toggleSection("browser")}
+                className="flex items-center justify-between px-2.5 py-1.5 bg-(--color-bg-secondary)/60 hover:bg-(--color-bg-tertiary)/30 cursor-pointer select-none group border-b border-(--color-border)/40"
+              >
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {expandedSections.browser ? (
+                    <ChevronDown size={13} className="text-(--color-text-muted) shrink-0" />
+                  ) : (
+                    <ChevronRight size={13} className="text-(--color-text-muted) shrink-0" />
+                  )}
+                  <Globe size={12} className="text-sky-400 shrink-0" />
+                  <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wider truncate">
+                    Browser Storage
+                  </span>
+                  <span className="px-1 py-0.2 text-[9px] bg-(--color-bg-tertiary) text-(--color-text-muted) rounded-full font-semibold shrink-0">
+                    {browserFiles.length}
+                  </span>
+                  {dragOverTarget?.type === "browser" && (
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 font-mono shrink-0">
+                      Drop to browser storage
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => addBrowserFile()}
+                    className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"
+                    title="New In-Browser SQL File"
+                  >
+                    <FilePlus size={12} />
+                  </button>
+                </div>
               </div>
             </div>
 

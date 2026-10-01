@@ -18,6 +18,7 @@ export const STORAGE_KEYS = {
   PREVIEW_TAB: "livy-preview-tab",
   SCRATCHPAD_FILES: "livy-scratchpad-files",
   WORKSPACE_INFO: "livy-workspace-info",
+  MARKDOWN_VIEW_MODE: "livy-markdown-view-mode",
 };
 
 export const SESSION_STATES = {

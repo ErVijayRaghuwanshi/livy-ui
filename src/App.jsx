@@ -25,7 +25,23 @@ const THEME_CACHE_KEY = "livy-ui-theme";
 const DEFAULT_RESULT_HEIGHT = 250;
 
 export default function App() {
-  const { activeFile, activeResult, files, openFiles, activeTabId, setActiveTab, addFile, removeFile, saveFile, restoreLastClosedTab, closedTabsHistory, requestCloseFile, openSettingsTab, clearFileResults } = useSqlFiles();
+  const {
+    activeFile,
+    activeResult,
+    files,
+    openFiles,
+    activeTabId,
+    setActiveTab,
+    addFile,
+    removeFile,
+    saveFile,
+    restoreLastClosedTab,
+    closedTabsHistory,
+    requestCloseFile,
+    openSettingsTab,
+    clearFileResults,
+    toggleMarkdownPreview,
+  } = useSqlFiles();
 
   const [activeGames, setActiveGames] = useState({});
   const [pendingGame, setPendingGame] = useState(null); // 'bounce' | 'snake' | null
@@ -256,6 +272,13 @@ export default function App() {
         e.preventDefault();
         setActiveSidebarTab("schema");
         handleFocusSchemaSearch();
+        return;
+      }
+
+      // Ctrl+Shift+V / Cmd+Shift+V — toggle Markdown preview (VS Code standard)
+      if (ctrl && !e.altKey && e.shiftKey && (e.key.toLowerCase() === "v" || e.code === "KeyV")) {
+        e.preventDefault();
+        toggleMarkdownPreview();
         return;
       }
 

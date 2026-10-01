@@ -809,6 +809,23 @@ export function SqlFilesProvider({ children }) {
 
   const [promptCloseFileId, setPromptCloseFileId] = useState(null);
 
+  const [markdownViewMode, setMarkdownViewMode] = useState(() => {
+    return getItem(STORAGE_KEYS.MARKDOWN_VIEW_MODE, "split");
+  });
+
+  const updateMarkdownViewMode = useCallback((mode) => {
+    setMarkdownViewMode(mode);
+    setItem(STORAGE_KEYS.MARKDOWN_VIEW_MODE, mode);
+  }, []);
+
+  const toggleMarkdownPreview = useCallback(() => {
+    setMarkdownViewMode((prev) => {
+      const next = prev === "preview" ? "edit" : "preview";
+      setItem(STORAGE_KEYS.MARKDOWN_VIEW_MODE, next);
+      return next;
+    });
+  }, []);
+
   const requestCloseFile = useCallback((id) => {
     if (!id) return;
     if (state.dirtyFiles[id]) {
@@ -1439,6 +1456,64 @@ export function SqlFilesProvider({ children }) {
     }
   }, [state.files, state.workspace, refreshWorkspace]);
 
+  // Copy a workspace disk file to in-browser storage
+  const copyWorkspaceFileToBrowser = useCallback(async (fileId) => {
+    const file = filesRef.current.find((f) => f.id === fileId);
+    if (!file) return null;
+
+    const existingBrowserNames = new Set(
+      state.files.filter((f) => !f.isLocalDisk).map((f) => f.name.toLowerCase())
+    );
+
+    let targetName = file.name;
+    if (existingBrowserNames.has(targetName.toLowerCase())) {
+      const extMatch = file.name.match(/\.[^.]+$/);
+      const ext = extMatch ? extMatch[0] : ".sql";
+      const base = file.name.replace(new RegExp(`\\${ext}$`, "i"), "");
+      let counter = 1;
+      while (existingBrowserNames.has(`${base}_copy${counter > 1 ? counter : ""}${ext}`.toLowerCase())) {
+        counter++;
+      }
+      targetName = `${base}_copy${counter > 1 ? counter : ""}${ext}`;
+    }
+
+    await addFile({
+      name: targetName,
+      content: file.content,
+      target: "browser",
+    });
+
+    return targetName;
+  }, [state.files, addFile]);
+
+  // Move a workspace file into another folder in the local workspace
+  const moveWorkspaceFile = useCallback(async (fileId, targetDirHandle) => {
+    const file = filesRef.current.find((f) => f.id === fileId);
+    if (!file || !file.isLocalDisk || !targetDirHandle) return null;
+
+    const currentParent = file.parentDirHandle || state.workspace.handle;
+    if (currentParent === targetDirHandle) return null;
+
+    try {
+      const newFileHandle = await targetDirHandle.getFileHandle(file.name, { create: true });
+      await writeFileToHandle(newFileHandle, file.content);
+
+      if (currentParent) {
+        try {
+          await deleteFileFromDirectory(currentParent, file.name);
+        } catch (e) {
+          console.warn("Could not remove old file entry during move:", e);
+        }
+      }
+
+      await refreshWorkspace();
+      return file.name;
+    } catch (err) {
+      console.error("Failed to move workspace file:", err);
+      throw err;
+    }
+  }, [state.workspace.handle, refreshWorkspace]);
+
   // Remove File (deletes from local disk if in workspace mode and updates tree)
   const removeFile = useCallback(async (id) => {
     const file = state.files.find((f) => f.id === id);
@@ -1569,6 +1644,12 @@ export function SqlFilesProvider({ children }) {
     requestCloseFile,
     addBrowserFile,
     saveBrowserFileToWorkspace,
+    copyWorkspaceFileToBrowser,
+    moveWorkspaceFile,
+    // Markdown preview state and controls
+    markdownViewMode,
+    setMarkdownViewMode: updateMarkdownViewMode,
+    toggleMarkdownPreview,
     // File system sync methods
     openWorkspaceFolder,
     createNewWorkspaceProject,

@@ -16,6 +16,7 @@ const SHORTCUTS = [
   { keys: [`${mod}+B`], description: "Toggle sidebar" },
   { keys: [`${mod}+Shift+E`], description: "Focus File Explorer" },
   { keys: [`${mod}+Shift+K`], description: "Focus Schema Explorer" },
+  { keys: [`${mod}+Shift+V`], description: "Toggle Markdown preview (Edit / Split / Preview)" },
   { keys: [`${mod}+.`], description: "Manage Livy hosts" },
   { keys: [`${mod}+\``], description: "Toggle result panel" },
   { keys: [`${mod}+O`], description: "Open local folder or Git repository" },

@@ -15,6 +15,7 @@
     "axios": "^1.7.0",
     "dt-sql-parser": "^4.5.1",
     "lucide-react": "^0.469.0",
+    "marked": "^18.0.14",
     "monaco-editor": "^0.52.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
