@@ -98,8 +98,10 @@ const storedOpenFiles = getItem(STORAGE_KEYS.OPEN_FILES, null);
 
 const initialState = {
   files: initialBrowserFiles,
-  openFiles: storedOpenFiles || [initialBrowserFiles[0].id],
-  activeTabId: getItem(STORAGE_KEYS.ACTIVE_TAB, initialBrowserFiles[0].id),
+  openFiles: Array.isArray(storedOpenFiles) ? storedOpenFiles : [initialBrowserFiles[0].id],
+  activeTabId: (Array.isArray(storedOpenFiles) && storedOpenFiles.length === 0)
+    ? null
+    : getItem(STORAGE_KEYS.ACTIVE_TAB, initialBrowserFiles[0]?.id || null),
   results: {},
   dirtyFiles: {},
   closedTabsHistory: [],
@@ -782,25 +784,33 @@ export function SqlFilesProvider({ children }) {
 
   const allFiles = [...state.files, SETTINGS_FILE];
   const activeFile =
-    (state.openFiles.includes(state.activeTabId) && allFiles.find((f) => f.id === state.activeTabId)) ||
-    allFiles.find((f) => state.openFiles.includes(f.id)) ||
-    (state.files.length > 0 ? state.files[0] : null);
+    state.openFiles.length > 0
+      ? (state.openFiles.includes(state.activeTabId)
+          ? allFiles.find((f) => f.id === state.activeTabId)
+          : allFiles.find((f) => state.openFiles.includes(f.id))) || null
+      : null;
 
   // Automatically heal active tab if previous disk file ID is not yet available (e.g. pending permission on startup)
   useEffect(() => {
-    if (state.files.length > 0 && !allFiles.some((f) => f.id === state.activeTabId)) {
-      const firstValidOpen = state.openFiles.find((id) => allFiles.some((f) => f.id === id));
-      if (firstValidOpen) {
-        dispatch({ type: "SET_ACTIVE_TAB", payload: firstValidOpen });
-      } else if (state.files.length > 0) {
-        dispatch({ type: "SET_ACTIVE_TAB", payload: state.files[0].id });
+    if (state.openFiles.length > 0) {
+      const isActiveValid = state.openFiles.includes(state.activeTabId) && allFiles.some((f) => f.id === state.activeTabId);
+      if (!isActiveValid) {
+        const firstValidOpen = state.openFiles.find((id) => allFiles.some((f) => f.id === id));
+        if (firstValidOpen) {
+          dispatch({ type: "SET_ACTIVE_TAB", payload: firstValidOpen });
+        } else if (state.activeTabId !== null) {
+          dispatch({ type: "SET_ACTIVE_TAB", payload: null });
+        }
       }
+    } else if (state.activeTabId !== null) {
+      dispatch({ type: "SET_ACTIVE_TAB", payload: null });
     }
   }, [state.files, state.openFiles, state.activeTabId]);
 
   const [promptCloseFileId, setPromptCloseFileId] = useState(null);
 
   const requestCloseFile = useCallback((id) => {
+    if (!id) return;
     if (state.dirtyFiles[id]) {
       setPromptCloseFileId(id);
     } else {
@@ -1487,7 +1497,10 @@ export function SqlFilesProvider({ children }) {
   const openSettingsTab = useCallback(() => dispatch({ type: "OPEN_SETTINGS_TAB" }), []);
   const previewFile = useCallback((id) => dispatch({ type: "PREVIEW_FILE", payload: id }), []);
   const promotePreviewTab = useCallback((id) => dispatch({ type: "PROMOTE_PREVIEW_TAB", payload: id }), []);
-  const closeFile = useCallback((id) => dispatch({ type: "CLOSE_FILE", payload: id }), []);
+  const closeFile = useCallback((id) => {
+    if (!id) return;
+    dispatch({ type: "CLOSE_FILE", payload: id });
+  }, []);
   const reorderFiles = useCallback((fromIndex, toIndex) => dispatch({ type: "REORDER_FILES", payload: { fromIndex, toIndex } }), []);
 
   const restoreLastClosedTab = useCallback(() => dispatch({ type: "RESTORE_LAST_CLOSED_TAB" }), []);
@@ -1508,7 +1521,7 @@ export function SqlFilesProvider({ children }) {
     }
   }, [state.openFiles, state.dirtyFiles]);
 
-  const fileResults = state.results[state.activeTabId] || { list: [], activeResultId: null };
+  const fileResults = (state.activeTabId && state.results[state.activeTabId]) || { list: [], activeResultId: null };
   const activeResult = fileResults.list.find(r => r.id === fileResults.activeResultId) || null;
   const activeFileResultsList = fileResults.list;
   const activeResultId = fileResults.activeResultId;

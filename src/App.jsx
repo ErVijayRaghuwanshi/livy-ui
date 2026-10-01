@@ -25,7 +25,7 @@ const THEME_CACHE_KEY = "livy-ui-theme";
 const DEFAULT_RESULT_HEIGHT = 250;
 
 export default function App() {
-  const { activeFile, activeResult, files, activeTabId, setActiveTab, addFile, removeFile, saveFile, restoreLastClosedTab, closedTabsHistory, requestCloseFile, openSettingsTab, clearFileResults } = useSqlFiles();
+  const { activeFile, activeResult, files, openFiles, activeTabId, setActiveTab, addFile, removeFile, saveFile, restoreLastClosedTab, closedTabsHistory, requestCloseFile, openSettingsTab, clearFileResults } = useSqlFiles();
 
   const [activeGames, setActiveGames] = useState({});
   const [pendingGame, setPendingGame] = useState(null); // 'bounce' | 'snake' | null
@@ -317,8 +317,8 @@ export default function App() {
         if (digitStr >= "1" && digitStr <= "9") {
           e.preventDefault();
           const tabIndex = parseInt(digitStr, 10) - 1;
-          if (tabIndex < files.length) {
-            setActiveTab(files[tabIndex].id);
+          if (openFiles && tabIndex < openFiles.length) {
+            setActiveTab(openFiles[tabIndex]);
           }
           return;
         }
@@ -348,13 +348,18 @@ export default function App() {
 
       if (isPrevTab || isNextTab) {
         e.preventDefault();
-        const idx = files.findIndex((f) => f.id === activeTabId);
+        if (!openFiles || openFiles.length === 0) return;
+        const idx = openFiles.indexOf(activeTabId);
+        if (idx === -1) {
+          setActiveTab(openFiles[0]);
+          return;
+        }
         if (isPrevTab) {
-          const prev = (idx - 1 + files.length) % files.length;
-          setActiveTab(files[prev].id);
+          const prev = (idx - 1 + openFiles.length) % openFiles.length;
+          setActiveTab(openFiles[prev]);
         } else {
-          const next = (idx + 1) % files.length;
-          setActiveTab(files[next].id);
+          const next = (idx + 1) % openFiles.length;
+          setActiveTab(openFiles[next]);
         }
         return;
       }
@@ -362,7 +367,7 @@ export default function App() {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [files, activeTabId, setActiveTab, addFile, removeFile, handleFocusFileSearch, handleFocusSchemaSearch, saveFile, restoreLastClosedTab, requestCloseFile, setActiveSidebarTab, setShowCommandPalette]);
+  }, [files, openFiles, activeTabId, setActiveTab, addFile, removeFile, handleFocusFileSearch, handleFocusSchemaSearch, saveFile, restoreLastClosedTab, requestCloseFile, setActiveSidebarTab, setShowCommandPalette]);
 
   // Resizable result panel
   const handleMouseDown = (e) => {
@@ -679,18 +684,20 @@ export default function App() {
                       setShowHistory(false);
                     }}
                     onPrevTab={() => {
-                      const idx = files.findIndex((f) => f.id === activeTabId);
-                      const prev = (idx - 1 + files.length) % files.length;
-                      setActiveTab(files[prev].id);
+                      if (!openFiles || openFiles.length === 0) return;
+                      const idx = openFiles.indexOf(activeTabId);
+                      const prev = (idx - 1 + openFiles.length) % openFiles.length;
+                      setActiveTab(openFiles[prev]);
                     }}
                     onNextTab={() => {
-                      const idx = files.findIndex((f) => f.id === activeTabId);
-                      const next = (idx + 1) % files.length;
-                      setActiveTab(files[next].id);
+                      if (!openFiles || openFiles.length === 0) return;
+                      const idx = openFiles.indexOf(activeTabId);
+                      const next = (idx + 1) % openFiles.length;
+                      setActiveTab(openFiles[next]);
                     }}
                     onSwitchToTab={(index) => {
-                      if (index < files.length) {
-                        setActiveTab(files[index].id);
+                      if (openFiles && index < openFiles.length) {
+                        setActiveTab(openFiles[index]);
                       }
                     }}
                     onRestoreTab={restoreLastClosedTab}
