@@ -270,10 +270,10 @@ const SidebarTabs = forwardRef(({
                       title={file.isLocalDisk ? `Local Disk: ${file.relativePath || file.name}` : `Browser Storage: ${file.name}`}
                     >
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        {file.isLocalDisk ? (
-                          <HardDrive size={13} className={`shrink-0 ${isActive ? "text-emerald-400" : "text-emerald-400/60"}`} />
+                        {file.name?.toLowerCase().endsWith(".md") ? (
+                          <FileText size={13} className={`shrink-0 ${isActive ? "text-sky-400" : "text-sky-400/70"}`} />
                         ) : (
-                          <FileCode size={13} className={`shrink-0 ${isActive ? "text-[#ff7b72]" : "text-[#ff7b72]/60"}`} />
+                          <FileCode size={13} className={`shrink-0 ${isActive ? "text-[#ff7b72]" : "text-[#ff7b72]/70"}`} />
                         )}
                         <span className={`truncate ${isActive ? "font-semibold text-(--color-text-primary)" : ""} ${file.id === previewTabId ? "italic text-(--color-text-secondary)/80" : ""}`}>
                           {file.name}
@@ -312,59 +312,8 @@ const SidebarTabs = forwardRef(({
           <div className="flex items-center gap-1.5 min-w-0">
             {expandedSections.files ? <ChevronDown size={14} className="text-(--color-text-muted) shrink-0" /> : <ChevronRight size={14} className="text-(--color-text-muted) shrink-0" />}
             <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wider truncate">
-              {workspace?.isConnected
-                ? "WORKSPACE & FILES"
-                : "Files"}
+              Files
             </span>
-            {workspace?.isConnected && workspace.git?.isGit && (
-              <span className="flex items-center gap-1 text-[9px] px-1.5 py-0.2 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono shrink-0">
-                <GitBranch size={9} />
-                <span className="truncate max-w-20">{workspace.git.branch || "git"}</span>
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => {
-                setExpandedSections((prev) => ({ ...prev, files: true }));
-                addFile();
-              }}
-              className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"
-              title={workspace?.isConnected ? "New SQL File in Workspace" : "New SQL File"}
-            >
-              <FilePlus size={12} />
-            </button>
-            {workspace?.isConnected && (
-              <button
-                onClick={() => {
-                  setExpandedSections((prev) => ({ ...prev, files: true }));
-                  refreshWorkspace();
-                }}
-                className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"
-                title="Sync / Refresh from Disk"
-              >
-                <RefreshCw size={11} className={workspace.isSyncing ? "animate-spin text-(--color-accent)" : ""} />
-              </button>
-            )}
-            <button
-              onClick={() => {
-                setExpandedSections((prev) => ({ ...prev, files: true }));
-                if (onOpenWorkspaceModal) onOpenWorkspaceModal();
-              }}
-              className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"
-              title={workspace?.isConnected ? "Switch Workspace Folder..." : "Open Local Workspace..."}
-            >
-              <FolderOpen size={12} />
-            </button>
-            {workspace?.isConnected && (
-              <button
-                onClick={() => disconnectWorkspace()}
-                className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-error) transition-colors cursor-pointer"
-                title="Close Workspace (Return to scratchpad)"
-              >
-                <X size={11} />
-              </button>
-            )}
           </div>
         </div>
 

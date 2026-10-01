@@ -526,15 +526,6 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
           <>
             <span className="flex-1 truncate text-[11px]">{file.name}</span>
 
-            {/* Disk sync icon badge */}
-            {file.isLocalDisk && (
-              <span
-                className="shrink-0 text-emerald-400/80 group-hover:opacity-100 opacity-60 transition-opacity"
-                title="Synced with local disk"
-              >
-                <HardDrive size={10} />
-              </span>
-            )}
 
             {dirtyFiles?.[file.id] && (
               <span
@@ -971,17 +962,17 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
                     {workspaceFiles.length}
                   </span>
                 </div>
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0" onClick={(e) => e.stopPropagation()}>
                   <button
                     onClick={() => handleStartCreate(workspace.handle, "", "file")}
-                    className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors"
+                    className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"
                     title="New SQL File on Disk"
                   >
                     <FilePlus size={12} />
                   </button>
                   <button
                     onClick={() => handleStartCreate(workspace.handle, "", "folder")}
-                    className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-amber-400 transition-colors"
+                    className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-amber-400 transition-colors cursor-pointer"
                     title="New Subfolder on Disk"
                   >
                     <FolderPlus size={12} />
@@ -989,10 +980,24 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
                   <button
                     onClick={handleRefresh}
                     disabled={workspace.isSyncing}
-                    className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors"
+                    className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"
                     title="Sync / Refresh Disk"
                   >
                     <RefreshCw size={11} className={workspace.isSyncing ? "animate-spin text-(--color-accent)" : ""} />
+                  </button>
+                  <button
+                    onClick={handleOpenWorkspace}
+                    className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"
+                    title="Switch Workspace Folder..."
+                  >
+                    <FolderOpen size={12} />
+                  </button>
+                  <button
+                    onClick={disconnectWorkspace}
+                    className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-error) transition-colors cursor-pointer"
+                    title="Close Workspace (Return to scratchpad)"
+                  >
+                    <X size={11} />
                   </button>
                 </div>
               </div>
