@@ -228,12 +228,14 @@ function reducer(state, action) {
     }
 
     case "ATTACH_DISK_HANDLE": {
-      const { id, name, fileHandle, parentDirHandle } = action.payload;
+      const { id, name, fileHandle, parentDirHandle, relativePath } = action.payload;
       const files = state.files.map((f) =>
         f.id === id
           ? {
               ...f,
               name: name || f.name,
+              relativePath: relativePath || (f.relativePath ? f.relativePath.replace(/[^/]+$/, name || f.name) : (name || f.name)),
+              path: relativePath || (f.path ? f.path.replace(/[^/]+$/, name || f.name) : (name || f.name)),
               isLocalDisk: true,
               fileHandle: fileHandle || f.fileHandle,
               parentDirHandle: parentDirHandle || f.parentDirHandle,
@@ -779,9 +781,22 @@ export function SqlFilesProvider({ children }) {
   }, [state.previewTabId]);
 
   const allFiles = [...state.files, SETTINGS_FILE];
-  const activeFile = state.openFiles.includes(state.activeTabId)
-    ? allFiles.find((f) => f.id === state.activeTabId)
-    : null;
+  const activeFile =
+    (state.openFiles.includes(state.activeTabId) && allFiles.find((f) => f.id === state.activeTabId)) ||
+    allFiles.find((f) => state.openFiles.includes(f.id)) ||
+    (state.files.length > 0 ? state.files[0] : null);
+
+  // Automatically heal active tab if previous disk file ID is not yet available (e.g. pending permission on startup)
+  useEffect(() => {
+    if (state.files.length > 0 && !allFiles.some((f) => f.id === state.activeTabId)) {
+      const firstValidOpen = state.openFiles.find((id) => allFiles.some((f) => f.id === id));
+      if (firstValidOpen) {
+        dispatch({ type: "SET_ACTIVE_TAB", payload: firstValidOpen });
+      } else if (state.files.length > 0) {
+        dispatch({ type: "SET_ACTIVE_TAB", payload: state.files[0].id });
+      }
+    }
+  }, [state.files, state.openFiles, state.activeTabId]);
 
   const [promptCloseFileId, setPromptCloseFileId] = useState(null);
 
@@ -1388,17 +1403,33 @@ export function SqlFilesProvider({ children }) {
     const file = filesRef.current.find((f) => f.id === fileId);
     if (!file || !state.workspace.isConnected || !state.workspace.handle) return null;
     const parent = targetFolderHandle || state.workspace.handle;
+
+    // Check if a disk file with the same name already exists in workspace to avoid silent overwrite
+    const existingDiskNames = new Set(
+      state.files.filter((f) => f.isLocalDisk).map((f) => f.name.toLowerCase())
+    );
+
+    let targetName = file.name;
+    if (existingDiskNames.has(targetName.toLowerCase())) {
+      const base = file.name.replace(/\.sql$/i, "");
+      let counter = 1;
+      while (existingDiskNames.has(`${base}_copy${counter > 1 ? counter : ""}.sql`.toLowerCase())) {
+        counter++;
+      }
+      targetName = `${base}_copy${counter > 1 ? counter : ""}.sql`;
+    }
+
     try {
-      const fileHandle = await createFileInDirectory(parent, file.name, file.content);
+      const fileHandle = await createFileInDirectory(parent, targetName, file.content);
       await refreshWorkspace();
-      return fileHandle;
+      return { fileHandle, name: targetName };
     } catch (err) {
       console.error("Failed to copy browser file to workspace:", err);
       throw err;
     }
-  }, [state.workspace, refreshWorkspace]);
+  }, [state.files, state.workspace, refreshWorkspace]);
 
-  // Remove File (deletes from local disk if in workspace mode)
+  // Remove File (deletes from local disk if in workspace mode and updates tree)
   const removeFile = useCallback(async (id) => {
     const file = state.files.find((f) => f.id === id);
     if (file?.isLocalDisk && (file.parentDirHandle || state.workspace.handle)) {
@@ -1409,9 +1440,12 @@ export function SqlFilesProvider({ children }) {
       }
     }
     dispatch({ type: "REMOVE_FILE", payload: id });
-  }, [state.files, state.workspace.handle]);
+    if (file?.isLocalDisk) {
+      await refreshWorkspace();
+    }
+  }, [state.files, state.workspace.handle, refreshWorkspace]);
 
-  // Rename File (renames on local disk if in workspace mode)
+  // Rename File (renames on local disk if in workspace mode and keeps tree/path synced)
   const renameFile = useCallback(async (id, name) => {
     const file = state.files.find((f) => f.id === id);
     if (file?.isLocalDisk && (file.parentDirHandle || state.workspace.handle)) {
@@ -1423,10 +1457,16 @@ export function SqlFilesProvider({ children }) {
           file.content
         );
         if (newHandle) {
+          const dirPrefix = file.relativePath && file.relativePath.includes("/")
+            ? file.relativePath.substring(0, file.relativePath.lastIndexOf("/") + 1)
+            : "";
+          const newRelativePath = `${dirPrefix}${name}`;
+
           dispatch({
             type: "ATTACH_DISK_HANDLE",
-            payload: { id, name, fileHandle: newHandle },
+            payload: { id, name, fileHandle: newHandle, relativePath: newRelativePath },
           });
+          await refreshWorkspace();
           return;
         }
       } catch (err) {
@@ -1434,7 +1474,7 @@ export function SqlFilesProvider({ children }) {
       }
     }
     dispatch({ type: "RENAME_FILE", payload: { id, name } });
-  }, [state.files, state.workspace.handle]);
+  }, [state.files, state.workspace.handle, refreshWorkspace]);
 
   const setActiveTab = useCallback((id) => dispatch({ type: "SET_ACTIVE_TAB", payload: id }), []);
   const setResult = useCallback((id, result, executionId) => dispatch({ type: "SET_RESULT", payload: { id, result, executionId } }), []);
