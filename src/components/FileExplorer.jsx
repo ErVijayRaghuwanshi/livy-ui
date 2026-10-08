@@ -1392,32 +1392,85 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
       )}
 
       {/* Unsupported Browser Info Modal */}
+      {/* Unsupported Browser / Insecure Context Warning Modal */}
       {showUnsupportedModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
           onClick={() => setShowUnsupportedModal(false)}
         >
           <div
-            className="bg-(--color-bg-secondary) border border-(--color-border) rounded-2xl shadow-2xl w-full max-w-md mx-4 animate-in zoom-in-95 duration-200 p-6"
+            className="bg-(--color-bg-secondary) border border-(--color-border) rounded-2xl shadow-2xl w-full max-w-lg mx-4 animate-in zoom-in-95 duration-200 p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-(--color-accent)/10 flex items-center justify-center shrink-0">
-                <Info size={20} className="text-(--color-accent)" />
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                  typeof window !== "undefined" && !window.isSecureContext
+                    ? "bg-amber-500/10 text-amber-400"
+                    : "bg-(--color-accent)/10 text-(--color-accent)"
+                }`}
+              >
+                {typeof window !== "undefined" && !window.isSecureContext ? (
+                  <AlertTriangle size={20} />
+                ) : (
+                  <Info size={20} />
+                )}
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-(--color-text-primary)">
-                  Local File System Sync
+                  Local File System Access
                 </h3>
-                <p className="text-xs text-(--color-text-muted)">Browser Compatibility Information</p>
+                <p className="text-xs text-(--color-text-muted)">
+                  {typeof window !== "undefined" && !window.isSecureContext
+                    ? "Security Restriction (Insecure HTTP Origin)"
+                    : "Browser Compatibility Information"}
+                </p>
               </div>
             </div>
-            <p className="text-xs text-(--color-text-secondary) leading-relaxed mb-3">
-              The <strong>File System Access API</strong> enables browser applications to directly read and write files to your local disk (just like Microsoft Clipchamp and VS Code for the Web).
-            </p>
-            <p className="text-xs text-(--color-text-muted) leading-relaxed mb-4">
-              This feature requires a Chromium-based browser such as <strong>Google Chrome, Microsoft Edge, Brave, or Opera</strong>. Safari and Firefox currently restrict native folder picker access for security reasons.
-            </p>
+
+            {typeof window !== "undefined" && !window.isSecureContext ? (
+              <div className="space-y-3 mb-5">
+                <p className="text-xs text-(--color-text-secondary) leading-relaxed">
+                  Your browser restricts direct local disk access (<code className="text-amber-400 font-mono text-[11px]">showDirectoryPicker</code>) on insecure HTTP network addresses (like <code className="text-amber-400 font-mono text-[11px]">{typeof window !== "undefined" ? window.location.origin : ""}</code>) to protect your files.
+                </p>
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-200 space-y-2 leading-relaxed">
+                  <div className="font-semibold text-amber-300">How to enable local disk sync:</div>
+                  <div className="text-[11px] space-y-1.5">
+                    <div>
+                      <strong>Option 1 (Easiest):</strong> If Livy UI is running on this computer, open it via:
+                      <div className="mt-1">
+                        <a
+                          href={`http://localhost:${typeof window !== "undefined" ? window.location.port || "4173" : "4173"}${typeof window !== "undefined" ? window.location.pathname : ""}`}
+                          className="text-amber-300 underline font-mono hover:text-white"
+                        >
+                          http://localhost:{typeof window !== "undefined" ? window.location.port || "4173" : "4173"}{typeof window !== "undefined" ? window.location.pathname : ""}
+                        </a>
+                      </div>
+                    </div>
+                    <div>
+                      <strong>Option 2 (Network IP):</strong> In Chrome/Edge, go to{" "}
+                      <code className="bg-black/30 px-1 py-0.5 rounded text-amber-100 font-mono text-[10px]">
+                        chrome://flags/#unsafely-treat-insecure-origin-as-secure
+                      </code>
+                      , add <code className="bg-black/30 px-1 py-0.5 rounded text-amber-100 font-mono text-[10px]">{typeof window !== "undefined" ? window.location.origin : ""}</code>, enable it, and relaunch your browser.
+                    </div>
+                    <div>
+                      <strong>Option 3:</strong> Configure HTTPS on your server or preview tunnel.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 mb-5">
+                <p className="text-xs text-(--color-text-secondary) leading-relaxed">
+                  The <strong>File System Access API</strong> enables browser applications to directly read and write files to your local disk (just like Microsoft Clipchamp and VS Code for the Web).
+                </p>
+                <p className="text-xs text-(--color-text-muted) leading-relaxed">
+                  This feature requires a Chromium-based browser such as <strong>Google Chrome, Microsoft Edge, Brave, or Opera</strong>. Safari and Firefox currently restrict native folder picker access for security reasons.
+                </p>
+              </div>
+            )}
+
             <button
               onClick={() => setShowUnsupportedModal(false)}
               className="w-full py-2 text-xs font-semibold bg-(--color-accent) hover:bg-(--color-accent-hover) text-black rounded-lg transition-colors cursor-pointer"
