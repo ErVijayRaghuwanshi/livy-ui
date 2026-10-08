@@ -10,10 +10,27 @@ const DB_VERSION = 1;
 export function isFileSystemAccessSupported() {
   return (
     typeof window !== "undefined" &&
-    "showDirectoryPicker" in window &&
-    "showOpenFilePicker" in window &&
-    "showSaveFilePicker" in window
+    typeof window.showDirectoryPicker === "function" &&
+    typeof window.showOpenFilePicker === "function" &&
+    typeof window.showSaveFilePicker === "function"
   );
+}
+
+/**
+ * Validate that the File System Access API is available, throwing a descriptive error if not.
+ */
+export function assertFileSystemAccessSupported(apiName = "showDirectoryPicker") {
+  if (typeof window === "undefined" || typeof window[apiName] !== "function") {
+    if (typeof window !== "undefined" && window.isSecureContext === false) {
+      const origin = window.location.origin || `http://${window.location.host}`;
+      throw new Error(
+        `File System Access requires a Secure Context (HTTPS or localhost). Your browser blocks local disk access over unencrypted HTTP (${origin}). Access via localhost or HTTPS.`
+      );
+    }
+    throw new Error(
+      `File System Access API (${apiName}) is not supported in this browser. Please use Google Chrome, Microsoft Edge, Brave, or Opera.`
+    );
+  }
 }
 
 /**
@@ -426,9 +443,7 @@ Spark SQL workspace managed with Livy UI.
  * Prompt user to select a local directory and read its SQL files & tree
  */
 export async function openLocalWorkspace() {
-  if (!("showDirectoryPicker" in window)) {
-    throw new Error("File System Access API (showDirectoryPicker) is not supported in this browser.");
-  }
+  assertFileSystemAccessSupported("showDirectoryPicker");
   const dirHandle = await window.showDirectoryPicker({
     mode: "readwrite",
   });
@@ -450,9 +465,7 @@ export async function openLocalWorkspace() {
  * Prompt user to pick a single local file
  */
 export async function openSingleLocalFile() {
-  if (!("showOpenFilePicker" in window)) {
-    throw new Error("File System Access API (showOpenFilePicker) is not supported in this browser.");
-  }
+  assertFileSystemAccessSupported("showOpenFilePicker");
   const [fileHandle] = await window.showOpenFilePicker({
     types: [
       {
@@ -487,9 +500,7 @@ export async function openSingleLocalFile() {
  * Prompt user to save as a local file on disk
  */
 export async function saveFileAsLocalDisk(suggestedName, content) {
-  if (!("showSaveFilePicker" in window)) {
-    throw new Error("File System Access API (showSaveFilePicker) is not supported in this browser.");
-  }
+  assertFileSystemAccessSupported("showSaveFilePicker");
   const fileHandle = await window.showSaveFilePicker({
     suggestedName: suggestedName || "query.sql",
     types: [

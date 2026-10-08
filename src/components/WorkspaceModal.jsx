@@ -31,6 +31,8 @@ export default function WorkspaceModal({ isOpen, onClose }) {
   const [projectName, setProjectName] = useState("spark-sql-workspace");
   const [isLoading, setIsLoading] = useState(false);
 
+  const isSecure = typeof window !== "undefined" ? window.isSecureContext : true;
+
   if (!isOpen) return null;
 
   const handleSelectExisting = async () => {
@@ -109,6 +111,61 @@ export default function WorkspaceModal({ isOpen, onClose }) {
             <X size={16} />
           </button>
         </div>
+
+        {/* Insecure Context / Unsupported Browser Alert */}
+        {!isFsSupported && (
+          <div className="mx-5 mt-4 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-start gap-3">
+            <AlertCircle size={18} className="shrink-0 text-amber-400 mt-0.5" />
+            <div className="space-y-1.5 leading-relaxed flex-1 min-w-0">
+              <div className="font-semibold text-amber-300">
+                {!isSecure
+                  ? "Insecure Context: Local Directory Access Blocked"
+                  : "Browser Does Not Support Local Folder Access"}
+              </div>
+              <p className="text-[11px] text-amber-200/80">
+                {!isSecure ? (
+                  <>
+                    Chromium browsers block local file & folder access over unencrypted HTTP (
+                    <code className="bg-black/30 px-1 py-0.5 rounded text-amber-100 font-mono">
+                      {typeof window !== "undefined" ? window.location.origin : "HTTP"}
+                    </code>
+                    ) for security. The File System Access API strictly requires a <strong>Secure Context</strong> (<code>localhost</code> or <code>HTTPS</code>).
+                  </>
+                ) : (
+                  "The File System Access API requires Google Chrome, Microsoft Edge, Brave, or Opera. Safari and Firefox currently restrict native folder pickers."
+                )}
+              </p>
+              {!isSecure && typeof window !== "undefined" && (
+                <div className="pt-1.5 text-[11px] space-y-1.5 text-amber-200/90 border-t border-amber-500/20 mt-2">
+                  <div className="font-semibold text-amber-300">How to access local directories:</div>
+                  <div className="space-y-1 text-[11px] text-amber-200/80">
+                    <div>
+                      <strong>1. Open via localhost</strong> (if running on this computer):
+                      <div className="mt-0.5">
+                        <a
+                          href={`http://localhost:${window.location.port || "4173"}${window.location.pathname}`}
+                          className="text-amber-300 underline font-mono hover:text-white"
+                        >
+                          http://localhost:{window.location.port || "4173"}{window.location.pathname}
+                        </a>
+                      </div>
+                    </div>
+                    <div className="pt-0.5">
+                      <strong>2. Or enable Chrome flag:</strong> Navigate to{" "}
+                      <code className="bg-black/30 px-1 py-0.5 rounded text-amber-100 font-mono text-[10px]">
+                        chrome://flags/#unsafely-treat-insecure-origin-as-secure
+                      </code>
+                      , add <code className="bg-black/30 px-1 py-0.5 rounded text-amber-100 font-mono text-[10px]">{window.location.origin}</code>, enable it, and relaunch.
+                    </div>
+                    <div className="pt-0.5">
+                      <strong>3. Or serve with HTTPS</strong> on your host.
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Current Active Workspace Status (if connected) */}
         {workspace.isConnected && (
@@ -200,11 +257,17 @@ export default function WorkspaceModal({ isOpen, onClose }) {
 
               <button
                 onClick={handleSelectExisting}
-                disabled={isLoading}
-                className="w-full py-2.5 px-4 bg-(--color-accent) hover:bg-(--color-accent-hover) text-black rounded-xl font-semibold text-xs transition-colors flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
+                disabled={isLoading || !isFsSupported}
+                className="w-full py-2.5 px-4 bg-(--color-accent) hover:bg-(--color-accent-hover) text-black rounded-xl font-semibold text-xs transition-colors flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <FolderOpen size={16} />
-                <span>{isLoading ? "Opening Directory..." : "Select Local Directory..."}</span>
+                <span>
+                  {isLoading
+                    ? "Opening Directory..."
+                    : !isFsSupported
+                    ? (!isSecure ? "Disabled (Requires localhost / HTTPS)" : "Directory Picker Unavailable")
+                    : "Select Local Directory..."}
+                </span>
               </button>
             </div>
           ) : (
@@ -273,11 +336,17 @@ export default function WorkspaceModal({ isOpen, onClose }) {
 
               <button
                 onClick={handleCreateNew}
-                disabled={isLoading}
-                className="w-full py-2.5 px-4 bg-(--color-accent) hover:bg-(--color-accent-hover) text-black rounded-xl font-semibold text-xs transition-colors flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
+                disabled={isLoading || !isFsSupported}
+                className="w-full py-2.5 px-4 bg-(--color-accent) hover:bg-(--color-accent-hover) text-black rounded-xl font-semibold text-xs transition-colors flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <FolderPlus size={16} />
-                <span>{isLoading ? "Creating Project..." : "Choose Directory & Initialize"}</span>
+                <span>
+                  {isLoading
+                    ? "Creating Project..."
+                    : !isFsSupported
+                    ? (!isSecure ? "Disabled (Requires localhost / HTTPS)" : "Directory Picker Unavailable")
+                    : "Choose Directory & Initialize"}
+                </span>
               </button>
             </div>
           )}

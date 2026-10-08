@@ -22,6 +22,7 @@ import {
   openLocalWorkspace,
   openSingleLocalFile,
   saveFileAsLocalDisk,
+  assertFileSystemAccessSupported,
 } from "../services/fileSystemService";
 
 const SqlFilesContext = createContext(null);
@@ -1236,6 +1237,7 @@ export function SqlFilesProvider({ children }) {
   // Create New Local SQL Project / Repo
   const createNewWorkspaceProject = useCallback(async ({ templateType = "git", projectName = "spark-sql-workspace" } = {}) => {
     try {
+      assertFileSystemAccessSupported("showDirectoryPicker");
       const dirHandle = await window.showDirectoryPicker({ mode: "readwrite" });
       await initializeWorkspaceTemplate(dirHandle, { templateType, projectName });
       await saveWorkspaceHandleToIDB(dirHandle);
