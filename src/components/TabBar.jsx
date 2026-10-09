@@ -30,6 +30,7 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
     previewTabId,
     promotePreviewTab,
     markdownViewMode,
+    setMarkdownViewMode,
     toggleMarkdownPreview,
   } = useSqlFiles();
   const [running, setRunning] = useState(false);
@@ -122,44 +123,32 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
 
   return (
     <div className="flex items-center bg-(--color-bg-workbench) border-b border-(--color-border) shrink-0 overflow-x-auto px-1.5 py-1 gap-1">
-      <div className="flex items-center gap-1 pr-1.5 border-r border-(--color-border)/60 shrink-0">
-        {isActiveMarkdown ? (
-          <button
-            onClick={toggleMarkdownPreview}
-            className="group flex items-center justify-center w-6 h-6 rounded-md bg-sky-500/10 text-sky-400 border border-sky-500/30 hover:bg-sky-500/20 active:scale-95 transition-all cursor-pointer select-none shadow-xs"
-            title={`Toggle Markdown Preview (Current: ${markdownViewMode}) - ${isMac ? "⌘+Shift+V" : "Ctrl+Shift+V"}`}
-          >
-            {markdownViewMode === "preview" ? (
-              <Code size={12} />
-            ) : markdownViewMode === "split" ? (
-              <Eye size={12} />
-            ) : (
-              <Columns size={12} />
-            )}
-          </button>
-        ) : running ? (
-          <button
-            onClick={handleCancel}
-            className="group flex items-center justify-center w-6 h-6 rounded-md bg-(--color-error)/15 text-(--color-error) hover:bg-(--color-error)/25 active:scale-95 transition-all cursor-pointer select-none"
-            title="Cancel Query"
-          >
-            <Loader2 size={12} className="animate-spin text-(--color-error)" />
-          </button>
-        ) : (
-          <button
-            onClick={handleRun}
-            disabled={!canRun}
-            className={`group flex items-center justify-center w-6 h-6 rounded-md transition-all border select-none active:scale-95 ${
-              canRun
-                ? "bg-(--color-success)/10 text-(--color-success) border-(--color-success)/30 hover:border-(--color-success)/55 hover:bg-(--color-success)/20 cursor-pointer shadow-xs"
-                : "bg-transparent text-(--color-text-muted) border-transparent opacity-40 cursor-not-allowed pointer-events-none"
-            }`}
-            title={`Run SQL (${isMac ? "⌘+Enter" : "Ctrl+Enter"})`}
-          >
-            <Play size={11} className={canRun ? "fill-current" : ""} />
-          </button>
-        )}
-      </div>
+      {!isActiveMarkdown && (
+        <div className="flex items-center gap-1 pr-1.5 border-r border-(--color-border)/60 shrink-0">
+          {running ? (
+            <button
+              onClick={handleCancel}
+              className="group flex items-center justify-center w-6 h-6 rounded-md bg-(--color-error)/15 text-(--color-error) hover:bg-(--color-error)/25 active:scale-95 transition-all cursor-pointer select-none"
+              title="Cancel Query"
+            >
+              <Loader2 size={12} className="animate-spin text-(--color-error)" />
+            </button>
+          ) : (
+            <button
+              onClick={handleRun}
+              disabled={!canRun}
+              className={`group flex items-center justify-center w-6 h-6 rounded-md transition-all border select-none active:scale-95 ${
+                canRun
+                  ? "bg-(--color-success)/10 text-(--color-success) border-(--color-success)/30 hover:border-(--color-success)/55 hover:bg-(--color-success)/20 cursor-pointer shadow-xs"
+                  : "bg-transparent text-(--color-text-muted) border-transparent opacity-40 cursor-not-allowed pointer-events-none"
+              }`}
+              title={`Run SQL (${isMac ? "⌘+Enter" : "Ctrl+Enter"})`}
+            >
+              <Play size={11} className={canRun ? "fill-current" : ""} />
+            </button>
+          )}
+        </div>
+      )}
       <div className="flex items-center gap-1 min-w-0">
         {openFilesData.map((file, index) => (
           <div
@@ -259,6 +248,57 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
       >
         <Plus size={13} />
       </button>
+
+      {/* Right side editor action controls for Markdown (VS Code style) */}
+      {isActiveMarkdown && (
+        <div className="ml-auto flex items-center gap-1.5 pl-2 shrink-0">
+          <div className="flex items-center bg-(--color-bg-primary) p-0.5 rounded-md border border-(--color-border)">
+            <button
+              onClick={() => setMarkdownViewMode("edit")}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                markdownViewMode === "edit"
+                  ? "bg-(--color-bg-elevated) text-(--color-text-primary) shadow-2xs font-semibold"
+                  : "text-(--color-text-muted) hover:text-(--color-text-primary)"
+              }`}
+              title="Source Code Only"
+            >
+              <Code size={12} />
+              <span className="hidden sm:inline">Edit</span>
+            </button>
+            <button
+              onClick={() => setMarkdownViewMode("split")}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                markdownViewMode === "split"
+                  ? "bg-(--color-bg-elevated) text-(--color-text-primary) shadow-2xs font-semibold"
+                  : "text-(--color-text-muted) hover:text-(--color-text-primary)"
+              }`}
+              title="Side-by-Side Live Preview"
+            >
+              <Columns size={12} />
+              <span className="hidden sm:inline">Split</span>
+            </button>
+            <button
+              onClick={() => setMarkdownViewMode("preview")}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                markdownViewMode === "preview"
+                  ? "bg-(--color-bg-elevated) text-(--color-text-primary) shadow-2xs font-semibold"
+                  : "text-(--color-text-muted) hover:text-(--color-text-primary)"
+              }`}
+              title="Preview Only"
+            >
+              <Eye size={12} />
+              <span className="hidden sm:inline">Preview</span>
+            </button>
+          </div>
+
+          <span
+            className="text-[10px] text-(--color-text-muted) hidden md:inline ml-1 font-mono pr-1 select-none"
+            title="Toggle Markdown Preview shortcut"
+          >
+            ({isMac ? "⌘" : "Ctrl"}+Shift+V)
+          </span>
+        </div>
+      )}
 
 
       {/* Unsaved Changes Tab Close Warning Dialog */}

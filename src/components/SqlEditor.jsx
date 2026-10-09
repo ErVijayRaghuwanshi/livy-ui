@@ -2,7 +2,7 @@ import { useRef, useCallback, useState, forwardRef, useImperativeHandle, useEffe
 import { loader } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import Editor from "@monaco-editor/react";
-import { Play, Loader2, Ban, AlignLeft, WrapText, FileText, Eye, Columns, Code } from "lucide-react";
+import { Play, Loader2, Ban, AlignLeft, WrapText } from "lucide-react";
 import MarkdownPreview from "./MarkdownPreview";
 import { format } from "sql-formatter";
 import { useSqlFiles } from "../context/SqlFilesContext";
@@ -752,7 +752,6 @@ const SqlEditor = forwardRef(function SqlEditor({
     pendingLineReveal,
     clearPendingLineReveal,
     markdownViewMode,
-    setMarkdownViewMode,
   } = useSqlFiles();
   const activeFileRef = useRef(activeFile);
   const toggleAutoSaveRef = useRef(toggleAutoSave);
@@ -2070,66 +2069,6 @@ const SqlEditor = forwardRef(function SqlEditor({
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* Markdown Document Mode Bar */}
-      {isMarkdownFile && (
-        <div className="flex items-center justify-between px-3 py-1.5 bg-(--color-bg-secondary) border-b border-(--color-border) text-xs shrink-0 select-none">
-          <div className="flex items-center gap-2 min-w-0">
-            <FileText size={14} className="text-sky-400 shrink-0" />
-            <span className="font-semibold text-(--color-text-primary) truncate text-[11px]">
-              {activeFile?.name}
-            </span>
-            <span className="text-[9px] px-1.5 py-0.2 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 font-mono shrink-0">
-              MARKDOWN
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            <div className="flex items-center bg-(--color-bg-primary) p-0.5 rounded-md border border-(--color-border)">
-              <button
-                onClick={() => setMarkdownViewMode("edit")}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
-                  markdownViewMode === "edit"
-                    ? "bg-(--color-bg-elevated) text-(--color-text-primary) shadow-2xs font-semibold"
-                    : "text-(--color-text-muted) hover:text-(--color-text-primary)"
-                }`}
-                title="Code Only"
-              >
-                <Code size={12} />
-                <span>Edit</span>
-              </button>
-              <button
-                onClick={() => setMarkdownViewMode("split")}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
-                  markdownViewMode === "split"
-                    ? "bg-(--color-bg-elevated) text-(--color-text-primary) shadow-2xs font-semibold"
-                    : "text-(--color-text-muted) hover:text-(--color-text-primary)"
-                }`}
-                title="Side-by-Side Live Preview"
-              >
-                <Columns size={12} />
-                <span>Split</span>
-              </button>
-              <button
-                onClick={() => setMarkdownViewMode("preview")}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
-                  markdownViewMode === "preview"
-                    ? "bg-(--color-bg-elevated) text-(--color-text-primary) shadow-2xs font-semibold"
-                    : "text-(--color-text-muted) hover:text-(--color-text-primary)"
-                }`}
-                title="Preview Only"
-              >
-                <Eye size={12} />
-                <span>Preview</span>
-              </button>
-            </div>
-
-            <span className="text-[10px] text-(--color-text-muted) hidden md:inline ml-1 font-mono">
-              ({typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0 ? "⌘" : "Ctrl"}+Shift+V)
-            </span>
-          </div>
-        </div>
-      )}
-
       {/* Editor & Preview Workspace Area */}
       <div className="flex-1 min-h-0 relative flex">
         {/* Monaco Editor Container */}
