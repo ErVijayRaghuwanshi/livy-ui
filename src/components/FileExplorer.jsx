@@ -57,13 +57,26 @@ function FileItemIcon({ fileName = "", isActive = false, isOpen = false, size = 
   );
 }
 
-function stripExtension(name) {
-  return name.replace(/\.sql$/i, "");
+function splitFileNameAndExt(fullName) {
+  if (!fullName) return { baseName: "", ext: ".sql" };
+  const doubleExtMatch = fullName.match(/^(.+?)\.(md|py|json|txt|sh|bash|sparksql|hql)\.sql$/i);
+  if (doubleExtMatch) {
+    return { baseName: doubleExtMatch[1], ext: `.${doubleExtMatch[2]}` };
+  }
+  const match = fullName.match(/^(.+?)(\.[^.]+)$/);
+  if (match) {
+    return { baseName: match[1], ext: match[2] };
+  }
+  return { baseName: fullName, ext: ".sql" };
 }
 
-function ensureExtension(name) {
-  if (/\.sql$/i.test(name)) return name;
-  return name + ".sql";
+function resolveFileName(inputName, defaultExt = ".sql") {
+  const trimmed = inputName.trim();
+  if (!trimmed) return "";
+  if (/\.[a-zA-Z0-9_-]+$/.test(trimmed)) {
+    return trimmed;
+  }
+  return `${trimmed}${defaultExt.startsWith(".") ? defaultExt : "." + defaultExt}`;
 }
 
 const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, onOpenWorkspaceModal }, ref) => {
@@ -100,6 +113,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
   const [selectedFileId, setSelectedFileId] = useState(null);
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
+  const [renamingExt, setRenamingExt] = useState(".sql");
   const [showUnsupportedModal, setShowUnsupportedModal] = useState(false);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
 
@@ -332,14 +346,16 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
   const handleStartRename = (file, e) => {
     e?.stopPropagation();
     setRenamingId(file.id);
-    setRenameValue(stripExtension(file.name));
+    const { baseName, ext } = splitFileNameAndExt(file.name);
+    setRenameValue(baseName);
+    setRenamingExt(ext);
     setSelectedFileId(file.id);
   };
 
   const handleFinishRename = (id) => {
     const trimmed = renameValue.trim();
     if (trimmed) {
-      renameFile(id, ensureExtension(trimmed));
+      renameFile(id, resolveFileName(trimmed, renamingExt));
     }
     setRenamingId(null);
   };
@@ -414,7 +430,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
         addToast("error", err.message || "Failed to create folder", null, "Creation Error");
       }
     } else {
-      const fileName = ensureExtension(trimmed);
+      const fileName = resolveFileName(trimmed, ".sql");
       try {
         await addFileToFolder(creatingItem.parentHandle, fileName, "-- Write your Spark SQL here\nSELECT 1;\n");
         addToast("ok", `Created "${fileName}"`, null, "File Created");
@@ -618,7 +634,9 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
                     className="flex-1 bg-(--color-bg-secondary) border border-(--color-accent) rounded px-1.5 py-0.5 text-xs text-(--color-text-primary) outline-none"
                   />
                   {creatingItem.type === "file" && (
-                    <span className="text-[10px] text-(--color-text-muted)">.sql</span>
+                    <span className="text-[10px] text-(--color-text-muted)">
+                      {/\.[a-zA-Z0-9_-]+$/.test(createItemName) ? "" : ".sql"}
+                    </span>
                   )}
                 </div>
               )}
@@ -673,7 +691,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
               onBlur={() => handleFinishRename(file.id)}
               className="flex-1 bg-(--color-bg-primary) border border-(--color-accent) rounded px-1 py-0.5 text-xs text-(--color-text-primary) outline-none"
             />
-            <span className="text-[10px] text-(--color-text-muted)">.sql</span>
+            <span className="text-[10px] text-(--color-text-muted)">{renamingExt}</span>
           </div>
         ) : (
           <>
@@ -756,7 +774,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
               onBlur={() => handleFinishRename(file.id)}
               className="flex-1 bg-(--color-bg-primary) border border-(--color-accent) rounded px-1 py-0.5 text-xs text-(--color-text-primary) outline-none"
             />
-            <span className="text-[10px] text-(--color-text-muted)">.sql</span>
+            <span className="text-[10px] text-(--color-text-muted)">{renamingExt}</span>
           </div>
         ) : (
           <>
@@ -1006,7 +1024,9 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
               className="flex-1 bg-(--color-bg-secondary) border border-(--color-accent) rounded px-1.5 py-0.5 text-xs text-(--color-text-primary) outline-none"
             />
             {creatingItem.type === "file" && (
-              <span className="text-[10px] text-(--color-text-muted)">.sql</span>
+              <span className="text-[10px] text-(--color-text-muted)">
+                {/\.[a-zA-Z0-9_-]+$/.test(createItemName) ? "" : ".sql"}
+              </span>
             )}
           </div>
         )}

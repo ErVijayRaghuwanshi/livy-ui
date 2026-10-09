@@ -1745,12 +1745,14 @@ export function SqlFilesProvider({ children }) {
 
     let targetName = file.name;
     if (existingDiskNames.has(targetName.toLowerCase())) {
-      const base = file.name.replace(/\.sql$/i, "");
+      const extMatch = file.name.match(/\.[^.]+$/);
+      const ext = extMatch ? extMatch[0] : ".sql";
+      const base = file.name.replace(new RegExp(`\\${ext}$`, "i"), "");
       let counter = 1;
-      while (existingDiskNames.has(`${base}_copy${counter > 1 ? counter : ""}.sql`.toLowerCase())) {
+      while (existingDiskNames.has(`${base}_copy${counter > 1 ? counter : ""}${ext}`.toLowerCase())) {
         counter++;
       }
-      targetName = `${base}_copy${counter > 1 ? counter : ""}.sql`;
+      targetName = `${base}_copy${counter > 1 ? counter : ""}${ext}`;
     }
 
     try {

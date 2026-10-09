@@ -2,13 +2,26 @@ import { useState, useEffect, useRef } from "react";
 import { Plus, X, FileCode, FileText, Play, Loader2, Settings, Database, HardDrive, Globe, Eye, Columns, Code } from "lucide-react";
 import { useSqlFiles, SETTINGS_FILE } from "../context/SqlFilesContext";
 
-function stripExtension(name) {
-  return name.replace(/\.sql$/i, "");
+function splitFileNameAndExt(fullName) {
+  if (!fullName) return { baseName: "", ext: ".sql" };
+  const doubleExtMatch = fullName.match(/^(.+?)\.(md|py|json|txt|sh|bash|sparksql|hql)\.sql$/i);
+  if (doubleExtMatch) {
+    return { baseName: doubleExtMatch[1], ext: `.${doubleExtMatch[2]}` };
+  }
+  const match = fullName.match(/^(.+?)(\.[^.]+)$/);
+  if (match) {
+    return { baseName: match[1], ext: match[2] };
+  }
+  return { baseName: fullName, ext: ".sql" };
 }
 
-function ensureExtension(name) {
-  if (/\.sql$/i.test(name)) return name;
-  return name + ".sql";
+function resolveFileName(inputName, defaultExt = ".sql") {
+  const trimmed = inputName.trim();
+  if (!trimmed) return "";
+  if (/\.[a-zA-Z0-9_-]+$/.test(trimmed)) {
+    return trimmed;
+  }
+  return `${trimmed}${defaultExt.startsWith(".") ? defaultExt : "." + defaultExt}`;
 }
 
 const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
@@ -55,6 +68,7 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
   };
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
+  const [renamingExt, setRenamingExt] = useState(".sql");
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
 
@@ -63,13 +77,15 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
 
   const handleStartRename = (file) => {
     setRenamingId(file.id);
-    setRenameValue(stripExtension(file.name));
+    const { baseName, ext } = splitFileNameAndExt(file.name);
+    setRenameValue(baseName);
+    setRenamingExt(ext);
   };
 
   const handleFinishRename = (id) => {
     const trimmed = renameValue.trim();
     if (trimmed) {
-      renameFile(id, ensureExtension(trimmed));
+      renameFile(id, resolveFileName(trimmed, renamingExt));
     }
     setRenamingId(null);
   };
@@ -165,8 +181,6 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
               if (file.isSpecial) return;
               if (file.id === previewTabId) {
                 promotePreviewTab(file.id);
-              } else {
-                handleStartRename(file);
               }
             }}
             className={`group relative flex items-center gap-1.5 px-2.5 py-1 text-xs cursor-pointer rounded-md min-w-0 max-w-36 sm:max-w-48 transition-all ${
@@ -213,7 +227,7 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
                   onBlur={() => handleFinishRename(file.id)}
                   className="w-24 bg-(--color-bg-primary) border border-(--color-accent) rounded px-1 py-0.5 text-xs text-(--color-text-primary) outline-none"
                 />
-                <span className="text-[10px] text-(--color-text-muted)">.sql</span>
+                <span className="text-[10px] text-(--color-text-muted)">{renamingExt}</span>
               </div>
             ) : (
               <span className={`truncate hidden sm:inline ${file.id === previewTabId ? "italic text-(--color-text-secondary)/80" : ""}`}>
