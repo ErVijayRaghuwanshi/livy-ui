@@ -1,28 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { Plus, X, FileCode, FileText, Play, Loader2, Settings, Database, HardDrive, Globe, Eye, Columns, Code } from "lucide-react";
 import { useSqlFiles, SETTINGS_FILE } from "../context/SqlFilesContext";
-
-function splitFileNameAndExt(fullName) {
-  if (!fullName) return { baseName: "", ext: ".sql" };
-  const doubleExtMatch = fullName.match(/^(.+?)\.(md|py|json|txt|sh|bash|sparksql|hql)\.sql$/i);
-  if (doubleExtMatch) {
-    return { baseName: doubleExtMatch[1], ext: `.${doubleExtMatch[2]}` };
-  }
-  const match = fullName.match(/^(.+?)(\.[^.]+)$/);
-  if (match) {
-    return { baseName: match[1], ext: match[2] };
-  }
-  return { baseName: fullName, ext: ".sql" };
-}
-
-function resolveFileName(inputName, defaultExt = ".sql") {
-  const trimmed = inputName.trim();
-  if (!trimmed) return "";
-  if (/\.[a-zA-Z0-9_-]+$/.test(trimmed)) {
-    return trimmed;
-  }
-  return `${trimmed}${defaultExt.startsWith(".") ? defaultExt : "." + defaultExt}`;
-}
 
 const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 
@@ -68,26 +46,42 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
   };
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
-  const [renamingExt, setRenamingExt] = useState(".sql");
+  const [inputWidth, setInputWidth] = useState(70);
+  const measureRef = useRef(null);
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
 
   const allFiles = [...files, SETTINGS_FILE];
   const openFilesData = openFiles.map(id => allFiles.find(f => f.id === id)).filter(Boolean);
+  const isFinishingRenameRef = useRef(false);
+
+  useLayoutEffect(() => {
+    if (renamingId && measureRef.current) {
+      const textWidth = measureRef.current.getBoundingClientRect().width;
+      setInputWidth(Math.min(Math.max(Math.ceil(textWidth) + 14, 40), 220));
+    }
+  }, [renameValue, renamingId]);
 
   const handleStartRename = (file) => {
+    if (!file || file.isSpecial || file.id === "settings") return;
     setRenamingId(file.id);
-    const { baseName, ext } = splitFileNameAndExt(file.name);
-    setRenameValue(baseName);
-    setRenamingExt(ext);
+    setRenameValue(file.name);
   };
 
   const handleFinishRename = (id) => {
+    if (isFinishingRenameRef.current) return;
+    isFinishingRenameRef.current = true;
     const trimmed = renameValue.trim();
     if (trimmed) {
-      renameFile(id, resolveFileName(trimmed, renamingExt));
+      const file = allFiles.find((f) => f.id === id);
+      if (file && file.name !== trimmed) {
+        renameFile(id, trimmed);
+      }
     }
     setRenamingId(null);
+    setTimeout(() => {
+      isFinishingRenameRef.current = false;
+    }, 100);
   };
 
   const handleClose = (e, id) => {
@@ -138,7 +132,7 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
   const isActiveMarkdown = activeFile?.name?.toLowerCase().endsWith(".md");
 
   return (
-    <div className="flex items-center bg-(--color-bg-workbench) border-b border-(--color-border) shrink-0 overflow-x-auto px-1.5 py-1 gap-1">
+    <div className="flex items-center bg-(--color-bg-workbench) border-b border-(--color-border) shrink-0 overflow-x-auto px-1.5 h-9 gap-1 select-none">
       {!isActiveMarkdown && (
         <div className="flex items-center gap-1 pr-1.5 border-r border-(--color-border)/60 shrink-0">
           {running ? (
@@ -177,13 +171,17 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
             onDrop={(e) => handleDrop(e, index)}
             onDragEnd={handleDragEnd}
             onClick={() => setActiveTab(file.id)}
-            onDoubleClick={() => {
-              if (file.isSpecial) return;
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              if (file.isSpecial || file.id === "settings") return;
               if (file.id === previewTabId) {
                 promotePreviewTab(file.id);
               }
+              handleStartRename(file);
             }}
-            className={`group relative flex items-center gap-1.5 px-2.5 py-1 text-xs cursor-pointer rounded-md min-w-0 max-w-36 sm:max-w-48 transition-all ${
+            className={`group relative flex items-center gap-1.5 px-2.5 h-7 text-xs cursor-pointer rounded-md min-w-0 ${
+              renamingId === file.id ? "shrink-0 max-w-none" : "max-w-36 sm:max-w-48"
+            } transition-all ${
               draggedIndex === index ? "opacity-50" : ""
             } ${
               dragOverIndex === index ? "ring-2 ring-(--color-accent)" : ""
@@ -205,7 +203,11 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
             {file.id === "settings" ? (
               <Settings size={13} className={`shrink-0 ${file.id === activeTabId ? "text-(--color-accent)" : "text-(--color-text-muted)"}`} />
             ) : file.isUntitled ? (
-              <FileCode size={13} className={`shrink-0 ${file.id === activeTabId ? "text-(--color-accent)" : "text-(--color-text-muted)"}`} />
+              file.name?.toLowerCase().endsWith(".md") ? (
+                <FileText size={13} className={`shrink-0 ${file.id === activeTabId ? "text-sky-400" : "text-sky-400/60"}`} />
+              ) : (
+                <FileCode size={13} className={`shrink-0 ${file.id === activeTabId ? "text-(--color-accent)" : "text-(--color-text-muted)"}`} />
+              )
             ) : file.name?.toLowerCase().endsWith(".md") ? (
               <FileText size={13} className={`shrink-0 ${file.id === activeTabId ? "text-sky-400" : "text-sky-400/60"}`} />
             ) : file.isLocalDisk ? (
@@ -215,22 +217,60 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
             )}
 
             {renamingId === file.id ? (
-              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+              <div
+                className="flex items-center min-w-0"
+                onClick={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
+              >
                 <input
                   autoFocus
                   value={renameValue}
                   onChange={(e) => setRenameValue(e.target.value)}
+                  onFocus={(e) => {
+                    const input = e.target;
+                    setTimeout(() => {
+                      if (document.activeElement === input) {
+                        const dotIndex = input.value.lastIndexOf(".");
+                        if (dotIndex > 0) {
+                          input.setSelectionRange(0, dotIndex);
+                        } else {
+                          input.select();
+                        }
+                      }
+                    }, 10);
+                  }}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") handleFinishRename(file.id);
-                    if (e.key === "Escape") setRenamingId(null);
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleFinishRename(file.id);
+                    }
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      isFinishingRenameRef.current = true;
+                      setRenamingId(null);
+                      setTimeout(() => {
+                        isFinishingRenameRef.current = false;
+                      }, 100);
+                    }
                   }}
                   onBlur={() => handleFinishRename(file.id)}
-                  className="w-24 bg-(--color-bg-primary) border border-(--color-accent) rounded px-1 py-0.5 text-xs text-(--color-text-primary) outline-none"
+                  style={{ width: `${inputWidth}px` }}
+                  className="h-[20px] bg-(--color-bg-primary) border border-(--color-accent) rounded px-1.5 text-xs text-(--color-text-primary) outline-none box-border leading-none shrink-0"
                 />
-                <span className="text-[10px] text-(--color-text-muted)">{renamingExt}</span>
               </div>
             ) : (
-              <span className={`truncate hidden sm:inline ${file.id === previewTabId ? "italic text-(--color-text-secondary)/80" : ""}`}>
+              <span
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  if (file.isSpecial || file.id === "settings") return;
+                  if (file.id === previewTabId) {
+                    promotePreviewTab(file.id);
+                  }
+                  handleStartRename(file);
+                }}
+                className={`truncate ${file.id === previewTabId ? "italic text-(--color-text-secondary)/80" : ""}`}
+                title={file.name}
+              >
                 {file.name}
               </span>
             )}
@@ -241,6 +281,7 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
               )}
               <button
                 onClick={(e) => handleClose(e, file.id)}
+                onDoubleClick={(e) => e.stopPropagation()}
                 className={`p-0.5 rounded hover:bg-(--color-bg-tertiary) hover:text-(--color-error) transition-opacity absolute ${
                   dirtyFiles[file.id]
                     ? "opacity-0 group-hover:opacity-100 hidden group-hover:block"
@@ -257,60 +298,54 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
 
       <button
         onClick={() => addFile()}
-        className="flex items-center justify-center w-6 h-6 rounded-md text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary)/40 transition-colors shrink-0 ml-0.5"
-        title={`New SQL File (${isMac ? "⌘+⌥+N" : "Ctrl+Alt+N"})`}
+        className="flex items-center justify-center w-6 h-6 rounded-md text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary)/40 transition-colors shrink-0 ml-0.5 cursor-pointer"
+        title={`New File (${isMac ? "⌘+⌥+N" : "Ctrl+Alt+N"})`}
+        aria-label="New File"
       >
         <Plus size={13} />
       </button>
 
       {/* Right side editor action controls for Markdown (VS Code style) */}
       {isActiveMarkdown && (
-        <div className="ml-auto flex items-center gap-1.5 pl-2 shrink-0">
+        <div className="ml-auto flex items-center pl-2 shrink-0 pr-1">
           <div className="flex items-center bg-(--color-bg-primary) p-0.5 rounded-md border border-(--color-border)">
             <button
               onClick={() => setMarkdownViewMode("edit")}
-              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+              className={`flex items-center justify-center w-6 h-6 rounded transition-colors cursor-pointer ${
                 markdownViewMode === "edit"
-                  ? "bg-(--color-bg-elevated) text-(--color-text-primary) shadow-2xs font-semibold"
+                  ? "bg-(--color-bg-elevated) text-(--color-text-primary) shadow-2xs"
                   : "text-(--color-text-muted) hover:text-(--color-text-primary)"
               }`}
-              title="Source Code Only"
+              title="Edit"
+              aria-label="Edit"
             >
-              <Code size={12} />
-              <span className="hidden sm:inline">Edit</span>
+              <Code size={13} />
             </button>
             <button
               onClick={() => setMarkdownViewMode("split")}
-              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+              className={`flex items-center justify-center w-6 h-6 rounded transition-colors cursor-pointer ${
                 markdownViewMode === "split"
-                  ? "bg-(--color-bg-elevated) text-(--color-text-primary) shadow-2xs font-semibold"
+                  ? "bg-(--color-bg-elevated) text-(--color-text-primary) shadow-2xs"
                   : "text-(--color-text-muted) hover:text-(--color-text-primary)"
               }`}
-              title="Side-by-Side Live Preview"
+              title="Split View"
+              aria-label="Split View"
             >
-              <Columns size={12} />
-              <span className="hidden sm:inline">Split</span>
+              <Columns size={13} />
             </button>
             <button
               onClick={() => setMarkdownViewMode("preview")}
-              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+              className={`flex items-center justify-center w-6 h-6 rounded transition-colors cursor-pointer ${
                 markdownViewMode === "preview"
-                  ? "bg-(--color-bg-elevated) text-(--color-text-primary) shadow-2xs font-semibold"
+                  ? "bg-(--color-bg-elevated) text-(--color-text-primary) shadow-2xs"
                   : "text-(--color-text-muted) hover:text-(--color-text-primary)"
               }`}
-              title="Preview Only"
+              title="Preview"
+              aria-label="Preview"
             >
-              <Eye size={12} />
-              <span className="hidden sm:inline">Preview</span>
+              <Eye size={13} />
             </button>
           </div>
-
-          <span
-            className="text-[10px] text-(--color-text-muted) hidden md:inline ml-1 font-mono pr-1 select-none"
-            title="Toggle Markdown Preview shortcut"
-          >
-            ({isMac ? "⌘" : "Ctrl"}+Shift+V)
-          </span>
         </div>
       )}
 
@@ -351,6 +386,14 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
           </div>
         );
       })()}
+      {/* Hidden element for measuring rename input width dynamically */}
+      <span
+        ref={measureRef}
+        className="absolute -left-[9999px] -top-[9999px] invisible pointer-events-none select-none text-xs font-normal whitespace-pre"
+        aria-hidden="true"
+      >
+        {renameValue || " "}
+      </span>
     </div>
   );
 }

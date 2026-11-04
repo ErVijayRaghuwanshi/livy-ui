@@ -1,10 +1,10 @@
-import { FilePlus, Search, Database, Keyboard, Sparkles, Terminal, History, RotateCcw, FolderGit2 } from "lucide-react";
+import { FilePlus, FileText, Search, Database, Keyboard, Sparkles, Terminal, History, RotateCcw, FolderGit2 } from "lucide-react";
 
 const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 const mod = isMac ? "⌘" : "Ctrl";
 const alt = isMac ? "⌥" : "Alt";
 
-export default function WelcomeScreen({ onCreateFile, onFocusFiles, onFocusSchema, onShowShortcuts, onShowHistory, onRestoreTab, hasClosedTabs, onOpenWorkspace }) {
+export default function WelcomeScreen({ onCreateFile, onCreateMarkdownFile, onFocusFiles, onFocusSchema, onShowShortcuts, onShowHistory, onRestoreTab, hasClosedTabs, onOpenWorkspace }) {
   const actions = [
     {
       icon: FolderGit2,
@@ -18,6 +18,12 @@ export default function WelcomeScreen({ onCreateFile, onFocusFiles, onFocusSchem
       label: "New SQL File",
       shortcut: [mod, alt, "N"],
       onClick: onCreateFile,
+    },
+    {
+      icon: FileText,
+      label: "New Markdown Document",
+      shortcut: [mod, alt, "M"],
+      onClick: onCreateMarkdownFile,
     },
     {
       icon: Search,

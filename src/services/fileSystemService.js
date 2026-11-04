@@ -469,11 +469,16 @@ export async function openSingleLocalFile() {
   const [fileHandle] = await window.showOpenFilePicker({
     types: [
       {
-        description: "SQL Files (*.sql, *.sparksql, *.hql)",
+        description: "Supported Files (*.sql, *.md, *.sparksql, *.hql)",
         accept: {
           "text/sql": [".sql", ".sparksql", ".hql"],
-          "text/plain": [".sql", ".txt"],
+          "text/markdown": [".md"],
+          "text/plain": [".sql", ".txt", ".md"],
         },
+      },
+      {
+        description: "All Files (*.*)",
+        accept: { "*/*": [] },
       },
     ],
     multiple: false,
@@ -501,16 +506,42 @@ export async function openSingleLocalFile() {
  */
 export async function saveFileAsLocalDisk(suggestedName, content) {
   assertFileSystemAccessSupported("showSaveFilePicker");
-  const fileHandle = await window.showSaveFilePicker({
-    suggestedName: suggestedName || "query.sql",
-    types: [
-      {
-        description: "SQL File (*.sql)",
-        accept: {
-          "text/sql": [".sql"],
+  const isMd = suggestedName && suggestedName.toLowerCase().endsWith(".md");
+  const types = isMd
+    ? [
+        {
+          description: "Markdown Document (*.md)",
+          accept: {
+            "text/markdown": [".md"],
+          },
         },
-      },
-    ],
+        {
+          description: "All Files (*.*)",
+          accept: { "*/*": [] },
+        },
+      ]
+    : [
+        {
+          description: "SQL File (*.sql)",
+          accept: {
+            "text/sql": [".sql"],
+          },
+        },
+        {
+          description: "Markdown Document (*.md)",
+          accept: {
+            "text/markdown": [".md"],
+          },
+        },
+        {
+          description: "All Files (*.*)",
+          accept: { "*/*": [] },
+        },
+      ];
+
+  const fileHandle = await window.showSaveFilePicker({
+    suggestedName: suggestedName || (isMd ? "document.md" : "query.sql"),
+    types,
   });
 
   await writeFileToHandle(fileHandle, content);

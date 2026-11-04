@@ -57,28 +57,6 @@ function FileItemIcon({ fileName = "", isActive = false, isOpen = false, size = 
   );
 }
 
-function splitFileNameAndExt(fullName) {
-  if (!fullName) return { baseName: "", ext: ".sql" };
-  const doubleExtMatch = fullName.match(/^(.+?)\.(md|py|json|txt|sh|bash|sparksql|hql)\.sql$/i);
-  if (doubleExtMatch) {
-    return { baseName: doubleExtMatch[1], ext: `.${doubleExtMatch[2]}` };
-  }
-  const match = fullName.match(/^(.+?)(\.[^.]+)$/);
-  if (match) {
-    return { baseName: match[1], ext: match[2] };
-  }
-  return { baseName: fullName, ext: ".sql" };
-}
-
-function resolveFileName(inputName, defaultExt = ".sql") {
-  const trimmed = inputName.trim();
-  if (!trimmed) return "";
-  if (/\.[a-zA-Z0-9_-]+$/.test(trimmed)) {
-    return trimmed;
-  }
-  return `${trimmed}${defaultExt.startsWith(".") ? defaultExt : "." + defaultExt}`;
-}
-
 const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, onOpenWorkspaceModal }, ref) => {
   const {
     files,
@@ -113,7 +91,6 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
   const [selectedFileId, setSelectedFileId] = useState(null);
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
-  const [renamingExt, setRenamingExt] = useState(".sql");
   const [showUnsupportedModal, setShowUnsupportedModal] = useState(false);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
 
@@ -346,16 +323,17 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
   const handleStartRename = (file, e) => {
     e?.stopPropagation();
     setRenamingId(file.id);
-    const { baseName, ext } = splitFileNameAndExt(file.name);
-    setRenameValue(baseName);
-    setRenamingExt(ext);
+    setRenameValue(file.name);
     setSelectedFileId(file.id);
   };
 
   const handleFinishRename = (id) => {
     const trimmed = renameValue.trim();
     if (trimmed) {
-      renameFile(id, resolveFileName(trimmed, renamingExt));
+      const file = files.find((f) => f.id === id);
+      if (file && file.name !== trimmed) {
+        renameFile(id, trimmed);
+      }
     }
     setRenamingId(null);
   };
@@ -402,9 +380,34 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
     setDeleteConfirmTarget(null);
   };
 
-  // Trigger inline creation of a file or folder
+  // Helper to dynamically pick the icon for the file being created based on typed extension
+  const getCreatingItemIcon = (name, type) => {
+    if (type === "folder") {
+      return <Folder size={13} className="text-amber-400 shrink-0" />;
+    }
+    const trimmed = (name || "").trim().toLowerCase();
+    if (trimmed.endsWith(".md") || trimmed === "readme") {
+      return <FileText size={13} className="text-sky-400 shrink-0" />;
+    }
+    if (trimmed.endsWith(".json")) {
+      return <FileCode size={13} className="text-amber-300 shrink-0" />;
+    }
+    if (trimmed.endsWith(".py")) {
+      return <FileCode size={13} className="text-emerald-400 shrink-0" />;
+    }
+    return <FileCode size={13} className="text-[#ff7b72] shrink-0" />;
+  };
+
+  // Trigger inline creation of a file or folder (VS Code style)
   const handleStartCreate = (parentHandle, parentPath, type) => {
-    setCreatingItem({ parentHandle, parentPath, type });
+    let targetHandle = parentHandle;
+    if (!targetHandle && !workspace.isConnected) {
+      targetHandle = "browser";
+      if (!expandedSections.browser) {
+        setExpandedSections((prev) => ({ ...prev, browser: true }));
+      }
+    }
+    setCreatingItem({ parentHandle: targetHandle, parentPath, type });
     setCreateItemName("");
     if (parentPath && !isFolderExpanded(parentPath)) {
       toggleFolder(parentPath);
@@ -430,9 +433,32 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
         addToast("error", err.message || "Failed to create folder", null, "Creation Error");
       }
     } else {
-      const fileName = resolveFileName(trimmed, ".sql");
+      // VS Code style: resolve file type dynamically from the extension the user typed!
+      const fileName = trimmed;
+      const lower = fileName.toLowerCase();
+      const isMd = lower.endsWith(".md") || lower === "readme" || lower.startsWith("readme.");
+      const isJson = lower.endsWith(".json");
+      const isSql = lower.endsWith(".sql") || lower.endsWith(".sparksql") || lower.endsWith(".hql");
+      const baseName = fileName.replace(/\.[^.]+$/, "");
+      const initialContent = isMd
+        ? `# ${baseName}\n\nWrite your documentation, notes, or runbook here.\n`
+        : isJson
+        ? "{\n  \n}\n"
+        : isSql
+        ? "-- Write your Spark SQL here\nSELECT 1;\n"
+        : "";
+
       try {
-        await addFileToFolder(creatingItem.parentHandle, fileName, "-- Write your Spark SQL here\nSELECT 1;\n");
+        if (workspace.isConnected && creatingItem.parentHandle && creatingItem.parentHandle !== "browser") {
+          await addFileToFolder(creatingItem.parentHandle, fileName, initialContent);
+        } else {
+          await addFile({
+            name: fileName,
+            content: initialContent,
+            target: "browser",
+            fileType: isMd ? "markdown" : isSql ? "sql" : "plaintext",
+          });
+        }
         addToast("ok", `Created "${fileName}"`, null, "File Created");
       } catch (err) {
         addToast("error", err.message || "Failed to create file", null, "Creation Error");
@@ -581,25 +607,25 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
               </span>
             )}
 
-            {/* Folder Actions on Hover */}
+            {/* Folder Actions on Hover (VS Code style: New File, New Folder, Delete) */}
             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={() => handleStartCreate(node.handle, node.path, "file")}
-                className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors"
-                title="New SQL File in this folder"
+                className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"
+                title="New File in this folder"
               >
                 <FilePlus size={11} />
               </button>
               <button
                 onClick={() => handleStartCreate(node.handle, node.path, "folder")}
-                className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-amber-400 transition-colors"
+                className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-amber-400 transition-colors cursor-pointer"
                 title="New Subfolder in this folder"
               >
                 <FolderPlus size={11} />
               </button>
               <button
                 onClick={(e) => handleDeleteFolder(node, e)}
-                className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-error) transition-colors"
+                className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-error) transition-colors cursor-pointer"
                 title="Delete Folder"
               >
                 <Trash2 size={11} />
@@ -616,11 +642,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
                   className="flex items-center gap-1 px-2 py-1 bg-(--color-bg-primary)"
                   style={{ paddingLeft: `${(depth + 1) * 14 + 8}px` }}
                 >
-                  {creatingItem.type === "folder" ? (
-                    <Folder size={13} className="text-amber-400 shrink-0" />
-                  ) : (
-                    <FileCode size={13} className="text-[#ff7b72] shrink-0" />
-                  )}
+                  {getCreatingItemIcon(createItemName, creatingItem.type)}
                   <input
                     ref={createInputRef}
                     value={createItemName}
@@ -630,14 +652,13 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
                       if (e.key === "Escape") setCreatingItem(null);
                     }}
                     onBlur={handleFinishCreate}
-                    placeholder={creatingItem.type === "folder" ? "folder_name" : "query_name"}
+                    placeholder={
+                      creatingItem.type === "folder"
+                        ? "Folder name"
+                        : "File name"
+                    }
                     className="flex-1 bg-(--color-bg-secondary) border border-(--color-accent) rounded px-1.5 py-0.5 text-xs text-(--color-text-primary) outline-none"
                   />
-                  {creatingItem.type === "file" && (
-                    <span className="text-[10px] text-(--color-text-muted)">
-                      {/\.[a-zA-Z0-9_-]+$/.test(createItemName) ? "" : ".sql"}
-                    </span>
-                  )}
                 </div>
               )}
 
@@ -684,6 +705,15 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
               autoFocus
               value={renameValue}
               onChange={(e) => setRenameValue(e.target.value)}
+              onFocus={(e) => {
+                const input = e.target;
+                const dotIndex = input.value.lastIndexOf(".");
+                if (dotIndex > 0) {
+                  input.setSelectionRange(0, dotIndex);
+                } else {
+                  input.select();
+                }
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleFinishRename(file.id);
                 if (e.key === "Escape") setRenamingId(null);
@@ -691,7 +721,6 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
               onBlur={() => handleFinishRename(file.id)}
               className="flex-1 bg-(--color-bg-primary) border border-(--color-accent) rounded px-1 py-0.5 text-xs text-(--color-text-primary) outline-none"
             />
-            <span className="text-[10px] text-(--color-text-muted)">{renamingExt}</span>
           </div>
         ) : (
           <>
@@ -767,6 +796,15 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
               autoFocus
               value={renameValue}
               onChange={(e) => setRenameValue(e.target.value)}
+              onFocus={(e) => {
+                const input = e.target;
+                const dotIndex = input.value.lastIndexOf(".");
+                if (dotIndex > 0) {
+                  input.setSelectionRange(0, dotIndex);
+                } else {
+                  input.select();
+                }
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleFinishRename(file.id);
                 if (e.key === "Escape") setRenamingId(null);
@@ -774,7 +812,6 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
               onBlur={() => handleFinishRename(file.id)}
               className="flex-1 bg-(--color-bg-primary) border border-(--color-accent) rounded px-1 py-0.5 text-xs text-(--color-text-primary) outline-none"
             />
-            <span className="text-[10px] text-(--color-text-muted)">{renamingExt}</span>
           </div>
         ) : (
           <>
@@ -863,15 +900,9 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
               </button>
             )}
             <button
-              onClick={() => {
-                if (workspace.isConnected) {
-                  handleStartCreate(workspace.handle, "", "file");
-                } else {
-                  addFile();
-                }
-              }}
+              onClick={() => handleStartCreate(workspace.isConnected ? workspace.handle : null, "", "file")}
               className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"
-              title={workspace.isConnected ? "New SQL File on Disk" : "New File (Ctrl+Shift+N)"}
+              title={workspace.isConnected ? "New File" : `New File (${isMac ? "⌘⌥N" : "Ctrl+Alt+N"})`}
             >
               <FilePlus size={14} />
             </button>
@@ -1006,11 +1037,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
         {/* If user is creating file/folder in root */}
         {creatingItem && creatingItem.parentHandle === workspace.handle && (
           <div className="flex items-center gap-1 px-3 py-1 bg-(--color-bg-primary) border-b border-(--color-border)">
-            {creatingItem.type === "folder" ? (
-              <Folder size={13} className="text-amber-400 shrink-0" />
-            ) : (
-              <FileCode size={13} className="text-[#ff7b72] shrink-0" />
-            )}
+            {getCreatingItemIcon(createItemName, creatingItem.type)}
             <input
               ref={createInputRef}
               value={createItemName}
@@ -1020,14 +1047,13 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
                 if (e.key === "Escape") setCreatingItem(null);
               }}
               onBlur={handleFinishCreate}
-              placeholder={creatingItem.type === "folder" ? "folder_name" : "query_name"}
+              placeholder={
+                creatingItem.type === "folder"
+                  ? "Folder name"
+                  : "File name"
+              }
               className="flex-1 bg-(--color-bg-secondary) border border-(--color-accent) rounded px-1.5 py-0.5 text-xs text-(--color-text-primary) outline-none"
             />
-            {creatingItem.type === "file" && (
-              <span className="text-[10px] text-(--color-text-muted)">
-                {/\.[a-zA-Z0-9_-]+$/.test(createItemName) ? "" : ".sql"}
-              </span>
-            )}
           </div>
         )}
 
@@ -1158,7 +1184,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
                   <button
                     onClick={() => handleStartCreate(workspace.handle, "", "file")}
                     className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"
-                    title="New SQL File on Disk"
+                    title="New File on Disk"
                   >
                     <FilePlus size={12} />
                   </button>
@@ -1243,9 +1269,9 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
                 </div>
                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
                   <button
-                    onClick={() => addBrowserFile()}
-                    className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors"
-                    title="New In-Browser SQL File"
+                    onClick={() => handleStartCreate("browser", "", "file")}
+                    className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"
+                    title="New File in Browser Storage"
                   >
                     <FilePlus size={12} />
                   </button>
@@ -1254,11 +1280,28 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
 
               {expandedSections.browser && (
                 <div className="py-1">
-                  {browserFiles.length === 0 ? (
+                  {creatingItem && creatingItem.parentHandle === "browser" && (
+                    <div className="flex items-center gap-1 px-3 py-1 bg-(--color-bg-primary) border-b border-(--color-border)">
+                      {getCreatingItemIcon(createItemName, creatingItem.type)}
+                      <input
+                        ref={createInputRef}
+                        value={createItemName}
+                        onChange={(e) => setCreateItemName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleFinishCreate();
+                          if (e.key === "Escape") setCreatingItem(null);
+                        }}
+                        onBlur={handleFinishCreate}
+                        placeholder="File name"
+                        className="flex-1 bg-(--color-bg-secondary) border border-(--color-accent) rounded px-1.5 py-0.5 text-xs text-(--color-text-primary) outline-none"
+                      />
+                    </div>
+                  )}
+                  {browserFiles.length === 0 && !creatingItem ? (
                     <div className="px-6 py-3 text-[11px] text-(--color-text-muted) italic flex items-center justify-between">
                       <span>No in-browser files</span>
                       <button
-                        onClick={() => addBrowserFile()}
+                        onClick={() => handleStartCreate("browser", "", "file")}
                         className="text-[10px] text-(--color-accent) hover:underline cursor-pointer"
                       >
                         + Create
@@ -1309,9 +1352,9 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
                 </div>
                 <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
                   <button
-                    onClick={() => addBrowserFile()}
+                    onClick={() => handleStartCreate("browser", "", "file")}
                     className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"
-                    title="New In-Browser SQL File"
+                    title="New File in Browser Storage"
                   >
                     <FilePlus size={12} />
                   </button>
@@ -1321,11 +1364,28 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
 
             {expandedSections.browser && (
               <div className="py-1">
-                {browserFiles.length === 0 ? (
+                {creatingItem && creatingItem.parentHandle === "browser" && (
+                  <div className="flex items-center gap-1 px-3 py-1 bg-(--color-bg-primary) border-b border-(--color-border)">
+                    {getCreatingItemIcon(createItemName, creatingItem.type)}
+                    <input
+                      ref={createInputRef}
+                      value={createItemName}
+                      onChange={(e) => setCreateItemName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleFinishCreate();
+                        if (e.key === "Escape") setCreatingItem(null);
+                      }}
+                      onBlur={handleFinishCreate}
+                      placeholder="File name"
+                      className="flex-1 bg-(--color-bg-secondary) border border-(--color-accent) rounded px-1.5 py-0.5 text-xs text-(--color-text-primary) outline-none"
+                    />
+                  </div>
+                )}
+                {browserFiles.length === 0 && !creatingItem ? (
                   <div className="px-6 py-6 text-center text-xs text-(--color-text-muted)">
                     <p className="mb-2">No in-browser files</p>
                     <button
-                      onClick={() => addBrowserFile()}
+                      onClick={() => handleStartCreate("browser", "", "file")}
                       className="px-3 py-1 text-xs text-white bg-(--color-accent) rounded-md cursor-pointer hover:bg-(--color-accent-hover)"
                     >
                       Create File

@@ -217,10 +217,17 @@ export default function App() {
         return;
       }
 
-      // Ctrl+Alt+N / Cmd+Option+N — new tab (VS Code-like browser override)
+      // Ctrl+Alt+N / Cmd+Option+N — new SQL tab (VS Code-like browser override)
       if (ctrl && e.altKey && !e.shiftKey && (e.key.toLowerCase() === "n" || e.code === "KeyN")) {
         e.preventDefault();
         addFile();
+        return;
+      }
+
+      // Ctrl+Alt+M / Cmd+Option+M — new Markdown tab
+      if (ctrl && e.altKey && !e.shiftKey && (e.key.toLowerCase() === "m" || e.code === "KeyM")) {
+        e.preventDefault();
+        addFile({ fileType: "markdown" });
         return;
       }
 
@@ -731,6 +738,7 @@ export default function App() {
               ) : (
                 <WelcomeScreen
                   onCreateFile={() => addFile()}
+                  onCreateMarkdownFile={() => addFile({ fileType: "markdown" })}
                   onFocusFiles={handleFocusFileSearch}
                   onFocusSchema={handleFocusSchemaSearch}
                   onShowShortcuts={() => setShowShortcuts(true)}

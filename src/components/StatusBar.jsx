@@ -27,6 +27,16 @@ const stateColors = {
   [SESSION_STATES.SUCCESS]: "bg-green-500",
 };
 
+function getLanguageLabel(fileName = "") {
+  const lower = (fileName || "").toLowerCase();
+  if (lower.endsWith(".sql") || lower.endsWith(".sparksql") || lower.endsWith(".hql")) return "Spark SQL";
+  if (lower.endsWith(".md") || lower.endsWith(".markdown")) return "Markdown";
+  if (lower.endsWith(".json")) return "JSON";
+  if (lower.endsWith(".py")) return "Python";
+  if (lower.endsWith(".sh") || lower.endsWith(".bash")) return "Shell";
+  return "Plain Text";
+}
+
 export default function StatusBar({
   cursorPosition,
   syntaxErrors = [],
@@ -124,6 +134,13 @@ export default function StatusBar({
 
       {/* Right */}
       <div className="flex items-center gap-3">
+        {/* Language indicator (read-only, determined strictly by file extension) */}
+        {activeFile && !activeFile.isSpecial && activeFile.id !== "settings" && (
+          <span className="px-1.5 py-0.5 font-medium text-[11px] text-(--color-text-muted) select-none">
+            {getLanguageLabel(activeFile.name)}
+          </span>
+        )}
+
         {/* Cursor position */}
         {cursorPosition && (
           <span className="font-mono">

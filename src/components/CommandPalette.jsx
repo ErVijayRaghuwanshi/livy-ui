@@ -97,6 +97,13 @@ export default function CommandPalette({
       action: () => addFile(),
     },
     {
+      id: "new-markdown-file",
+      name: "New Markdown File",
+      category: "File",
+      shortcut: isMac ? "⌘⌥M" : "Ctrl+Alt+M",
+      action: () => addFile({ fileType: "markdown" }),
+    },
+    {
       id: "save-file",
       name: "Save SQL File",
       category: "File",
@@ -187,6 +194,13 @@ export default function CommandPalette({
       category: "Editor",
       shortcut: isMac ? "⌘⇧M" : "Ctrl+Shift+M",
       action: () => editorRef?.current?.minify(),
+    },
+    {
+      id: "emmet-expand",
+      name: "Emmet: Expand Abbreviation",
+      category: "Editor",
+      shortcut: isMac ? "⌘E" : "Ctrl+E",
+      action: () => editorRef?.current?.triggerEmmet?.(),
     },
     {
       id: "toggle-sql-validation",

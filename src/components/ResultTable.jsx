@@ -386,10 +386,26 @@ function ActiveResultView({ result, onClose, onMaximizeToggle, isMaximized, cont
             )}
           </div>
         </div>
-        <div className="flex-1 overflow-auto p-4">
+        <div className="flex-1 overflow-auto p-4 space-y-3">
           <pre className="text-xs text-(--color-error)/85 whitespace-pre-wrap font-mono bg-(--color-error)/5 rounded-lg p-3 w-full">
             {result.error}
           </pre>
+          {typeof result.error === "string" && result.error.includes("ResourceExhausted") && result.error.includes("message larger than max") && (
+            <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs">
+              <div className="flex items-center gap-1.5 font-semibold text-amber-400 mb-1.5">
+                <AlertCircle size={14} className="shrink-0" />
+                <span>gRPC Result Message Limit Exceeded</span>
+              </div>
+              <p className="text-(--color-text-secondary) leading-relaxed">
+                The Spark query output size exceeded the gRPC buffer limit. Consider:
+              </p>
+              <ul className="list-disc list-inside mt-1.5 space-y-1 text-(--color-text-secondary)">
+                <li>Adding a <code className="px-1.5 py-0.5 rounded bg-(--color-bg-primary) text-(--color-accent) font-mono">LIMIT 1000</code> clause to cap interactive rows.</li>
+                <li>Excluding or truncating large string/binary columns for browser preview.</li>
+                <li>Increasing <code className="px-1.5 py-0.5 rounded bg-(--color-bg-primary) text-(--color-accent) font-mono">--grpc-max-message-size</code> (or <code className="px-1.5 py-0.5 rounded bg-(--color-bg-primary) text-(--color-accent) font-mono">GRPC_MAX_MESSAGE_SIZE</code>) on the backend server.</li>
+              </ul>
+            </div>
+          )}
         </div>
       </div>
     );

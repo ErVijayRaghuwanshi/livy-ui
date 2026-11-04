@@ -18,6 +18,7 @@ import { addHistoryEntry } from "./QueryHistory";
 import { useSettings } from "../context/SettingsContext";
 import { v4 as uuidv4 } from "uuid";
 import { validateSql } from "../services/sqlValidator";
+import expand, { extract } from "emmet";
 
 // Configure Monaco to use local files instead of CDN
 loader.config({ monaco });
@@ -44,10 +45,11 @@ if (sqlLanguage && sqlLanguage.tokenizer) {
 export function getLanguageForFile(fileName = "") {
   const lower = (fileName || "").toLowerCase();
   if (lower.endsWith(".sql") || lower.endsWith(".sparksql") || lower.endsWith(".hql")) return "sql";
-  if (lower.endsWith(".md")) return "markdown";
+  if (lower.endsWith(".md") || lower.endsWith(".markdown")) return "markdown";
   if (lower.endsWith(".json")) return "json";
   if (lower.endsWith(".py")) return "python";
   if (lower.endsWith(".sh") || lower.endsWith(".bash")) return "shell";
+  if (lower.startsWith("untitled")) return "sql";
   return "plaintext";
 }
 
@@ -368,6 +370,642 @@ function registerSparkProviders(monaco, schemaDataRef) {
           { value: match.description },
         ],
       };
+    },
+  });
+
+  return [completionProvider, hoverProvider];
+}
+
+const MARKDOWN_SNIPPETS = [
+  // Headings
+  {
+    label: "h1",
+    filterText: "# h1 heading1 title",
+    detail: "# Heading 1",
+    documentation: "Insert top-level heading (H1)",
+    insertText: "# ${1:Heading 1}\n$0",
+    kind: "Snippet",
+    sortText: "01_h1",
+  },
+  {
+    label: "h2",
+    filterText: "## h2 heading2 section",
+    detail: "## Heading 2",
+    documentation: "Insert section heading (H2)",
+    insertText: "## ${1:Heading 2}\n$0",
+    kind: "Snippet",
+    sortText: "02_h2",
+  },
+  {
+    label: "h3",
+    filterText: "### h3 heading3 sub",
+    detail: "### Heading 3",
+    documentation: "Insert subsection heading (H3)",
+    insertText: "### ${1:Heading 3}\n$0",
+    kind: "Snippet",
+    sortText: "03_h3",
+  },
+  {
+    label: "h4",
+    filterText: "#### h4 heading4",
+    detail: "#### Heading 4",
+    documentation: "Insert H4 heading",
+    insertText: "#### ${1:Heading 4}\n$0",
+    kind: "Snippet",
+    sortText: "04_h4",
+  },
+  {
+    label: "h5",
+    filterText: "##### h5 heading5",
+    detail: "##### Heading 5",
+    documentation: "Insert H5 heading",
+    insertText: "##### ${1:Heading 5}\n$0",
+    kind: "Snippet",
+    sortText: "05_h5",
+  },
+  {
+    label: "h6",
+    filterText: "###### h6 heading6",
+    detail: "###### Heading 6",
+    documentation: "Insert H6 heading",
+    insertText: "###### ${1:Heading 6}\n$0",
+    kind: "Snippet",
+    sortText: "06_h6",
+  },
+
+  // Text Formatting
+  {
+    label: "bold",
+    filterText: "bold ** strong",
+    detail: "**Bold Text**",
+    documentation: "Make selected or placeholder text bold",
+    insertText: "**${1:bold text}**$0",
+    kind: "Snippet",
+    sortText: "10_bold",
+  },
+  {
+    label: "italic",
+    filterText: "italic * em emphasis",
+    detail: "*Italic Text*",
+    documentation: "Make selected or placeholder text italic",
+    insertText: "*${1:italic text}*$0",
+    kind: "Snippet",
+    sortText: "11_italic",
+  },
+  {
+    label: "strikethrough",
+    filterText: "strikethrough ~~ strike delete",
+    detail: "~~Strikethrough~~",
+    documentation: "Strikethrough text",
+    insertText: "~~${1:strikethrough text}~~$0",
+    kind: "Snippet",
+    sortText: "12_strikethrough",
+  },
+  {
+    label: "code-inline",
+    filterText: "code inline ` backtick",
+    detail: "`inline code`",
+    documentation: "Inline code formatted with backticks",
+    insertText: "`$1`$0",
+    kind: "Snippet",
+    sortText: "13_code_inline",
+  },
+  {
+    label: "link",
+    filterText: "link [ url href",
+    detail: "[Text](url)",
+    documentation: "Hyperlink with label and URL",
+    insertText: "[${1:link text}](${2:https://})$0",
+    kind: "Snippet",
+    sortText: "14_link",
+  },
+  {
+    label: "image",
+    filterText: "image ![ img pic photo",
+    detail: "![Alt](url)",
+    documentation: "Embedded markdown image",
+    insertText: "![${1:alt text}](${2:url})$0",
+    kind: "Snippet",
+    sortText: "15_image",
+  },
+
+  // Code Blocks & Livy / Spark SQL Integration
+  {
+    label: "codeblock",
+    filterText: "codeblock ``` fence block",
+    detail: "```language ... ```",
+    documentation: "Fenced code block with language specifier",
+    insertText: "```${1:sql}\n${2}\n```\n$0",
+    kind: "Snippet",
+    sortText: "20_codeblock",
+  },
+  {
+    label: "sql-block",
+    filterText: "sql ```sql query spark query",
+    detail: "```sql Spark SQL Query Block",
+    documentation: "Fenced Spark SQL code block",
+    insertText: "```sql\nSELECT ${1:*}\nFROM ${2:table_name}\nLIMIT ${3:100};\n```\n$0",
+    kind: "Snippet",
+    sortText: "21_sql_block",
+  },
+  {
+    label: "python-block",
+    filterText: "python ```python pyspark py",
+    detail: "```python PySpark Code Block",
+    documentation: "Fenced Python / PySpark code block",
+    insertText: "```python\n${1:df = spark.read.table(\"table_name\")}\n${2:df.show(10)}\n```\n$0",
+    kind: "Snippet",
+    sortText: "22_python_block",
+  },
+  {
+    label: "json-block",
+    filterText: "json ```json data",
+    detail: "```json JSON Data Block",
+    documentation: "Fenced JSON data block",
+    insertText: "```json\n{\n  \"${1:key}\": \"${2:value}\"\n}\n```\n$0",
+    kind: "Snippet",
+    sortText: "23_json_block",
+  },
+  {
+    label: "bash-block",
+    filterText: "bash ```bash shell sh script",
+    detail: "```bash Shell Script Block",
+    documentation: "Fenced Bash / Shell script block",
+    insertText: "```bash\n${1:echo \"Hello Spark\"}\n```\n$0",
+    kind: "Snippet",
+    sortText: "24_bash_block",
+  },
+  {
+    label: "mermaid-block",
+    filterText: "mermaid ```mermaid diagram chart graph",
+    detail: "```mermaid Diagram Block",
+    documentation: "Mermaid flowchart diagram block",
+    insertText: "```mermaid\nflowchart TD\n    A[${1:Start}] --> B[${2:Process}]\n    B --> C[${3:Finish}]\n```\n$0",
+    kind: "Snippet",
+    sortText: "25_mermaid_block",
+  },
+
+  // Tables
+  {
+    label: "table-3col",
+    filterText: "table table3 grid columns",
+    detail: "Table (3 Columns)",
+    documentation: "Markdown table with 3 columns and header",
+    insertText: "| ${1:Header 1} | ${2:Header 2} | ${3:Header 3} |\n| --- | --- | --- |\n| ${4:Value 1} | ${5:Value 2} | ${6:Value 3} |\n$0",
+    kind: "Snippet",
+    sortText: "30_table3",
+  },
+  {
+    label: "table-2col",
+    filterText: "table table2 kv keyvalue",
+    detail: "Table (2 Columns / Key-Value)",
+    documentation: "Markdown table with 2 columns",
+    insertText: "| ${1:Property} | ${2:Description} |\n| --- | --- |\n| ${3:Key} | ${4:Value} |\n$0",
+    kind: "Snippet",
+    sortText: "31_table2",
+  },
+
+  // Lists & Tasks
+  {
+    label: "task-item",
+    filterText: "task - [ ] todo check checkbox",
+    detail: "- [ ] Task Item (Unchecked)",
+    documentation: "GitHub task list item",
+    insertText: "- [ ] ${1:Task description}\n$0",
+    kind: "Snippet",
+    sortText: "40_task",
+  },
+  {
+    label: "task-done",
+    filterText: "task - [x] done completed",
+    detail: "- [x] Task Item (Completed)",
+    documentation: "Completed task list item",
+    insertText: "- [x] ${1:Completed task}\n$0",
+    kind: "Snippet",
+    sortText: "41_task_done",
+  },
+  {
+    label: "bullet-list",
+    filterText: "ul bullet list - * item",
+    detail: "- Bullet List Item",
+    documentation: "Unordered list item",
+    insertText: "- ${1:List item}\n$0",
+    kind: "Snippet",
+    sortText: "42_bullet",
+  },
+  {
+    label: "numbered-list",
+    filterText: "ol number list 1. item",
+    detail: "1. Numbered List Item",
+    documentation: "Ordered list items",
+    insertText: "1. ${1:First item}\n2. ${2:Second item}\n$0",
+    kind: "Snippet",
+    sortText: "43_numbered",
+  },
+
+  // GitHub Flavored Markdown Callouts / Alerts
+  {
+    label: "alert-note",
+    filterText: "note alert callout > [!NOTE]",
+    detail: "> [!NOTE] Alert Callout",
+    documentation: "GitHub alert callout for neutral notes or context",
+    insertText: "> [!NOTE]\n> ${1:Information or background context.}\n$0",
+    kind: "Snippet",
+    sortText: "50_note",
+  },
+  {
+    label: "alert-tip",
+    filterText: "tip alert callout > [!TIP]",
+    detail: "> [!TIP] Alert Callout",
+    documentation: "GitHub alert callout for helpful advice or performance tips",
+    insertText: "> [!TIP]\n> ${1:Helpful suggestion or optimization tip.}\n$0",
+    kind: "Snippet",
+    sortText: "51_tip",
+  },
+  {
+    label: "alert-important",
+    filterText: "important alert callout > [!IMPORTANT]",
+    detail: "> [!IMPORTANT] Alert Callout",
+    documentation: "GitHub alert callout for crucial prerequisites or steps",
+    insertText: "> [!IMPORTANT]\n> ${1:Essential information for this procedure.}\n$0",
+    kind: "Snippet",
+    sortText: "52_important",
+  },
+  {
+    label: "alert-warning",
+    filterText: "warning alert callout > [!WARNING]",
+    detail: "> [!WARNING] Alert Callout",
+    documentation: "GitHub alert callout for breaking changes or gotchas",
+    insertText: "> [!WARNING]\n> ${1:Warning: proceeding may have unexpected side effects.}\n$0",
+    kind: "Snippet",
+    sortText: "53_warning",
+  },
+  {
+    label: "alert-caution",
+    filterText: "caution alert callout > [!CAUTION]",
+    detail: "> [!CAUTION] Alert Callout",
+    documentation: "GitHub alert callout for destructive or high-risk operations",
+    insertText: "> [!CAUTION]\n> ${1:Caution: data loss or irreversible operation risk.}\n$0",
+    kind: "Snippet",
+    sortText: "54_caution",
+  },
+
+  // Quotes, Dividers & Details
+  {
+    label: "blockquote",
+    filterText: "quote blockquote >",
+    detail: "> Blockquote",
+    documentation: "Quotation block",
+    insertText: "> ${1:Quotation or cited text.}\n$0",
+    kind: "Snippet",
+    sortText: "60_quote",
+  },
+  {
+    label: "divider",
+    filterText: "hr divider horizontal rule --- ***",
+    detail: "--- Horizontal Rule",
+    documentation: "Horizontal dividing line",
+    insertText: "---\n\n$0",
+    kind: "Snippet",
+    sortText: "61_hr",
+  },
+  {
+    label: "details",
+    filterText: "details collapsible summary dropdown",
+    detail: "<details> Collapsible Section",
+    documentation: "Collapsible disclosure block with summary header",
+    insertText: "<details>\n<summary>${1:Click to expand details}</summary>\n\n${2:Hidden details and logs go here.}\n\n</details>\n$0",
+    kind: "Snippet",
+    sortText: "62_details",
+  },
+
+  // Math (KaTeX / LaTeX)
+  {
+    label: "math-block",
+    filterText: "math latex formula katex $$",
+    detail: "$$ Math Block $$",
+    documentation: "Display math equation block with LaTeX",
+    insertText: "$$\n${1:E = mc^2}\n$$\n$0",
+    kind: "Snippet",
+    sortText: "70_math_block",
+  },
+  {
+    label: "math-inline",
+    filterText: "math inline latex $",
+    detail: "$ inline math $",
+    documentation: "Inline mathematical notation",
+    insertText: "$${1:x}$$0",
+    kind: "Snippet",
+    sortText: "71_math_inline",
+  },
+
+  // Runbook / Spark Document Template
+  {
+    label: "runbook-template",
+    filterText: "runbook template documentation spark note",
+    detail: "Spark SQL Runbook Template",
+    documentation: "Complete template for query runbooks, analyses, and SOPs",
+    insertText: "# ${1:Document Title}\n\n## Overview\n${2:Brief summary of the purpose and objectives.}\n\n## Environment\n- **Target Database**: \`${3:default}\`\n- **Engine**: Spark SQL (Livy)\n\n## Step 1: Query Execution\n```sql\nSELECT * FROM ${4:my_table} LIMIT 100;\n```\n\n## Notes & Verification\n- [ ] ${5:Verify record count matches expectations}\n- [ ] ${6:Check for NULL or invalid values}\n\n$0",
+    kind: "Snippet",
+    sortText: "80_runbook",
+  },
+];
+
+const HTML_TAGS = new Set([
+  "a", "abbr", "address", "article", "aside", "audio", "b", "base", "bdi", "bdo",
+  "blockquote", "body", "br", "button", "canvas", "caption", "cite", "code", "col",
+  "colgroup", "data", "datalist", "dd", "del", "details", "dfn", "dialog", "div",
+  "dl", "dt", "em", "embed", "fieldset", "figcaption", "figure", "footer", "form",
+  "h1", "h2", "h3", "h4", "h5", "h6", "header", "hgroup", "hr", "html", "i",
+  "iframe", "img", "input", "ins", "kbd", "label", "legend", "li", "link", "main",
+  "map", "mark", "menu", "meta", "meter", "nav", "noscript", "object", "ol",
+  "optgroup", "option", "output", "p", "picture", "pre", "progress", "q", "rp",
+  "rt", "ruby", "s", "samp", "script", "search", "section", "select", "slot",
+  "small", "source", "span", "strong", "style", "sub", "summary", "sup", "table",
+  "tbody", "td", "template", "textarea", "tfoot", "th", "thead", "time", "title",
+  "tr", "track", "u", "ul", "var", "video", "wbr"
+]);
+
+const COMMON_EMMET_ALIASES = new Set([
+  "bq", "btn", "hdr", "ftr", "art", "sect", "fig", "figc", "str"
+]);
+
+function isValidMarkdownEmmet(abbr, linePrefix = "") {
+  if (!abbr || abbr.trim().length === 0) return false;
+  // Don't treat markdown headers like '# heading' as Emmet
+  if (/^\s*#+\s*$/.test(linePrefix)) return false;
+  // Don't treat markdown blockquotes '> text' as Emmet
+  if (/^\s*>\s*$/.test(linePrefix) && !abbr.includes(">")) return false;
+  // Don't treat markdown list items '- item' as Emmet
+  if (/^\s*[-*+]\s+$/.test(linePrefix) && !abbr.includes(">") && !abbr.includes("*")) return false;
+
+  // Has Emmet structural operators: >, +, *, ^, [, ], (, ), {, }
+  if (/[>+*^()[\]{}]/.test(abbr)) return true;
+  // Has class or id notation: div.alert, .card, span#main
+  if (/\.[a-zA-Z]/.test(abbr) || /^[a-zA-Z0-9_-]+#[a-zA-Z]/.test(abbr)) return true;
+  // Lorem generator
+  if (/^lorem\d*$/i.test(abbr)) return true;
+
+  const lower = abbr.toLowerCase();
+  const isTag = HTML_TAGS.has(lower) || COMMON_EMMET_ALIASES.has(lower);
+  if (!isTag) return false;
+
+  // For a standalone tag name (e.g. kbd, div, table, p), only treat as Emmet if it is at the beginning of the line (or only whitespace before it)
+  // This prevents accidental expansion when typing regular prose (e.g., "press enter on the table")
+  return /^\s*$/.test(linePrefix);
+}
+
+const EMMET_SNIPPET_CONFIG = {
+  options: {
+    "output.field": (index, placeholder) => `\${${index}${placeholder ? ":" + placeholder : ""}}`,
+    "output.indent": "  ",
+  },
+};
+
+const EMMET_PREVIEW_CONFIG = {
+  options: {
+    "output.field": (index, placeholder) => placeholder || "",
+    "output.indent": "  ",
+  },
+};
+
+function expandEmmetAtCursor(editor, monacoInstance) {
+  if (!editor || !monacoInstance) return false;
+  const pos = editor.getPosition();
+  const model = editor.getModel();
+  if (!pos || !model || pos.column <= 1) return false;
+
+  const lineContent = model.getLineContent(pos.lineNumber);
+
+  // Cursor must not be in the middle of a token
+  if (pos.column - 1 < lineContent.length) {
+    const nextChar = lineContent[pos.column - 1];
+    if (/[a-zA-Z0-9_*+>#.[\]{}:$-]/.test(nextChar)) {
+      return false;
+    }
+  }
+
+  const extracted = extract(lineContent, pos.column - 1);
+  if (!extracted || !extracted.abbreviation) return false;
+
+  const linePrefix = lineContent.slice(0, extracted.start);
+  if (!isValidMarkdownEmmet(extracted.abbreviation, linePrefix)) return false;
+
+  try {
+    const expanded = expand(extracted.abbreviation, EMMET_SNIPPET_CONFIG);
+    if (!expanded) return false;
+
+    const range = new monacoInstance.Range(
+      pos.lineNumber,
+      extracted.start + 1,
+      pos.lineNumber,
+      extracted.end + 1
+    );
+
+    const snippetController = editor.getContribution("snippetController2");
+    if (snippetController && typeof snippetController.insert === "function") {
+      snippetController.insert(expanded, range);
+    } else {
+      editor.executeEdits("emmet", [{
+        range,
+        text: expand(extracted.abbreviation, EMMET_PREVIEW_CONFIG),
+      }]);
+    }
+    return true;
+  } catch (err) {
+    console.warn("[Emmet] Abbreviation expansion error:", err);
+    return false;
+  }
+}
+
+function registerMarkdownProviders(monaco) {
+  const completionProvider = monaco.languages.registerCompletionItemProvider("markdown", {
+    triggerCharacters: ["#", "[", "`", "-", ">", "|", "*", "!", ":", "$", "<", "+", ".", "{", "}", "(", ")", "]"],
+    provideCompletionItems: (model, position) => {
+      const lineContent = model.getLineContent(position.lineNumber);
+      const textBeforeCursor = lineContent.substring(0, position.column - 1);
+      const word = model.getWordUntilPosition(position);
+
+      const defaultRange = {
+        startLineNumber: position.lineNumber,
+        endLineNumber: position.lineNumber,
+        startColumn: word.startColumn,
+        endColumn: word.endColumn,
+      };
+
+      const headingMatch = textBeforeCursor.match(/^(\s*)(#{1,6})$/);
+      const quoteMatch = textBeforeCursor.match(/^(\s*)(>)$/);
+      const dashMatch = textBeforeCursor.match(/^(\s*)(-)$/);
+
+      const suggestions = [];
+
+      // Native Emmet expansion for Markdown
+      try {
+        const extracted = extract(lineContent, position.column - 1);
+        if (extracted) {
+          const linePrefix = lineContent.slice(0, extracted.start);
+          if (isValidMarkdownEmmet(extracted.abbreviation, linePrefix)) {
+            const expandedSnippet = expand(extracted.abbreviation, EMMET_SNIPPET_CONFIG);
+            const previewText = expand(extracted.abbreviation, EMMET_PREVIEW_CONFIG);
+            if (expandedSnippet) {
+              suggestions.push({
+                label: extracted.abbreviation,
+                kind: monaco.languages.CompletionItemKind.Snippet,
+                insertText: expandedSnippet,
+                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                detail: "Emmet Abbreviation",
+                documentation: {
+                  value: "```html\n" + previewText + "\n```",
+                },
+                range: {
+                  startLineNumber: position.lineNumber,
+                  endLineNumber: position.lineNumber,
+                  startColumn: extracted.start + 1,
+                  endColumn: extracted.end + 1,
+                },
+                sortText: "00_" + extracted.abbreviation,
+              });
+            }
+          }
+        }
+      } catch {
+        // ignore incomplete emmet abbreviations during typing
+      }
+
+      for (const snippet of MARKDOWN_SNIPPETS) {
+        let insertText = snippet.insertText;
+        let range = defaultRange;
+
+        if (headingMatch && snippet.label.startsWith("h") && !snippet.label.includes("-")) {
+          const hashCount = headingMatch[2].length;
+          const targetLevel = parseInt(snippet.label.slice(1), 10);
+          if (targetLevel === hashCount) {
+            range = {
+              startLineNumber: position.lineNumber,
+              endLineNumber: position.lineNumber,
+              startColumn: headingMatch[1].length + 1,
+              endColumn: position.column,
+            };
+          }
+        } else if (quoteMatch && (snippet.label.startsWith("alert-") || snippet.label === "blockquote")) {
+          range = {
+            startLineNumber: position.lineNumber,
+            endLineNumber: position.lineNumber,
+            startColumn: quoteMatch[1].length + 1,
+            endColumn: position.column,
+          };
+        } else if (dashMatch && (snippet.label.startsWith("task") || snippet.label === "bullet-list")) {
+          range = {
+            startLineNumber: position.lineNumber,
+            endLineNumber: position.lineNumber,
+            startColumn: dashMatch[1].length + 1,
+            endColumn: position.column,
+          };
+        }
+
+        suggestions.push({
+          label: snippet.label,
+          filterText: snippet.filterText || snippet.label,
+          kind: monaco.languages.CompletionItemKind[snippet.kind || "Snippet"],
+          insertText,
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          detail: snippet.detail,
+          documentation: {
+            value: typeof snippet.documentation === "string" ? snippet.documentation : snippet.documentation?.value || "",
+          },
+          range,
+          sortText: snippet.sortText || ("1_" + snippet.label),
+        });
+      }
+
+      // Word completions from the current document
+      const documentText = model.getValue();
+      const wordRegex = /\b[a-zA-Z_][a-zA-Z0-9_-]*\b/g;
+      const docWords = new Set();
+      let wordMatch;
+      while ((wordMatch = wordRegex.exec(documentText)) !== null) {
+        const w = wordMatch[0];
+        if (w.length > 2 && !w.startsWith("http")) {
+          docWords.add(w);
+        }
+      }
+
+      docWords.forEach((w) => {
+        suggestions.push({
+          label: w,
+          kind: monaco.languages.CompletionItemKind.Text,
+          insertText: w,
+          detail: "Word in Document",
+          range: defaultRange,
+          sortText: "9_" + w,
+        });
+      });
+
+      return { suggestions };
+    },
+  });
+
+  const hoverProvider = monaco.languages.registerHoverProvider("markdown", {
+    provideHover: (model, position) => {
+      const lineContent = model.getLineContent(position.lineNumber);
+
+      if (lineContent.includes("[!NOTE]")) {
+        return {
+          contents: [
+            { value: "**Markdown Note Callout**" },
+            { value: "Highlights useful information or background context." },
+          ],
+        };
+      }
+      if (lineContent.includes("[!TIP]")) {
+        return {
+          contents: [
+            { value: "**Markdown Tip Callout**" },
+            { value: "Helpful advice or optimization suggestion." },
+          ],
+        };
+      }
+      if (lineContent.includes("[!IMPORTANT]")) {
+        return {
+          contents: [
+            { value: "**Markdown Important Callout**" },
+            { value: "Crucial information required for success." },
+          ],
+        };
+      }
+      if (lineContent.includes("[!WARNING]")) {
+        return {
+          contents: [
+            { value: "**Markdown Warning Callout**" },
+            { value: "Urgent warning to avoid problems or breaking changes." },
+          ],
+        };
+      }
+      if (lineContent.includes("[!CAUTION]")) {
+        return {
+          contents: [
+            { value: "**Markdown Caution Callout**" },
+            { value: "Advises about destructive or high-risk actions." },
+          ],
+        };
+      }
+      if (lineContent.trim().startsWith("```sql")) {
+        return {
+          contents: [
+            { value: "**Spark SQL Code Block**" },
+            { value: "Spark SQL syntax block inside Markdown." },
+          ],
+        };
+      }
+      if (lineContent.trim().startsWith("```mermaid")) {
+        return {
+          contents: [
+            { value: "**Mermaid Diagram Block**" },
+            { value: "Renders as an interactive diagram in the Preview pane." },
+          ],
+        };
+      }
+      return null;
     },
   });
 
@@ -779,6 +1417,54 @@ const SqlEditor = forwardRef(function SqlEditor({
   const handleChangeRef = useRef(null);
   const isApplyingExternalUpdateRef = useRef(false);
 
+  // Synchronized scrolling refs between Monaco editor and Markdown preview
+  const previewContainerRef = useRef(null);
+  const isSyncingFromPreviewRef = useRef(false);
+  const isSyncingFromEditorRef = useRef(false);
+  const syncEditorTimerRef = useRef(null);
+  const syncPreviewTimerRef = useRef(null);
+  const markdownViewModeRef = useRef(markdownViewMode);
+
+  useEffect(() => {
+    markdownViewModeRef.current = markdownViewMode;
+  }, [markdownViewMode]);
+
+  useEffect(() => {
+    return () => {
+      clearTimeout(syncEditorTimerRef.current);
+      clearTimeout(syncPreviewTimerRef.current);
+    };
+  }, []);
+
+  const handlePreviewScroll = useCallback((e) => {
+    if (isSyncingFromEditorRef.current) return;
+    if (markdownViewModeRef.current !== "split") return;
+
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const previewEl = e.currentTarget;
+    const previewScrollTop = previewEl.scrollTop;
+    const previewScrollHeight = previewEl.scrollHeight;
+    const previewClientHeight = previewEl.clientHeight;
+    const maxPreviewScroll = previewScrollHeight - previewClientHeight;
+
+    const editorScrollHeight = editor.getScrollHeight();
+    const editorClientHeight = editor.getLayoutInfo()?.height || 0;
+    const maxEditorScroll = editorScrollHeight - editorClientHeight;
+
+    if (maxPreviewScroll > 0 && maxEditorScroll > 0) {
+      const ratio = Math.max(0, Math.min(1, previewScrollTop / maxPreviewScroll));
+      isSyncingFromPreviewRef.current = true;
+      editor.setScrollTop(ratio * maxEditorScroll);
+
+      clearTimeout(syncPreviewTimerRef.current);
+      syncPreviewTimerRef.current = setTimeout(() => {
+        isSyncingFromPreviewRef.current = false;
+      }, 60);
+    }
+  }, []);
+
   useEffect(() => {
     activeFileRef.current = activeFile;
   }, [activeFile]);
@@ -875,7 +1561,7 @@ const SqlEditor = forwardRef(function SqlEditor({
     // Only validate SQL files
     const fileName = activeFileRef.current?.name || "";
     const isSqlFile = !fileName || /\.(sql|sparksql|hql)$/i.test(fileName);
-    if (!isSqlFile) {
+    if (!isSqlFile || model.getLanguageId() !== "sql") {
       monacoRef.current.editor.setModelMarkers(model, "sql-validator", []);
       lastSyntaxErrorsRef.current = [];
       onSyntaxErrorsChangeRef.current?.([]);
@@ -1064,7 +1750,9 @@ const SqlEditor = forwardRef(function SqlEditor({
     return () => window.removeEventListener("focus", resetTitle);
   }, []);
 
-  const isMarkdownFile = activeFile?.name?.toLowerCase().endsWith(".md");
+  const isMarkdownFile =
+    activeFile?.name?.toLowerCase().endsWith(".md") ||
+    activeFile?.name?.toLowerCase().endsWith(".markdown");
 
   const canRun =
     !isMarkdownFile &&
@@ -1073,12 +1761,33 @@ const SqlEditor = forwardRef(function SqlEditor({
     !running &&
     (isServerReachable === true || (isOnline && isServerReachable === null));
 
-  // Trigger Monaco layout recalculation on markdown view mode changes
+  // Trigger Monaco layout recalculation on markdown view mode changes and initial sync
   useEffect(() => {
     if (editorRef.current) {
       editorRef.current.layout();
+
+      if (markdownViewMode === "split" && isMarkdownFile) {
+        setTimeout(() => {
+          const editor = editorRef.current;
+          const previewEl = previewContainerRef.current;
+          if (!editor || !previewEl) return;
+
+          const editorScrollHeight = editor.getScrollHeight();
+          const editorClientHeight = editor.getLayoutInfo()?.height || 0;
+          const maxEditorScroll = editorScrollHeight - editorClientHeight;
+
+          const previewScrollHeight = previewEl.scrollHeight;
+          const previewClientHeight = previewEl.clientHeight;
+          const maxPreviewScroll = previewScrollHeight - previewClientHeight;
+
+          if (maxEditorScroll > 0 && maxPreviewScroll > 0) {
+            const ratio = Math.max(0, Math.min(1, editor.getScrollTop() / maxEditorScroll));
+            previewEl.scrollTop = ratio * maxPreviewScroll;
+          }
+        }, 50);
+      }
     }
-  }, [markdownViewMode]);
+  }, [markdownViewMode, isMarkdownFile]);
 
   // Persist word wrap preference
   useEffect(() => {
@@ -1100,15 +1809,23 @@ const SqlEditor = forwardRef(function SqlEditor({
   useEffect(() => {
     if (!monacoInstance) return;
 
-    const providers = registerSparkProviders(monacoInstance, schemaDataRef);
+    const sparkProviders = registerSparkProviders(monacoInstance, schemaDataRef);
+    const markdownProviders = registerMarkdownProviders(monacoInstance);
 
     return () => {
-      providers.forEach((p) => p.dispose());
+      sparkProviders.forEach((p) => p.dispose());
+      markdownProviders.forEach((p) => p.dispose());
     };
   }, [monacoInstance]);
 
   const updateDecorations = useCallback((editor) => {
     if (!editor) return;
+    const isMd = activeFileRef.current?.name?.toLowerCase().endsWith(".md");
+    if (isMd) {
+      decorationsRef.current = editor.deltaDecorations(decorationsRef.current, []);
+      statementsRef.current = [];
+      return;
+    }
     const content = editor.getValue();
     const stmts = parseStatements(content);
     statementsRef.current = stmts;
@@ -1153,12 +1870,12 @@ const SqlEditor = forwardRef(function SqlEditor({
           modelsRef.current.set(activeFileRef.current.id, model);
         }
       }
+      const targetLang = getLanguageForFile(activeFileRef.current.name);
       if (!model) {
-        const lang = getLanguageForFile(activeFileRef.current.name);
         model = monaco.editor.createModel(
           activeFileRef.current.content,
-          lang,
-          monaco.Uri.parse(`inmemory://model-${activeFileRef.current.id}.${lang === "markdown" ? "md" : lang}`)
+          targetLang,
+          monaco.Uri.parse(`inmemory://model-${activeFileRef.current.id}.${targetLang === "markdown" ? "md" : targetLang}`)
         );
         model.onDidChangeContent(() => {
           if (isApplyingExternalUpdateRef.current) return;
@@ -1168,13 +1885,66 @@ const SqlEditor = forwardRef(function SqlEditor({
           scheduleSqlValidationRef.current?.(model, false);
         });
         modelsRef.current.set(activeFileRef.current.id, model);
+      } else {
+        if (model.getLanguageId() !== targetLang) {
+          monaco.editor.setModelLanguage(model, targetLang);
+        }
       }
       editor.setModel(model);
       prevActiveFileIdRef.current = activeFileRef.current.id;
-      scheduleSqlValidationRef.current?.(model, true);
+      if (targetLang === "sql") {
+        scheduleSqlValidationRef.current?.(model, true);
+      } else {
+        monaco.editor.setModelMarkers(model, "sql-validator", []);
+        lastSyntaxErrorsRef.current = [];
+        onSyntaxErrorsChangeRef.current?.([]);
+      }
     }
 
     updateDecorations(editor);
+
+    // Register native Emmet abbreviation expansion action (Cmd+E / Ctrl+E)
+    editor.addAction({
+      id: "emmet.expandAbbreviation",
+      label: "Emmet: Expand Abbreviation",
+      keybindings: [
+        monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyE,
+      ],
+      precondition: "!editorReadonly",
+      run: (ed) => {
+        expandEmmetAtCursor(ed, monaco);
+      },
+    });
+
+    // Native Emmet Tab expansion (matches VS Code emmet.triggerExpansionOnTab)
+    editor.addCommand(
+      monaco.KeyCode.Tab,
+      () => {
+        // 1. If text is selected (range selection), do standard indent
+        const selection = editor.getSelection();
+        if (selection && !selection.isEmpty()) {
+          editor.trigger("keyboard", "editor.action.indentLines");
+          return;
+        }
+
+        // 2. If editing a markdown / html file, attempt Emmet expansion on Tab
+        const activeName = activeFileRef.current?.name?.toLowerCase() || "";
+        const isEmmetFile =
+          activeName.endsWith(".md") ||
+          activeName.endsWith(".markdown") ||
+          activeName.endsWith(".html") ||
+          activeName.endsWith(".htm");
+
+        if (isEmmetFile) {
+          const expanded = expandEmmetAtCursor(editor, monaco);
+          if (expanded) return;
+        }
+
+        // 3. Otherwise, perform standard tab indentation
+        editor.trigger("keyboard", "tab");
+      },
+      "!suggestWidgetVisible && !inSnippetMode"
+    );
 
     // Restore view state if it exists
     if (activeFileRef.current?.id) {
@@ -1195,13 +1965,44 @@ const SqlEditor = forwardRef(function SqlEditor({
       }, 50);
     }
 
-    // Track scroll changes to save view state
-    editor.onDidScrollChange(() => {
+    // Track scroll changes to save view state and sync to Markdown preview
+    editor.onDidScrollChange((e) => {
       const currentId = activeFileRef.current?.id;
       if (currentId && editorRef.current) {
         const state = editorRef.current.saveViewState();
         if (state) {
           viewStatesRef.current[currentId] = state;
+        }
+      }
+
+      // Synchronize scroll to Markdown preview in split view mode
+      if (e.scrollTopChanged && !isSyncingFromPreviewRef.current) {
+        const isMd =
+          activeFileRef.current?.name?.toLowerCase().endsWith(".md") ||
+          activeFileRef.current?.name?.toLowerCase().endsWith(".markdown");
+
+        if (isMd && markdownViewModeRef.current === "split") {
+          const previewEl = previewContainerRef.current;
+          if (previewEl) {
+            const editorScrollHeight = editor.getScrollHeight();
+            const editorClientHeight = editor.getLayoutInfo()?.height || 0;
+            const maxEditorScroll = editorScrollHeight - editorClientHeight;
+
+            const previewScrollHeight = previewEl.scrollHeight;
+            const previewClientHeight = previewEl.clientHeight;
+            const maxPreviewScroll = previewScrollHeight - previewClientHeight;
+
+            if (maxEditorScroll > 0 && maxPreviewScroll > 0) {
+              const ratio = Math.max(0, Math.min(1, editor.getScrollTop() / maxEditorScroll));
+              isSyncingFromEditorRef.current = true;
+              previewEl.scrollTop = ratio * maxPreviewScroll;
+
+              clearTimeout(syncEditorTimerRef.current);
+              syncEditorTimerRef.current = setTimeout(() => {
+                isSyncingFromEditorRef.current = false;
+              }, 60);
+            }
+          }
         }
       }
     });
@@ -1521,12 +2322,13 @@ const SqlEditor = forwardRef(function SqlEditor({
       }
     }
 
+    const targetLang = getLanguageForFile(activeFile.name);
+
     if (!newModel) {
-      const lang = getLanguageForFile(activeFile.name);
       newModel = monaco.editor.createModel(
         activeFile.content,
-        lang,
-        monaco.Uri.parse(`inmemory://model-${activeFile.id}.${lang === "markdown" ? "md" : lang}`)
+        targetLang,
+        monaco.Uri.parse(`inmemory://model-${activeFile.id}.${targetLang === "markdown" ? "md" : targetLang}`)
       );
       newModel.onDidChangeContent(() => {
         if (isApplyingExternalUpdateRef.current) return;
@@ -1536,6 +2338,10 @@ const SqlEditor = forwardRef(function SqlEditor({
         scheduleSqlValidationRef.current?.(newModel, false);
       });
       modelsRef.current.set(activeFile.id, newModel);
+    } else {
+      if (newModel.getLanguageId() !== targetLang) {
+        monaco.editor.setModelLanguage(newModel, targetLang);
+      }
     }
 
     // Synchronize content if changed externally (e.g. initial load, external reload)
@@ -1555,10 +2361,37 @@ const SqlEditor = forwardRef(function SqlEditor({
       editor.setPosition({ lineNumber: 1, column: 1 });
     }
 
-    scheduleSqlValidationRef.current?.(newModel, true);
+    if (targetLang === "sql") {
+      scheduleSqlValidationRef.current?.(newModel, true);
+    } else {
+      monaco.editor.setModelMarkers(newModel, "sql-validator", []);
+      lastSyntaxErrorsRef.current = [];
+      onSyntaxErrorsChangeRef.current?.([]);
+    }
     updateDecorations(editor);
     editor.focus();
-  }, [activeFile?.id, updateDecorations]);
+  }, [activeFile?.id, activeFile?.name, updateDecorations]);
+
+  // Sync Monaco language mode if active file is renamed or toggled
+  useEffect(() => {
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    if (!editor || !monaco || !activeFile) return;
+
+    const currentModel = editor.getModel();
+    if (!currentModel || currentModel.isDisposed()) return;
+
+    const targetLang = getLanguageForFile(activeFile.name);
+    if (currentModel.getLanguageId() !== targetLang) {
+      monaco.editor.setModelLanguage(currentModel, targetLang);
+      if (targetLang !== "sql") {
+        monaco.editor.setModelMarkers(currentModel, "sql-validator", []);
+        lastSyntaxErrorsRef.current = [];
+        onSyntaxErrorsChangeRef.current?.([]);
+      }
+      updateDecorations(editor);
+    }
+  }, [activeFile?.name, updateDecorations]);
 
   // External Content Syncer Effect (Active Model)
   useEffect(() => {
@@ -1684,6 +2517,7 @@ const SqlEditor = forwardRef(function SqlEditor({
   };
 
   const handleFormat = () => {
+    if (isMarkdownFile) return;
     const editor = editorRef.current;
     const monaco = monacoRef.current;
     if (!editor || !monaco) return;
@@ -1710,6 +2544,7 @@ const SqlEditor = forwardRef(function SqlEditor({
   };
 
   const handleMinify = () => {
+    if (isMarkdownFile) return;
     const editor = editorRef.current;
     const monaco = monacoRef.current;
     if (!editor || !monaco) return;
@@ -2006,6 +2841,9 @@ const SqlEditor = forwardRef(function SqlEditor({
       editor.focus();
       editor.trigger('keyboard', 'editor.action.quickCommand');
     },
+    triggerEmmet: () => {
+      expandEmmetAtCursor(editorRef.current, monacoRef.current);
+    },
     jumpToFirstSyntaxError: () => {
       const editor = editorRef.current;
       if (!editor || lastSyntaxErrorsRef.current.length === 0) return;
@@ -2158,7 +2996,7 @@ const SqlEditor = forwardRef(function SqlEditor({
               suggestOnTriggerCharacters: true,
               acceptSuggestionOnEnter: settings["editor.acceptSuggestionOnEnter"] || "smart",
               tabCompletion: "on",
-              quickSuggestions: true,
+              quickSuggestions: { other: true, comments: true, strings: true },
               wordBasedSuggestions: "currentDocument",
               suggest: {
                 showKeywords: true,
@@ -2180,13 +3018,15 @@ const SqlEditor = forwardRef(function SqlEditor({
         {/* Markdown Preview Container */}
         {isMarkdownFile && (markdownViewMode === "split" || markdownViewMode === "preview") && (
           <div
-            className={`h-full min-h-0 overflow-y-auto bg-(--color-bg-primary) ${
+            className={`h-full min-h-0 overflow-hidden bg-(--color-bg-primary) ${
               markdownViewMode === "split" ? "w-1/2" : "w-full"
             }`}
           >
             <MarkdownPreview
               content={activeFile?.content || ""}
               theme={theme}
+              scrollRef={previewContainerRef}
+              onScroll={handlePreviewScroll}
             />
           </div>
         )}

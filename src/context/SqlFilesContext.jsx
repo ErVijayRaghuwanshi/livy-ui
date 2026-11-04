@@ -29,7 +29,7 @@ const SqlFilesContext = createContext(null);
 
 const defaultFile = {
   id: "default",
-  name: "Untitled-1.sql",
+  name: "Untitled-1",
   content: "-- Write your Spark SQL here\nSELECT 1;\n",
   lastSavedContent: null,
   isLocalDisk: false,
@@ -298,7 +298,7 @@ function reducer(state, action) {
       const isUntitled = action.payload?.isUntitled ?? !action.payload?.name;
       const newFile = {
         id: uuidv4(),
-        name: action.payload?.name || `Untitled-1.sql`,
+        name: action.payload?.name || `Untitled-1`,
         content: action.payload?.content || "-- Write your Spark SQL here\nSELECT 1;\n",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -1065,6 +1065,11 @@ export function SqlFilesProvider({ children }) {
       if (state.workspace.isConnected && state.workspace.handle) {
         try {
           let targetName = file.name;
+          const isMd = file.content?.trim().startsWith("#") || targetName.toLowerCase().endsWith(".md");
+          const hasExtension = /\.[a-zA-Z0-9_-]+$/.test(targetName);
+          if (!hasExtension) {
+            targetName = `${targetName}${isMd ? ".md" : ".sql"}`;
+          }
           const currentDiskFiles = filesRef.current.filter((f) => f.isLocalDisk);
           const existingDiskNames = new Set(currentDiskFiles.map((f) => f.name.toLowerCase()));
 
@@ -1500,13 +1505,16 @@ export function SqlFilesProvider({ children }) {
   const addFileToFolder = useCallback(async (parentDirHandle, fileName, content) => {
     const parent = parentDirHandle || state.workspace.handle;
     let name = fileName;
+    const isMarkdown = name ? name.toLowerCase().endsWith(".md") : false;
+    const defaultExt = isMarkdown ? ".md" : ".sql";
     if (!name) {
       const currentFiles = filesRef.current || state.files;
       const existingNames = new Set(currentFiles.map((f) => f.name.toLowerCase()));
       let counter = 1;
+      const prefix = isMarkdown ? "Note_" : "Query_";
       if (parent) {
         while (true) {
-          const candidate = `Query_${counter}.sql`;
+          const candidate = `${prefix}${counter}${defaultExt}`;
           let onDisk = false;
           try {
             await parent.getFileHandle(candidate);
@@ -1521,13 +1529,16 @@ export function SqlFilesProvider({ children }) {
           counter++;
         }
       } else {
-        while (existingNames.has(`query_${counter}.sql`.toLowerCase())) {
+        while (existingNames.has(`${prefix.toLowerCase()}${counter}${defaultExt}`.toLowerCase())) {
           counter++;
         }
-        name = `Query_${counter}.sql`;
+        name = `${prefix}${counter}${defaultExt}`;
       }
     }
-    const text = content || "-- Write your Spark SQL here\nSELECT 1;\n";
+    const defaultContent = (name && name.toLowerCase().endsWith(".md"))
+      ? `# Untitled\n\nWrite your documentation, notes, or runbook in Markdown here.\n`
+      : "-- Write your Spark SQL here\nSELECT 1;\n";
+    const text = content !== undefined ? content : defaultContent;
     const newId = uuidv4();
 
     let fileHandle = null;
@@ -1643,6 +1654,9 @@ export function SqlFilesProvider({ children }) {
   const addFile = useCallback(async (payload) => {
     const target = payload?.target; // 'browser' | 'workspace'
     const isUntitledRequested = payload?.isUntitled === true || (!payload?.name && target !== "browser");
+    const fileType = payload?.fileType || (payload?.name?.toLowerCase().endsWith(".md") ? "markdown" : "sql");
+    const isMarkdown = fileType === "markdown" || payload?.isMarkdown === true;
+    const defaultExt = isMarkdown ? ".md" : ".sql";
 
     let fileName = payload?.name;
     const currentFiles = filesRef.current || state.files;
@@ -1650,19 +1664,25 @@ export function SqlFilesProvider({ children }) {
 
     if (isUntitledRequested) {
       let counter = 1;
-      while (existingNames.has(`untitled-${counter}.sql`.toLowerCase())) {
+      const ext = isMarkdown ? ".md" : "";
+      while (existingNames.has(`untitled-${counter}${ext}`.toLowerCase())) {
         counter++;
       }
-      fileName = `Untitled-${counter}.sql`;
+      fileName = `Untitled-${counter}${ext}`;
     } else if (!fileName) {
       let counter = 1;
-      while (existingNames.has(`query_${counter}.sql`.toLowerCase())) {
+      const prefix = isMarkdown ? "Note_" : "Query_";
+      const ext = isMarkdown ? ".md" : ".sql";
+      while (existingNames.has(`${prefix.toLowerCase()}${counter}${ext}`.toLowerCase())) {
         counter++;
       }
-      fileName = `Query_${counter}.sql`;
+      fileName = `${prefix}${counter}${ext}`;
     }
 
-    const content = payload?.content || "-- Write your Spark SQL here\nSELECT 1;\n";
+    const defaultContent = isMarkdown
+      ? `# Untitled\n\nWrite your documentation, notes, or runbook in Markdown here.\n`
+      : "-- Write your Spark SQL here\nSELECT 1;\n";
+    const content = payload?.content !== undefined ? payload.content : defaultContent;
     const newId = uuidv4();
 
     let fileHandle = null;
@@ -1842,6 +1862,7 @@ export function SqlFilesProvider({ children }) {
   // Rename File (renames on local disk if in workspace mode and keeps tree/path synced)
   const renameFile = useCallback(async (id, name) => {
     const file = state.files.find((f) => f.id === id);
+    if (!file || !name || file.name === name) return;
     if (file?.isLocalDisk && (file.parentDirHandle || state.workspace.handle)) {
       try {
         const newHandle = await renameFileInDirectory(
