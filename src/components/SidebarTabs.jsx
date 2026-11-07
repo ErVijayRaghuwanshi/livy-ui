@@ -19,6 +19,7 @@ import FileExplorer from "./FileExplorer";
 import SchemaExplorer from "./SchemaExplorer";
 import SearchPanel from "./SearchPanel";
 import SettingsPanel from "./SettingsPanel";
+import ComputePanel from "./ComputePanel";
 import { useSchema } from "../context/SchemaContext";
 import { useSqlFiles } from "../context/SqlFilesContext";
 import { useLivy } from "../context/LivyContext";
@@ -29,6 +30,7 @@ const SidebarTabs = forwardRef(({
   collapsed,
   setCollapsed,
   onInsertAtCursor,
+  onRunSql,
   width,
   theme,
   toggleTheme,
@@ -189,7 +191,24 @@ const SidebarTabs = forwardRef(({
     );
   }
 
-  // 4. FILES / EXPLORER PANEL TAB (Default)
+  // 4. COMPUTE & SESSION MANAGER TAB
+  if (activeTab === "compute") {
+    return (
+      <div
+        style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
+        className="flex flex-col bg-(--color-bg-secondary) rounded-xl border border-(--color-border) shadow-xs shrink-0 overflow-hidden h-full"
+      >
+        <ComputePanel
+          onClose={() => setCollapsed(true)}
+          onInsertAtCursor={onInsertAtCursor}
+          onRunSql={onRunSql}
+          setShowConnectionModal={setShowConnectionModal}
+        />
+      </div>
+    );
+  }
+
+  // 5. FILES / EXPLORER PANEL TAB (Default)
   const openFilesData = openFiles.map((id) => files.find((f) => f.id === id)).filter(Boolean);
 
   return (

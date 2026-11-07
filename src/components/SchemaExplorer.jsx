@@ -39,6 +39,7 @@ import { useSchema } from "../context/SchemaContext";
 import { SESSION_STATES } from "../utils/constants";
 
 import * as livyApi from "../services/livyApi";
+import { executeDorisQuery } from "../services/dorisApi";
 
 const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 
@@ -242,7 +243,7 @@ function LoadingNode() {
 
 const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, refreshTrigger: externalRefreshTrigger, showHeader = true }, ref) {
 
-  const { sessionId, sessionState } = useLivy();
+  const { sessionId, sessionState, isDoris, activeHost } = useLivy();
 
   const {
 
@@ -272,7 +273,7 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, re
 
 
 
-  const isReady = sessionState === SESSION_STATES.IDLE && sessionId !== null;
+  const isReady = isDoris ? true : (sessionState === SESSION_STATES.IDLE && sessionId !== null);
 
 
 
@@ -322,7 +323,18 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, re
 
     try {
 
-      await livyApi.runSql(sessionId, `DROP TABLE IF EXISTS \`${db}\`.\`${table}\``);
+      if (isDoris) {
+        await executeDorisQuery({
+          url: activeHost?.url || "http://localhost:8030",
+          cluster: activeHost?.cluster || "default_cluster",
+          database: db,
+          username: activeHost?.username || "root",
+          password: activeHost?.password || "",
+          sql: `DROP TABLE IF EXISTS \`${db}\`.\`${table}\``,
+        });
+      } else {
+        await livyApi.runSql(sessionId, `DROP TABLE IF EXISTS \`${db}\`.\`${table}\``);
+      }
 
       refreshSchema();
 
@@ -429,7 +441,7 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, re
 
           <div className="px-3 py-4 text-xs text-(--color-text-muted) text-center">
 
-            Start a session to explore schema
+            Start a Spark session to explore schema
 
           </div>
 

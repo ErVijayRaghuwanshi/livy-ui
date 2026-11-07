@@ -1,0 +1,838 @@
+/**
+ * Apache Doris SQL Built-in Functions Catalog
+ * Comprehensive reference for in-editor autocomplete, hover documentation, and syntax suggestions.
+ */
+
+export const DORIS_FUNCTIONS_DATA = [
+  /* ============================================================
+     AI FUNCTIONS (LLM Powered)
+     ============================================================ */
+  {
+    name: "AI_TRANSLATE",
+    usage: "AI_TRANSLATE(resource_name, text, target_language)",
+    description: "Translates text into the specified target language using an external LLM resource configured via CREATE RESOURCE.",
+    category: "AI",
+    example: "SELECT AI_TRANSLATE('ollama_gemma2', 'Hello, how are you?', 'Hindi');",
+  },
+  {
+    name: "AI_GENERATE",
+    usage: "AI_GENERATE(resource_name, prompt)",
+    description: "Generates text responses or completions based on the provided prompt using the specified AI resource.",
+    category: "AI",
+    example: "SELECT AI_GENERATE('ollama_gemma2', 'Explain columnar storage in 1 sentence');",
+  },
+  {
+    name: "AI_SUMMARIZE",
+    usage: "AI_SUMMARIZE(resource_name, text)",
+    description: "Generates a concise natural language summary of the provided text input.",
+    category: "AI",
+    example: "SELECT AI_SUMMARIZE('ollama_gemma2', review_content) FROM product_reviews;",
+  },
+  {
+    name: "AI_EXTRACT",
+    usage: "AI_EXTRACT(resource_name, text, schema_or_fields)",
+    description: "Extracts key attributes or structured entities from unstructured text according to the provided schema or field list.",
+    category: "AI",
+    example: "SELECT AI_EXTRACT('ollama_gemma2', email_body, 'sender_name, invoice_amount');",
+  },
+  {
+    name: "AI_FILTER",
+    usage: "AI_FILTER(resource_name, text, condition)",
+    description: "Evaluates a semantic natural-language condition against the text and returns a boolean result (true/false).",
+    category: "AI",
+    example: "SELECT * FROM tickets WHERE AI_FILTER('ollama_gemma2', description, 'mentions payment failure');",
+  },
+  {
+    name: "AI_SENTIMENT",
+    usage: "AI_SENTIMENT(resource_name, text)",
+    description: "Analyzes and classifies the emotional sentiment of the text as positive, neutral, or negative.",
+    category: "AI",
+    example: "SELECT feedback, AI_SENTIMENT('ollama_gemma2', feedback) AS sentiment FROM surveys;",
+  },
+  {
+    name: "AI_CLASSIFY",
+    usage: "AI_CLASSIFY(resource_name, text, categories)",
+    description: "Classifies the input text into one of the user-provided candidate categories.",
+    category: "AI",
+    example: "SELECT AI_CLASSIFY('ollama_gemma2', query, 'billing, technical, sales') FROM user_queries;",
+  },
+  {
+    name: "AI_FIXGRAMMAR",
+    usage: "AI_FIXGRAMMAR(resource_name, text)",
+    description: "Corrects spelling, grammar, and syntactic mistakes in the provided text.",
+    category: "AI",
+    example: "SELECT AI_FIXGRAMMAR('ollama_gemma2', raw_draft) FROM posts;",
+  },
+  {
+    name: "AI_MASK",
+    usage: "AI_MASK(resource_name, text, sensitive_types)",
+    description: "Identifies and redacts sensitive information (e.g., PII, credit card numbers, phone numbers) from text.",
+    category: "AI",
+    example: "SELECT AI_MASK('ollama_gemma2', chat_log, 'phone, email') FROM customer_logs;",
+  },
+  {
+    name: "AI_SIMILARITY",
+    usage: "AI_SIMILARITY(resource_name, text1, text2)",
+    description: "Calculates the semantic similarity score between two texts using an embedding or LLM evaluation.",
+    category: "AI",
+    example: "SELECT AI_SIMILARITY('ollama_gemma2', query1, query2) AS sim_score;",
+  },
+  {
+    name: "AI_AGG",
+    usage: "AI_AGG(resource_name, prompt, column)",
+    description: "Aggregate function that feeds grouped column values into an LLM prompt to generate a consolidated summary or analysis.",
+    category: "AI",
+    example: "SELECT department, AI_AGG('ollama_gemma2', 'Summarize key achievements', notes) FROM team_notes GROUP BY department;",
+  },
+
+  /* ============================================================
+     BITMAP & COUNTING FUNCTIONS
+     ============================================================ */
+  {
+    name: "BITMAP_EMPTY",
+    usage: "BITMAP_EMPTY()",
+    description: "Returns an empty bitmap value. Used to initialize default values or aggregate inputs.",
+    category: "Bitmap",
+    example: "INSERT INTO user_tag VALUES (1, BITMAP_EMPTY());",
+  },
+  {
+    name: "TO_BITMAP",
+    usage: "TO_BITMAP(expr)",
+    description: "Converts an integer (up to BIGINT) into a single-element roaring bitmap.",
+    category: "Bitmap",
+    example: "SELECT TO_BITMAP(1001);",
+  },
+  {
+    name: "BITMAP_HASH",
+    usage: "BITMAP_HASH(expr)",
+    description: "Computes a 32-bit MurmurHash of an arbitrary expression and stores it into a bitmap.",
+    category: "Bitmap",
+    example: "SELECT BITMAP_HASH(user_uuid) FROM users;",
+  },
+  {
+    name: "BITMAP_HASH64",
+    usage: "BITMAP_HASH64(expr)",
+    description: "Computes a 64-bit hash of an arbitrary expression and stores it into a 64-bit bitmap.",
+    category: "Bitmap",
+    example: "SELECT BITMAP_HASH64(device_id) FROM logs;",
+  },
+  {
+    name: "BITMAP_COUNT",
+    usage: "BITMAP_COUNT(bitmap)",
+    description: "Returns the exact number of elements present in the bitmap (exact distinct count).",
+    category: "Bitmap",
+    example: "SELECT BITMAP_COUNT(user_bitmap) FROM daily_active_users;",
+  },
+  {
+    name: "BITMAP_UNION",
+    usage: "BITMAP_UNION(bitmap)",
+    description: "Aggregate function that computes the set union of all bitmaps across grouped rows.",
+    category: "Bitmap",
+    example: "SELECT dt, BITMAP_COUNT(BITMAP_UNION(uv_bitmap)) FROM page_views GROUP BY dt;",
+  },
+  {
+    name: "BITMAP_AND",
+    usage: "BITMAP_AND(bitmap1, bitmap2)",
+    description: "Returns the intersection (logical AND) of two bitmaps.",
+    category: "Bitmap",
+    example: "SELECT BITMAP_COUNT(BITMAP_AND(active_day1, active_day2)) AS retained_users;",
+  },
+  {
+    name: "BITMAP_OR",
+    usage: "BITMAP_OR(bitmap1, bitmap2)",
+    description: "Returns the union (logical OR) of two bitmaps.",
+    category: "Bitmap",
+    example: "SELECT BITMAP_COUNT(BITMAP_OR(web_users, app_users)) AS total_unique;",
+  },
+  {
+    name: "BITMAP_XOR",
+    usage: "BITMAP_XOR(bitmap1, bitmap2)",
+    description: "Returns the symmetric difference (logical XOR) of two bitmaps.",
+    category: "Bitmap",
+    example: "SELECT BITMAP_COUNT(BITMAP_XOR(bm1, bm2));",
+  },
+  {
+    name: "BITMAP_NOT",
+    usage: "BITMAP_NOT(bitmap1, bitmap2)",
+    description: "Returns elements in bitmap1 that are not present in bitmap2 (difference bitmap1 \\ bitmap2).",
+    category: "Bitmap",
+    example: "SELECT BITMAP_COUNT(BITMAP_NOT(total_users, bounced_users));",
+  },
+  {
+    name: "BITMAP_CONTAINS",
+    usage: "BITMAP_CONTAINS(bitmap, val)",
+    description: "Checks whether the given integer value is contained in the bitmap.",
+    category: "Bitmap",
+    example: "SELECT BITMAP_CONTAINS(subscribed_users, 42);",
+  },
+  {
+    name: "BITMAP_TO_ARRAY",
+    usage: "BITMAP_TO_ARRAY(bitmap)",
+    description: "Decompresses the bitmap into an array of integers.",
+    category: "Bitmap",
+    example: "SELECT BITMAP_TO_ARRAY(user_bitmap);",
+  },
+  {
+    name: "BITMAP_FROM_STRING",
+    usage: "BITMAP_FROM_STRING('1,2,3,4,5')",
+    description: "Constructs a roaring bitmap from a comma-separated string of integers.",
+    category: "Bitmap",
+    example: "SELECT BITMAP_COUNT(BITMAP_FROM_STRING('10,20,30,40'));",
+  },
+
+  /* ============================================================
+     HLL (HYPERLOGLOG) FUNCTIONS
+     ============================================================ */
+  {
+    name: "HLL_EMPTY",
+    usage: "HLL_EMPTY()",
+    description: "Returns an empty HyperLogLog (HLL) structure.",
+    category: "HLL",
+    example: "INSERT INTO metrics VALUES ('clicks', HLL_EMPTY());",
+  },
+  {
+    name: "HLL_HASH",
+    usage: "HLL_HASH(expr)",
+    description: "Generates an HLL value by hashing an input expression.",
+    category: "HLL",
+    example: "SELECT HLL_HASH(client_ip) FROM logs;",
+  },
+  {
+    name: "HLL_CARDINALITY",
+    usage: "HLL_CARDINALITY(hll)",
+    description: "Estimates the distinct count (cardinality) represented by the HLL state.",
+    category: "HLL",
+    example: "SELECT HLL_CARDINALITY(hll_union_agg(visitor_hll)) FROM daily_metrics;",
+  },
+  {
+    name: "HLL_UNION_AGG",
+    usage: "HLL_UNION_AGG(hll)",
+    description: "Aggregate function that merges all HLL states into a single unified HLL state.",
+    category: "HLL",
+    example: "SELECT date, HLL_CARDINALITY(HLL_UNION_AGG(uv)) FROM traffic GROUP BY date;",
+  },
+
+  /* ============================================================
+     QUANTILE & STATISTICAL FUNCTIONS
+     ============================================================ */
+  {
+    name: "QUANTILE_PERCENT",
+    usage: "QUANTILE_PERCENT(quantile_state, percent)",
+    description: "Computes the approximate quantile/percentile (0.0 to 1.0) from a QUANTILE_STATE column.",
+    category: "Quantile",
+    example: "SELECT QUANTILE_PERCENT(quantile_union(duration_state), 0.99) AS p99_latency FROM requests;",
+  },
+  {
+    name: "QUANTILE_UNION",
+    usage: "QUANTILE_UNION(quantile_state)",
+    description: "Aggregate function that merges multiple QUANTILE_STATE values together.",
+    category: "Quantile",
+    example: "SELECT service, QUANTILE_UNION(qstate) FROM latency_stats GROUP BY service;",
+  },
+  {
+    name: "PERCENTILE",
+    usage: "PERCENTILE(col, p)",
+    description: "Calculates the exact percentile p (0.0 to 1.0) of an integer column.",
+    category: "Statistics",
+    example: "SELECT PERCENTILE(salary, 0.5) AS median_salary FROM employees;",
+  },
+  {
+    name: "PERCENTILE_APPROX",
+    usage: "PERCENTILE_APPROX(col, p [, B])",
+    description: "Calculates the approximate percentile p (0.0 to 1.0) of a numerical column using T-Digest.",
+    category: "Statistics",
+    example: "SELECT PERCENTILE_APPROX(response_time, 0.95, 2048) AS p95 FROM logs;",
+  },
+  {
+    name: "TOPN",
+    usage: "TOPN(col, n)",
+    description: "Returns an array of the top N most frequent items in the column.",
+    category: "Statistics",
+    example: "SELECT TOPN(keyword, 10) FROM search_logs;",
+  },
+
+  /* ============================================================
+     JSON & JSONB FUNCTIONS
+     ============================================================ */
+  {
+    name: "JSON_EXTRACT",
+    usage: "JSON_EXTRACT(json_str, path)",
+    description: "Extracts a portion of a JSON document specified by a JSONPath expression.",
+    category: "JSON",
+    example: "SELECT JSON_EXTRACT(raw_json, '$.user.profile.age');",
+  },
+  {
+    name: "JSON_ARRAY",
+    usage: "JSON_ARRAY(val1, val2, ...)",
+    description: "Constructs a JSON array containing the supplied arguments.",
+    category: "JSON",
+    example: "SELECT JSON_ARRAY('a', 1, true);",
+  },
+  {
+    name: "JSON_OBJECT",
+    usage: "JSON_OBJECT(key1, val1, key2, val2, ...)",
+    description: "Constructs a JSON object from key-value pairs.",
+    category: "JSON",
+    example: "SELECT JSON_OBJECT('name', 'Alice', 'role', 'Lead');",
+  },
+  {
+    name: "JSONB_EXTRACT",
+    usage: "JSONB_EXTRACT(jsonb_col, path)",
+    description: "Extracts a JSON element from a binary JSONB column using JSONPath.",
+    category: "JSONB",
+    example: "SELECT JSONB_EXTRACT(payload_jsonb, '$.device_info');",
+  },
+  {
+    name: "JSONB_EXTRACT_INT",
+    usage: "JSONB_EXTRACT_INT(jsonb_col, path)",
+    description: "Extracts an integer value from a JSONB column without string parsing overhead.",
+    category: "JSONB",
+    example: "SELECT JSONB_EXTRACT_INT(payload_jsonb, '$.user_id');",
+  },
+  {
+    name: "JSONB_EXTRACT_STRING",
+    usage: "JSONB_EXTRACT_STRING(jsonb_col, path)",
+    description: "Extracts an unquoted string value from a JSONB column.",
+    category: "JSONB",
+    example: "SELECT JSONB_EXTRACT_STRING(payload_jsonb, '$.user.email');",
+  },
+  {
+    name: "JSONB_PARSE",
+    usage: "JSONB_PARSE(str)",
+    description: "Parses a JSON string into a native binary JSONB representation.",
+    category: "JSONB",
+    example: "SELECT JSONB_PARSE('{\"status\": \"ok\", \"code\": 200}');",
+  },
+  {
+    name: "JSONB_EXISTS",
+    usage: "JSONB_EXISTS(jsonb_col, path)",
+    description: "Returns true if the specified JSONPath exists in the JSONB column.",
+    category: "JSONB",
+    example: "SELECT JSONB_EXISTS(payload_jsonb, '$.error_code');",
+  },
+
+  /* ============================================================
+     ARRAY & COLLECTION FUNCTIONS
+     ============================================================ */
+  {
+    name: "ARRAY",
+    usage: "ARRAY(elem1, elem2, ...)",
+    description: "Constructs a new array with the provided elements.",
+    category: "Array",
+    example: "SELECT ARRAY(1, 2, 3, 4, 5);",
+  },
+  {
+    name: "ARRAY_CONCAT",
+    usage: "ARRAY_CONCAT(arr1, arr2, ...)",
+    description: "Concatenates multiple arrays into a single array.",
+    category: "Array",
+    example: "SELECT ARRAY_CONCAT([1, 2], [3, 4]);",
+  },
+  {
+    name: "ARRAY_CONTAINS",
+    usage: "ARRAY_CONTAINS(arr, val)",
+    description: "Returns true if the array contains the specified value.",
+    category: "Array",
+    example: "SELECT ARRAY_CONTAINS(tags, 'vip') FROM users;",
+  },
+  {
+    name: "ARRAY_DISTINCT",
+    usage: "ARRAY_DISTINCT(arr)",
+    description: "Removes duplicate elements from the array while preserving order.",
+    category: "Array",
+    example: "SELECT ARRAY_DISTINCT([1, 2, 2, 3, 1]);",
+  },
+  {
+    name: "ARRAY_FILTER",
+    usage: "ARRAY_FILTER(arr, lambda)",
+    description: "Filters elements in an array using a lambda expression.",
+    category: "Array",
+    example: "SELECT ARRAY_FILTER([1, 2, 3, 4], x -> x % 2 = 0);",
+  },
+  {
+    name: "ARRAY_JOIN",
+    usage: "ARRAY_JOIN(arr, delimiter [, null_replacement])",
+    description: "Concatenates all array elements into a string using the specified delimiter.",
+    category: "Array",
+    example: "SELECT ARRAY_JOIN(['apple', 'banana', 'orange'], ', ');",
+  },
+  {
+    name: "ARRAY_SIZE",
+    usage: "ARRAY_SIZE(arr)",
+    description: "Returns the number of elements in the array. Synonym for ARRAY_LENGTH.",
+    category: "Array",
+    example: "SELECT ARRAY_SIZE(categories) FROM products;",
+  },
+  {
+    name: "ARRAY_MAP",
+    usage: "ARRAY_MAP(arr, lambda)",
+    description: "Applies a transformation lambda function to every element in the array.",
+    category: "Array",
+    example: "SELECT ARRAY_MAP([1, 2, 3], x -> x * 10);",
+  },
+  {
+    name: "ARRAY_MAX",
+    usage: "ARRAY_MAX(arr)",
+    description: "Returns the maximum value from the array.",
+    category: "Array",
+    example: "SELECT ARRAY_MAX(scores);",
+  },
+  {
+    name: "ARRAY_MIN",
+    usage: "ARRAY_MIN(arr)",
+    description: "Returns the minimum value from the array.",
+    category: "Array",
+    example: "SELECT ARRAY_MIN(scores);",
+  },
+  {
+    name: "ARRAY_SLICE",
+    usage: "ARRAY_SLICE(arr, offset, length)",
+    description: "Returns a sub-array starting at offset with the given length.",
+    category: "Array",
+    example: "SELECT ARRAY_SLICE(['a', 'b', 'c', 'd'], 2, 2);",
+  },
+  {
+    name: "ARRAY_SORT",
+    usage: "ARRAY_SORT(arr)",
+    description: "Sorts the elements of an array in ascending order.",
+    category: "Array",
+    example: "SELECT ARRAY_SORT([4, 1, 3, 2]);",
+  },
+  {
+    name: "ARRAY_SUM",
+    usage: "ARRAY_SUM(arr)",
+    description: "Calculates the sum of all numerical elements in the array.",
+    category: "Array",
+    example: "SELECT ARRAY_SUM([10, 20, 30]);",
+  },
+
+  /* ============================================================
+     MAP & STRUCT FUNCTIONS
+     ============================================================ */
+  {
+    name: "MAP",
+    usage: "MAP(key1, val1, key2, val2, ...)",
+    description: "Constructs a map from alternating key and value expressions.",
+    category: "Map",
+    example: "SELECT MAP('env', 'prod', 'region', 'us-east');",
+  },
+  {
+    name: "MAP_KEYS",
+    usage: "MAP_KEYS(map)",
+    description: "Returns an array containing all keys from the map.",
+    category: "Map",
+    example: "SELECT MAP_KEYS(attributes);",
+  },
+  {
+    name: "MAP_VALUES",
+    usage: "MAP_VALUES(map)",
+    description: "Returns an array containing all values from the map.",
+    category: "Map",
+    example: "SELECT MAP_VALUES(attributes);",
+  },
+  {
+    name: "MAP_CONTAINS_KEY",
+    usage: "MAP_CONTAINS_KEY(map, key)",
+    description: "Returns true if the map contains the specified key.",
+    category: "Map",
+    example: "SELECT MAP_CONTAINS_KEY(props, 'timeout');",
+  },
+  {
+    name: "MAP_SIZE",
+    usage: "MAP_SIZE(map)",
+    description: "Returns the number of key-value pairs in the map.",
+    category: "Map",
+    example: "SELECT MAP_SIZE(user_meta);",
+  },
+  {
+    name: "STRUCT",
+    usage: "STRUCT(val1, val2, ...)",
+    description: "Constructs a struct from provided values.",
+    category: "Struct",
+    example: "SELECT STRUCT('John', 30);",
+  },
+  {
+    name: "NAMED_STRUCT",
+    usage: "NAMED_STRUCT('name1', val1, 'name2', val2, ...)",
+    description: "Constructs a named struct with explicit field names and values.",
+    category: "Struct",
+    example: "SELECT NAMED_STRUCT('city', 'Berlin', 'zip', 10115);",
+  },
+
+  /* ============================================================
+     STRING FUNCTIONS
+     ============================================================ */
+  {
+    name: "CONCAT",
+    usage: "CONCAT(str1, str2, ...)",
+    description: "Concatenates two or more strings together.",
+    category: "String",
+    example: "SELECT CONCAT(first_name, ' ', last_name) FROM users;",
+  },
+  {
+    name: "CONCAT_WS",
+    usage: "CONCAT_WS(separator, str1, str2, ...)",
+    description: "Concatenates strings using the specified delimiter separator.",
+    category: "String",
+    example: "SELECT CONCAT_WS('-', '2026', '11', '05');",
+  },
+  {
+    name: "SUBSTR",
+    usage: "SUBSTR(str, pos [, len])",
+    description: "Returns a substring starting at 1-based character index pos with optional length.",
+    category: "String",
+    example: "SELECT SUBSTR('Apache Doris', 1, 6);",
+  },
+  {
+    name: "SUBSTRING_INDEX",
+    usage: "SUBSTRING_INDEX(str, delim, count)",
+    description: "Returns the substring from string before count occurrences of the delimiter.",
+    category: "String",
+    example: "SELECT SUBSTRING_INDEX('www.doris.apache.org', '.', 2);",
+  },
+  {
+    name: "SPLIT_BY_STRING",
+    usage: "SPLIT_BY_STRING(str, delimiter)",
+    description: "Splits a string into an array of substrings using a literal delimiter string.",
+    category: "String",
+    example: "SELECT SPLIT_BY_STRING('apple,banana,cherry', ',');",
+  },
+  {
+    name: "REGEXP_EXTRACT",
+    usage: "REGEXP_EXTRACT(str, pattern, index)",
+    description: "Extracts a substring matching the regex pattern at the specified capture group index.",
+    category: "String",
+    example: "SELECT REGEXP_EXTRACT('order_id: 84920', 'order_id: ([0-9]+)', 1);",
+  },
+  {
+    name: "REGEXP_REPLACE",
+    usage: "REGEXP_REPLACE(str, pattern, replacement)",
+    description: "Replaces substrings matching the regular expression with replacement.",
+    category: "String",
+    example: "SELECT REGEXP_REPLACE('Hello 123 World', '[0-9]+', '***');",
+  },
+  {
+    name: "LOWER",
+    usage: "LOWER(str)",
+    description: "Converts all characters in the string to lowercase.",
+    category: "String",
+    example: "SELECT LOWER('Apache Doris');",
+  },
+  {
+    name: "UPPER",
+    usage: "UPPER(str)",
+    description: "Converts all characters in the string to uppercase.",
+    category: "String",
+    example: "SELECT UPPER('sql');",
+  },
+  {
+    name: "TRIM",
+    usage: "TRIM(str)",
+    description: "Removes leading and trailing whitespace from the string.",
+    category: "String",
+    example: "SELECT TRIM('   clean text   ');",
+  },
+  {
+    name: "LPAD",
+    usage: "LPAD(str, len, pad)",
+    description: "Left-pads string with the padding characters up to total length len.",
+    category: "String",
+    example: "SELECT LPAD('42', 6, '0');",
+  },
+  {
+    name: "RPAD",
+    usage: "RPAD(str, len, pad)",
+    description: "Right-pads string with the padding characters up to total length len.",
+    category: "String",
+    example: "SELECT RPAD('title', 10, '.');",
+  },
+  {
+    name: "LENGTH",
+    usage: "LENGTH(str)",
+    description: "Returns the length of the string in bytes.",
+    category: "String",
+    example: "SELECT LENGTH('Doris');",
+  },
+  {
+    name: "CHAR_LENGTH",
+    usage: "CHAR_LENGTH(str)",
+    description: "Returns the number of UTF-8 characters in the string.",
+    category: "String",
+    example: "SELECT CHAR_LENGTH('Doris');",
+  },
+
+  /* ============================================================
+     DATE & TIME FUNCTIONS
+     ============================================================ */
+  {
+    name: "NOW",
+    usage: "NOW()",
+    description: "Returns the current date and time as a DATETIME value.",
+    category: "Date & Time",
+    example: "SELECT NOW();",
+  },
+  {
+    name: "CURDATE",
+    usage: "CURDATE()",
+    description: "Returns the current date as a DATE value without time.",
+    category: "Date & Time",
+    example: "SELECT CURDATE();",
+  },
+  {
+    name: "CURTIME",
+    usage: "CURTIME()",
+    description: "Returns the current time of day as a TIME value.",
+    category: "Date & Time",
+    example: "SELECT CURTIME();",
+  },
+  {
+    name: "CURRENT_TIMESTAMP",
+    usage: "CURRENT_TIMESTAMP()",
+    description: "Returns the current date and time with timezone precision.",
+    category: "Date & Time",
+    example: "SELECT CURRENT_TIMESTAMP();",
+  },
+  {
+    name: "DATE_ADD",
+    usage: "DATE_ADD(date, INTERVAL expr unit)",
+    description: "Adds a time/date interval to a date value.",
+    category: "Date & Time",
+    example: "SELECT DATE_ADD(NOW(), INTERVAL 7 DAY);",
+  },
+  {
+    name: "DATE_SUB",
+    usage: "DATE_SUB(date, INTERVAL expr unit)",
+    description: "Subtracts a time/date interval from a date value.",
+    category: "Date & Time",
+    example: "SELECT DATE_SUB(CURDATE(), INTERVAL 1 MONTH);",
+  },
+  {
+    name: "DATEDIFF",
+    usage: "DATEDIFF(date1, date2)",
+    description: "Returns the number of days between two dates (date1 - date2).",
+    category: "Date & Time",
+    example: "SELECT DATEDIFF('2026-12-31', '2026-11-05');",
+  },
+  {
+    name: "TIMEDIFF",
+    usage: "TIMEDIFF(time1, time2)",
+    description: "Returns the difference between two datetime values formatted as a time expression.",
+    category: "Date & Time",
+    example: "SELECT TIMEDIFF(NOW(), '2026-11-05 00:00:00');",
+  },
+  {
+    name: "DATE_FORMAT",
+    usage: "DATE_FORMAT(date, format)",
+    description: "Formats a date/datetime according to the specified format specifier string.",
+    category: "Date & Time",
+    example: "SELECT DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s');",
+  },
+  {
+    name: "STR_TO_DATE",
+    usage: "STR_TO_DATE(str, format)",
+    description: "Parses a string into a date/datetime value according to the format specifier.",
+    category: "Date & Time",
+    example: "SELECT STR_TO_DATE('05/11/2026', '%d/%m/%Y');",
+  },
+  {
+    name: "DATE_TRUNC",
+    usage: "DATE_TRUNC(date, unit)",
+    description: "Truncates a datetime value to the specified unit (year, quarter, month, week, day, hour, minute, second).",
+    category: "Date & Time",
+    example: "SELECT DATE_TRUNC(NOW(), 'month');",
+  },
+  {
+    name: "UNIX_TIMESTAMP",
+    usage: "UNIX_TIMESTAMP([datetime])",
+    description: "Returns Unix timestamp in seconds (epoch time). If omitted, returns current epoch time.",
+    category: "Date & Time",
+    example: "SELECT UNIX_TIMESTAMP();",
+  },
+  {
+    name: "FROM_UNIXTIME",
+    usage: "FROM_UNIXTIME(unix_timestamp [, format])",
+    description: "Converts a Unix epoch timestamp in seconds to formatted datetime.",
+    category: "Date & Time",
+    example: "SELECT FROM_UNIXTIME(1793900000);",
+  },
+
+  /* ============================================================
+     MATH & NUMERIC FUNCTIONS
+     ============================================================ */
+  {
+    name: "ABS",
+    usage: "ABS(x)",
+    description: "Returns the absolute value of x.",
+    category: "Math",
+    example: "SELECT ABS(-42);",
+  },
+  {
+    name: "CEIL",
+    usage: "CEIL(x)",
+    description: "Rounds x up to the nearest integer.",
+    category: "Math",
+    example: "SELECT CEIL(3.14);",
+  },
+  {
+    name: "FLOOR",
+    usage: "FLOOR(x)",
+    description: "Rounds x down to the nearest integer.",
+    category: "Math",
+    example: "SELECT FLOOR(3.89);",
+  },
+  {
+    name: "ROUND",
+    usage: "ROUND(x [, d])",
+    description: "Rounds x to d decimal places (default 0).",
+    category: "Math",
+    example: "SELECT ROUND(123.4567, 2);",
+  },
+  {
+    name: "TRUNCATE",
+    usage: "TRUNCATE(x, d)",
+    description: "Truncates number x to d decimal places without rounding.",
+    category: "Math",
+    example: "SELECT TRUNCATE(123.4567, 2);",
+  },
+  {
+    name: "POW",
+    usage: "POW(x, y)",
+    description: "Returns x raised to the power of y.",
+    category: "Math",
+    example: "SELECT POW(2, 8);",
+  },
+  {
+    name: "SQRT",
+    usage: "SQRT(x)",
+    description: "Returns the square root of x.",
+    category: "Math",
+    example: "SELECT SQRT(64);",
+  },
+  {
+    name: "MOD",
+    usage: "MOD(n, m)",
+    description: "Returns remainder of n divided by m.",
+    category: "Math",
+    example: "SELECT MOD(10, 3);",
+  },
+  {
+    name: "GREATEST",
+    usage: "GREATEST(x1, x2, ...)",
+    description: "Returns largest value among the arguments.",
+    category: "Math",
+    example: "SELECT GREATEST(10, 45, 23);",
+  },
+  {
+    name: "LEAST",
+    usage: "LEAST(x1, x2, ...)",
+    description: "Returns smallest value among the arguments.",
+    category: "Math",
+    example: "SELECT LEAST(10, 45, 23);",
+  },
+
+  /* ============================================================
+     WINDOW & AGGREGATE FUNCTIONS
+     ============================================================ */
+  {
+    name: "COUNT",
+    usage: "COUNT(expr)",
+    description: "Counts total number of non-null rows or total rows with COUNT(*).",
+    category: "Aggregate",
+    example: "SELECT COUNT(*) FROM demo_db.users;",
+  },
+  {
+    name: "SUM",
+    usage: "SUM(expr)",
+    description: "Returns sum of all values in the column.",
+    category: "Aggregate",
+    example: "SELECT SUM(salary) FROM demo_db.users;",
+  },
+  {
+    name: "AVG",
+    usage: "AVG(expr)",
+    description: "Returns arithmetic average of numerical values.",
+    category: "Aggregate",
+    example: "SELECT AVG(salary) FROM demo_db.users;",
+  },
+  {
+    name: "MIN",
+    usage: "MIN(expr)",
+    description: "Returns minimum value in the group.",
+    category: "Aggregate",
+    example: "SELECT MIN(salary) FROM demo_db.users;",
+  },
+  {
+    name: "MAX",
+    usage: "MAX(expr)",
+    description: "Returns maximum value in the group.",
+    category: "Aggregate",
+    example: "SELECT MAX(salary) FROM demo_db.users;",
+  },
+  {
+    name: "ROW_NUMBER",
+    usage: "ROW_NUMBER() OVER ([PARTITION BY col] ORDER BY col)",
+    description: "Assigns a sequential integer starting at 1 to each row within the window partition.",
+    category: "Window",
+    example: "SELECT name, salary, ROW_NUMBER() OVER (ORDER BY salary DESC) AS rank FROM users;",
+  },
+  {
+    name: "RANK",
+    usage: "RANK() OVER ([PARTITION BY col] ORDER BY col)",
+    description: "Assigns rank with gaps for duplicate order values.",
+    category: "Window",
+    example: "SELECT name, RANK() OVER (ORDER BY salary DESC) FROM users;",
+  },
+  {
+    name: "DENSE_RANK",
+    usage: "DENSE_RANK() OVER ([PARTITION BY col] ORDER BY col)",
+    description: "Assigns rank without gaps for duplicate order values.",
+    category: "Window",
+    example: "SELECT name, DENSE_RANK() OVER (ORDER BY salary DESC) FROM users;",
+  },
+  {
+    name: "LEAD",
+    usage: "LEAD(col [, offset [, default]]) OVER (...)",
+    description: "Accesses value of subsequent row at offset within the window partition.",
+    category: "Window",
+    example: "SELECT salary, LEAD(salary, 1) OVER (ORDER BY hire_date) FROM employees;",
+  },
+  {
+    name: "LAG",
+    usage: "LAG(col [, offset [, default]]) OVER (...)",
+    description: "Accesses value of preceding row at offset within the window partition.",
+    category: "Window",
+    example: "SELECT salary, LAG(salary, 1) OVER (ORDER BY hire_date) FROM employees;",
+  },
+
+  /* ============================================================
+     NETWORK & IP FUNCTIONS
+     ============================================================ */
+  {
+    name: "TO_IPV4",
+    usage: "TO_IPV4(ip_str)",
+    description: "Converts an IPv4 string (e.g., '192.168.1.1') into a native 32-bit IPV4 data type.",
+    category: "Network",
+    example: "SELECT TO_IPV4('10.0.0.1');",
+  },
+  {
+    name: "TO_IPV6",
+    usage: "TO_IPV6(ip_str)",
+    description: "Converts an IPv6 string into a native 128-bit IPV6 data type.",
+    category: "Network",
+    example: "SELECT TO_IPV6('2001:db8::1');",
+  },
+  {
+    name: "IPV4_NUM_TO_STRING",
+    usage: "IPV4_NUM_TO_STRING(ipv4_int)",
+    description: "Converts a 32-bit integer IP into dotted-decimal IPv4 string representation.",
+    category: "Network",
+    example: "SELECT IPV4_NUM_TO_STRING(client_ip);",
+  },
+  {
+    name: "IPV4_CIDR_TO_RANGE",
+    usage: "IPV4_CIDR_TO_RANGE(ip, cidr_mask)",
+    description: "Calculates the lowest and highest IPv4 addresses in the given CIDR subnet range.",
+    category: "Network",
+    example: "SELECT IPV4_CIDR_TO_RANGE(TO_IPV4('192.168.1.0'), 24);",
+  },
+];

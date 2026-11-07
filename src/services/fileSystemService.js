@@ -314,7 +314,7 @@ export async function writeFileToHandle(fileHandle, content) {
 /**
  * Create a new file in a directory handle and write initial content
  */
-export async function createFileInDirectory(dirHandle, fileName, content = "-- Write your Spark SQL here\nSELECT 1;\n") {
+export async function createFileInDirectory(dirHandle, fileName, content = "-- Write your SQL here\nSELECT 1;\n") {
   if (!dirHandle) throw new Error("No directory handle provided");
   const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
   await writeFileToHandle(fileHandle, content);

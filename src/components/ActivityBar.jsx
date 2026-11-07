@@ -1,4 +1,4 @@
-import { Folder, Search, Database, Settings, HardDrive, GitBranch } from "lucide-react";
+import { Folder, Search, Database, Settings, HardDrive, GitBranch, Cpu } from "lucide-react";
 import { useSqlFiles } from "../context/SqlFilesContext";
 
 const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
@@ -75,6 +75,22 @@ export default function ActivityBar({
             <span className="absolute left-0 top-0 bottom-0 w-[2px] bg-white" />
           )}
           <Database size={20} />
+        </button>
+
+        {/* Compute & Session Manager Tab */}
+        <button
+          onClick={() => handleTabClick("compute")}
+          className={`relative flex items-center justify-center w-12 h-12 transition-colors cursor-pointer ${
+            !sidebarCollapsed && activeTab === "compute"
+              ? "text-white"
+              : "text-[#858585] hover:text-white"
+          }`}
+          title={isMac ? "Compute & Session Manager (Spark & Doris) (⌘⇧M)" : "Compute & Session Manager (Spark & Doris) (Ctrl+Shift+M)"}
+        >
+          {!sidebarCollapsed && activeTab === "compute" && (
+            <span className="absolute left-0 top-0 bottom-0 w-[2px] bg-white" />
+          )}
+          <Cpu size={20} />
         </button>
 
         {/* Local Workspace / Git Directory Sync */}

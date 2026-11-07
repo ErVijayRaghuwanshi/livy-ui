@@ -50,6 +50,8 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
     attachSession,
     isOnline,
     isServerReachable,
+    isDoris,
+    isSpark,
   } = useLivy();
 
   const [showSessionDropdown, setShowSessionDropdown] = useState(false);
@@ -189,16 +191,18 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
               !isOnline
                 ? "Browser is Offline"
                 : isServerReachable === false
-                ? "Livy Server is Unreachable (Down)"
+                ? `${isDoris ? "Doris FE" : "Livy Server"} is Unreachable (Down)`
                 : isServerReachable === null
-                ? "Checking connection to Livy server..."
-                : `Connected to Livy host (Active: ${activeHost.name})`
+                ? `Checking connection to ${isDoris ? "Doris FE" : "Livy server"}...`
+                : `Connected to ${isDoris ? "Doris" : "Livy"} host (Active: ${activeHost.name})`
             }
           >
             <div className="relative flex items-center justify-center shrink-0">
-              <Server size={13} className="text-(--color-text-muted) group-hover:text-(--color-accent) transition-colors" />
+              <span className="text-xs select-none" role="img" aria-label={isDoris ? "Doris" : "Spark"}>
+                {isDoris ? "🐬" : "⚡"}
+              </span>
               {/* Connected pulse dot */}
-              <span className={`absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full border border-(--color-bg-primary) ${
+              <span className={`absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full border border-(--color-bg-primary) ${
                 !isOnline
                   ? "bg-gray-500"
                   : isServerReachable === false
@@ -214,8 +218,14 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
             <ChevronDown size={12} className="hidden sm:inline text-(--color-text-muted) group-hover:text-(--color-text-primary) transition-colors" />
           </button>
 
-          {/* Session picker dropdown */}
-          <div className="relative" ref={dropdownRef}>
+          {/* Session picker dropdown (Spark) or Engine indicator (Doris) */}
+          {isDoris ? (
+            <div className="flex items-center h-8 gap-1.5 px-2.5 rounded-lg border border-cyan-500/25 bg-cyan-500/10 text-cyan-400 select-none shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+              <span className="hidden sm:inline text-xs font-semibold">Doris Ready</span>
+            </div>
+          ) : (
+            <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setShowSessionDropdown((v) => !v)}
               className={`flex items-center h-8 gap-1.5 px-2.5 rounded-lg border transition-all duration-200 cursor-pointer active:scale-95 shadow-xs ${
@@ -330,6 +340,7 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
               </div>
             )}
           </div>
+          )}
 
           {/* Theme Toggle */}
           <button
@@ -344,45 +355,47 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
             )}
           </button>
 
-          {/* Quick actions group */}
-          <div className="flex items-center gap-1 border-l border-(--color-border) pl-3 select-none">
-            {isStarting ? (
-              <button
-                disabled
-                className="flex items-center justify-center w-8 h-8 rounded-lg bg-(--color-warning)/10 border border-(--color-warning)/20 text-(--color-warning)"
-                title="Starting session..."
-              >
-                <Loader2 size={15} className="animate-spin" />
-              </button>
-            ) : isActive ? (
-              <button
-                onClick={handleStop}
-                disabled={loading}
-                className="flex items-center justify-center w-8 h-8 rounded-lg bg-(--color-error)/10 border border-(--color-error)/30 text-(--color-error) hover:bg-(--color-error)/20 hover:border-(--color-error)/50 active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-40 shadow-xs"
-                title="Stop Session"
-              >
-                {loading ? <Loader2 size={15} className="animate-spin" /> : <Square size={13} className="fill-current" />}
-              </button>
-            ) : (
-              <button
-                onClick={() => startSession().catch((err) => console.error("Failed to start session:", err.message))}
-                disabled={loading}
-                className="flex items-center justify-center w-8 h-8 rounded-lg bg-(--color-success)/10 border border-(--color-success)/30 text-(--color-success) hover:bg-(--color-success)/20 hover:border-(--color-success)/50 active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-40 shadow-xs"
-                title="Start Session"
-              >
-                {loading ? <Loader2 size={15} className="animate-spin" /> : <Play size={13} className="fill-current" />}
-              </button>
-            )}
+          {/* Quick actions group (Spark Livy Sessions only) */}
+          {!isDoris && (
+            <div className="flex items-center gap-1 border-l border-(--color-border) pl-3 select-none">
+              {isStarting ? (
+                <button
+                  disabled
+                  className="flex items-center justify-center w-8 h-8 rounded-lg bg-(--color-warning)/10 border border-(--color-warning)/20 text-(--color-warning)"
+                  title="Starting session..."
+                >
+                  <Loader2 size={15} className="animate-spin" />
+                </button>
+              ) : isActive ? (
+                <button
+                  onClick={handleStop}
+                  disabled={loading}
+                  className="flex items-center justify-center w-8 h-8 rounded-lg bg-(--color-error)/10 border border-(--color-error)/30 text-(--color-error) hover:bg-(--color-error)/20 hover:border-(--color-error)/50 active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-40 shadow-xs"
+                  title="Stop Session"
+                >
+                  {loading ? <Loader2 size={15} className="animate-spin" /> : <Square size={13} className="fill-current" />}
+                </button>
+              ) : (
+                <button
+                  onClick={() => startSession().catch((err) => console.error("Failed to start session:", err.message))}
+                  disabled={loading}
+                  className="flex items-center justify-center w-8 h-8 rounded-lg bg-(--color-success)/10 border border-(--color-success)/30 text-(--color-success) hover:bg-(--color-success)/20 hover:border-(--color-success)/50 active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-40 shadow-xs"
+                  title="Start Session"
+                >
+                  {loading ? <Loader2 size={15} className="animate-spin" /> : <Play size={13} className="fill-current" />}
+                </button>
+              )}
 
-            <button
-              onClick={refreshSession}
-              disabled={loading || sessionId === null}
-              className="flex items-center justify-center w-8 h-8 rounded-lg bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-muted) hover:text-(--color-text-primary) hover:border-(--color-accent) active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-40 shadow-xs"
-              title="Refresh Session"
-            >
-              <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
-            </button>
-          </div>
+              <button
+                onClick={refreshSession}
+                disabled={loading || sessionId === null}
+                className="flex items-center justify-center w-8 h-8 rounded-lg bg-(--color-bg-primary) border border-(--color-border) text-(--color-text-muted) hover:text-(--color-text-primary) hover:border-(--color-accent) active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-40 shadow-xs"
+                title="Refresh Session"
+              >
+                <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+              </button>
+            </div>
+          )}
         </div>
       </nav>
 

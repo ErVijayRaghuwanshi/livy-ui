@@ -9,6 +9,7 @@ export default function CommandPalette({
   isOpen,
   onClose,
   toggleTheme,
+  setActiveSidebarTab,
   setSidebarCollapsed,
   setShowShortcuts,
   setShowHistory,
@@ -228,6 +229,16 @@ export default function CommandPalette({
       category: "View",
       shortcut: isMac ? "⌘B" : "Ctrl+B",
       action: () => setSidebarCollapsed((p) => !p),
+    },
+    {
+      id: "show-compute-manager",
+      name: "View: Show Compute & Session Manager",
+      category: "View",
+      shortcut: isMac ? "⌘⇧M" : "Ctrl+Shift+M",
+      action: () => {
+        setActiveSidebarTab?.("compute");
+        setSidebarCollapsed?.(false);
+      },
     },
     {
       id: "toggle-minimap",

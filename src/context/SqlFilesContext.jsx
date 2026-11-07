@@ -30,7 +30,7 @@ const SqlFilesContext = createContext(null);
 const defaultFile = {
   id: "default",
   name: "Untitled-1",
-  content: "-- Write your Spark SQL here\nSELECT 1;\n",
+  content: "-- Write your SQL here\nSELECT 1;\n",
   lastSavedContent: null,
   isLocalDisk: false,
   isUntitled: true,
@@ -299,7 +299,7 @@ function reducer(state, action) {
       const newFile = {
         id: uuidv4(),
         name: action.payload?.name || `Untitled-1`,
-        content: action.payload?.content || "-- Write your Spark SQL here\nSELECT 1;\n",
+        content: action.payload?.content || "-- Write your SQL here\nSELECT 1;\n",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         isLocalDisk: false,
@@ -1176,14 +1176,14 @@ export function SqlFilesProvider({ children }) {
 
       if (activeFiles.length === 0) {
         // If empty folder, create an initial main.sql
-        const initialHandle = await createFileInDirectory(dirHandle, "main.sql", "-- Write your Spark SQL here\nSELECT 1;\n");
+        const initialHandle = await createFileInDirectory(dirHandle, "main.sql", "-- Write your SQL here\nSELECT 1;\n");
         const initialFile = {
           id: uuidv4(),
           name: "main.sql",
           relativePath: "main.sql",
           path: "main.sql",
-          content: "-- Write your Spark SQL here\nSELECT 1;\n",
-          lastSavedContent: "-- Write your Spark SQL here\nSELECT 1;\n",
+          content: "-- Write your SQL here\nSELECT 1;\n",
+          lastSavedContent: "-- Write your SQL here\nSELECT 1;\n",
           isLocalDisk: true,
           fileHandle: initialHandle,
           parentDirHandle: dirHandle,
@@ -1537,7 +1537,7 @@ export function SqlFilesProvider({ children }) {
     }
     const defaultContent = (name && name.toLowerCase().endsWith(".md"))
       ? `# Untitled\n\nWrite your documentation, notes, or runbook in Markdown here.\n`
-      : "-- Write your Spark SQL here\nSELECT 1;\n";
+      : "-- Write your SQL here\nSELECT 1;\n";
     const text = content !== undefined ? content : defaultContent;
     const newId = uuidv4();
 
@@ -1681,7 +1681,7 @@ export function SqlFilesProvider({ children }) {
 
     const defaultContent = isMarkdown
       ? `# Untitled\n\nWrite your documentation, notes, or runbook in Markdown here.\n`
-      : "-- Write your Spark SQL here\nSELECT 1;\n";
+      : "-- Write your SQL here\nSELECT 1;\n";
     const content = payload?.content !== undefined ? payload.content : defaultContent;
     const newId = uuidv4();
 

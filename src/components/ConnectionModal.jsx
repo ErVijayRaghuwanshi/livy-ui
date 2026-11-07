@@ -17,10 +17,12 @@ import {
   HelpCircle,
   Copy,
   Check,
+  Zap,
 } from "lucide-react";
 import { useLivy } from "../context/LivyContext";
 import { v4 as uuidv4 } from "uuid";
-import { COMMON_CONF_KEYS, SPARK_PRESETS } from "../utils/constants";
+import { COMMON_CONF_KEYS, SPARK_PRESETS, DATA_SOURCE_TYPES } from "../utils/constants";
+import { testDorisConnection } from "../services/dorisApi";
 
 const JAR_PRESETS = [
   {
@@ -77,19 +79,33 @@ export default function ConnectionModal({ isOpen, onClose }) {
     sessionConf,
     setSessionConf,
     sessionJars,
-    setSessionJars
+    setSessionJars,
+    isDoris,
+    isSpark
   } = useLivy();
 
   const [activeTab, setActiveTab] = useState("hosts");
 
+  const [newType, setNewType] = useState(DATA_SOURCE_TYPES.SPARK);
   const [newName, setNewName] = useState("");
-  const [newUrl, setNewUrl] = useState("");
+  const [newUrl, setNewUrl] = useState("http://localhost:8998");
+  const [newCluster, setNewCluster] = useState("default_cluster");
+  const [newDatabase, setNewDatabase] = useState("");
+  const [newUsername, setNewUsername] = useState("root");
+  const [newPassword, setNewPassword] = useState("");
+
+  const [editingId, setEditingId] = useState(null);
+  const [editType, setEditType] = useState(DATA_SOURCE_TYPES.SPARK);
+  const [editName, setEditName] = useState("");
+  const [editUrl, setEditUrl] = useState("");
+  const [editCluster, setEditCluster] = useState("default_cluster");
+  const [editDatabase, setEditDatabase] = useState("");
+  const [editUsername, setEditUsername] = useState("root");
+  const [editPassword, setEditPassword] = useState("");
+
   const [confKey, setConfKey] = useState("");
   const [confValue, setConfValue] = useState("");
   const [jarUrl, setJarUrl] = useState("");
-  const [editingId, setEditingId] = useState(null);
-  const [editName, setEditName] = useState("");
-  const [editUrl, setEditUrl] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   // Spark configuration search & filtering
@@ -185,7 +201,7 @@ export default function ConnectionModal({ isOpen, onClose }) {
   useEffect(() => {
     if (isOpen && hosts.length > 0) {
       hosts.forEach((host) => {
-        handleTestConnection(host.id, host.url);
+        handleTestConnection(host.id, host);
       });
     }
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -204,33 +220,86 @@ export default function ConnectionModal({ isOpen, onClose }) {
 
   const handleAdd = () => {
     if (!newName.trim() || !newUrl.trim()) return;
-    const newHost = { id: uuidv4(), name: newName.trim(), url: newUrl.trim() };
+    const isDorisType = newType === DATA_SOURCE_TYPES.DORIS;
+    const newHost = {
+      id: uuidv4(),
+      type: newType,
+      name: newName.trim(),
+      url: newUrl.trim(),
+      ...(isDorisType ? {
+        cluster: newCluster.trim() || "default_cluster",
+        database: newDatabase.trim(),
+        username: newUsername.trim() || "root",
+        password: newPassword,
+      } : {}),
+    };
     addHost(newHost);
     setNewName("");
-    setNewUrl("");
-    handleTestConnection(newHost.id, newHost.url);
+    setNewUrl(newType === DATA_SOURCE_TYPES.DORIS ? "http://localhost:8030" : "http://localhost:8998");
+    setNewDatabase("");
+    setNewPassword("");
+    handleTestConnection(newHost.id, newHost);
   };
 
   const handleEdit = (host) => {
     setEditingId(host.id);
-    setEditName(host.name);
-    setEditUrl(host.url);
+    setEditType(host.type || DATA_SOURCE_TYPES.SPARK);
+    setEditName(host.name || "");
+    setEditUrl(host.url || "");
+    setEditCluster(host.cluster || "default_cluster");
+    setEditDatabase(host.database || "");
+    setEditUsername(host.username || "root");
+    setEditPassword(host.password || "");
   };
 
   const handleSaveEdit = (id) => {
     if (!editName.trim() || !editUrl.trim()) return;
-    updateHost(id, { name: editName.trim(), url: editUrl.trim() });
+    const isDorisType = editType === DATA_SOURCE_TYPES.DORIS;
+    const updates = {
+      name: editName.trim(),
+      url: editUrl.trim(),
+      type: editType,
+      ...(isDorisType ? {
+        cluster: editCluster.trim() || "default_cluster",
+        database: editDatabase.trim(),
+        username: editUsername.trim() || "root",
+        password: editPassword,
+      } : {}),
+    };
+    updateHost(id, updates);
     setEditingId(null);
-    handleTestConnection(id, editUrl.trim());
+    handleTestConnection(id, { id, ...updates });
   };
 
-  const handleTestConnection = async (hostId, url) => {
+  const handleTestConnection = async (hostId, hostTarget) => {
+    const host = typeof hostTarget === "object" ? hostTarget : (hosts.find((h) => h.id === hostId) || { id: hostId, url: hostTarget });
     setTestStatus((prev) => ({ ...prev, [hostId]: "loading" }));
     setTestErrorMessage((prev) => ({ ...prev, [hostId]: "" }));
     const startTime = performance.now();
 
+    if (host.type === DATA_SOURCE_TYPES.DORIS) {
+      try {
+        const res = await testDorisConnection(host);
+        const latency = Math.round(performance.now() - startTime);
+        if (res.success) {
+          setTestStatus((prev) => ({ ...prev, [hostId]: "success" }));
+          setLatencies((prev) => ({ ...prev, [hostId]: latency }));
+        } else {
+          setTestStatus((prev) => ({ ...prev, [hostId]: "error" }));
+          setTestErrorMessage((prev) => ({
+            ...prev,
+            [hostId]: res.error || "Doris connection failed",
+          }));
+        }
+      } catch (err) {
+        setTestStatus((prev) => ({ ...prev, [hostId]: "error" }));
+        setTestErrorMessage((prev) => ({ ...prev, [hostId]: err.message }));
+      }
+      return;
+    }
+
     try {
-      const cleanUrl = url.replace(/\/+$/, "");
+      const cleanUrl = (host.url || "").replace(/\/+$/, "");
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 6000);
 
@@ -256,7 +325,7 @@ export default function ConnectionModal({ isOpen, onClose }) {
         }));
       }
     } catch (error) {
-      console.error("Livy connection test failed:", error);
+      console.error("Connection test failed:", error);
       if (error.name === "AbortError") {
         setTestStatus((prev) => ({ ...prev, [hostId]: "error" }));
         setTestErrorMessage((prev) => ({ ...prev, [hostId]: "Request timed out after 6 seconds." }));
@@ -264,7 +333,7 @@ export default function ConnectionModal({ isOpen, onClose }) {
         setTestStatus((prev) => ({ ...prev, [hostId]: "cors_warning" }));
         setTestErrorMessage((prev) => ({ 
           ...prev, 
-          [hostId]: "Network error or CORS block. Ensure Livy is running and has CORS enabled." 
+          [hostId]: "Network error or CORS block. Ensure endpoint is running and reachable." 
         }));
       }
     }
@@ -303,7 +372,7 @@ export default function ConnectionModal({ isOpen, onClose }) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-(--color-border)/60 bg-(--color-bg-secondary)/20">
           <div className="flex flex-col gap-0.5">
             <h2 className="text-base font-bold text-(--color-text-primary) tracking-wide">Workspace Settings</h2>
-            <p className="text-[11px] text-(--color-text-muted) font-medium">Configure cluster connections, Apache Spark properties, and runtime packages.</p>
+            <p className="text-[11px] text-(--color-text-muted) font-medium">Configure cluster connections (Spark SQL & Apache Doris), Spark properties, and runtime packages.</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-all dg-spring-btn">
             <X size={16} />
@@ -325,7 +394,7 @@ export default function ConnectionModal({ isOpen, onClose }) {
               }`}
             >
               <Server size={14} />
-              <span>Livy Connections</span>
+              <span>Data Sources</span>
             </button>
             <button
               onClick={() => setActiveTab("config")}
@@ -337,6 +406,11 @@ export default function ConnectionModal({ isOpen, onClose }) {
             >
               <Sliders size={14} />
               <span>Spark Properties</span>
+              {isDoris && (
+                <span className="ml-auto text-[8px] font-mono px-1 py-0.5 rounded bg-(--color-bg-tertiary) text-(--color-text-muted)">
+                  Spark
+                </span>
+              )}
             </button>
             <button
               onClick={() => setActiveTab("jars")}
@@ -348,6 +422,11 @@ export default function ConnectionModal({ isOpen, onClose }) {
             >
               <Package size={14} />
               <span>JARs & Libraries</span>
+              {isDoris && (
+                <span className="ml-auto text-[8px] font-mono px-1 py-0.5 rounded bg-(--color-bg-tertiary) text-(--color-text-muted)">
+                  Spark
+                </span>
+              )}
             </button>
             <button
               onClick={() => setActiveTab("cors")}
@@ -365,172 +444,294 @@ export default function ConnectionModal({ isOpen, onClose }) {
           {/* Right Main Panel Content */}
           <div className="flex-1 overflow-y-auto p-6 flex flex-col bg-(--color-bg-primary)/20">
             
-            {/* TAB 1: LIVY ENDPOINTS */}
+            {/* TAB 1: DATA SOURCES (SPARK & DORIS) */}
             {activeTab === "hosts" && (
               <div className="flex flex-col gap-4 animate-in fade-in duration-150">
                 <div className="flex flex-col gap-1 border-b border-(--color-border)/15 pb-3">
-                  <h3 className="text-sm font-bold text-(--color-text-primary)">Livy Connections</h3>
-                  <p className="text-[11px] text-(--color-text-muted) font-medium">Select or add REST endpoint nodes running Apache Livy.</p>
+                  <h3 className="text-sm font-bold text-(--color-text-primary)">Data Sources & Cluster Endpoints</h3>
+                  <p className="text-[11px] text-(--color-text-muted) font-medium">Connect to Apache Spark SQL (via Livy REST) or Apache Doris (via FE HTTP API).</p>
                 </div>
 
                 <div className="flex flex-col gap-2.5 max-h-[240px] overflow-y-auto pr-0.5">
-                  {hosts.map((host) => (
-                    <div
-                      key={host.id}
-                      className={`group flex items-center justify-between p-3.5 rounded-xl border transition-all duration-200 cursor-pointer ${
-                        host.id === activeHostId
-                          ? "border-(--color-accent) bg-(--color-accent)/5 shadow-xs"
-                          : "border-(--color-border)/50 hover:border-(--color-text-muted) bg-(--color-bg-primary)/20"
-                      }`}
-                      onClick={() => {
-                        if (editingId !== host.id) {
-                          selectHost(host.id);
-                        }
-                      }}
-                    >
-                      {editingId === host.id ? (
-                        <div className="flex-1 flex gap-2" onClick={(e) => e.stopPropagation()}>
-                          <input
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex-1 bg-(--color-bg-primary)/80 border border-(--color-border) rounded-lg px-2.5 py-1.5 text-xs text-(--color-text-primary) outline-none focus:border-(--color-accent) font-medium"
-                            placeholder="Label"
-                          />
-                          <input
-                            value={editUrl}
-                            onChange={(e) => setEditUrl(e.target.value)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex-[2] bg-(--color-bg-primary)/80 border border-(--color-border) rounded-lg px-2.5 py-1.5 text-xs text-(--color-text-primary) font-mono outline-none focus:border-(--color-accent)"
-                            placeholder="URL endpoint"
-                          />
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleSaveEdit(host.id); }}
-                            className="p-1.5 rounded-lg hover:bg-(--color-bg-tertiary) text-emerald-400 transition-all dg-spring-btn"
-                            title="Save Connection"
-                          >
-                            <Save size={14} />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setEditingId(null); }}
-                            className="p-1.5 rounded-lg hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-all dg-spring-btn"
-                            title="Cancel"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                            <Server
-                              size={15}
-                              className={host.id === activeHostId ? "text-(--color-accent)" : "text-(--color-text-muted)"}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 leading-none">
-                                <span className="text-xs font-bold text-(--color-text-primary) truncate">{host.name}</span>
-                                {host.id === activeHostId && (
-                                  <span className="text-[8px] font-bold text-(--color-accent) bg-(--color-accent)/10 border border-(--color-accent)/20 px-1.5 py-0.5 rounded">
-                                    ACTIVE
+                  {hosts.map((host) => {
+                    const isDorisHost = host.type === DATA_SOURCE_TYPES.DORIS;
+                    return (
+                      <div
+                        key={host.id}
+                        className={`group flex items-center justify-between p-3.5 rounded-xl border transition-all duration-200 cursor-pointer ${
+                          host.id === activeHostId
+                            ? "border-(--color-accent) bg-(--color-accent)/5 shadow-xs"
+                            : "border-(--color-border)/50 hover:border-(--color-text-muted) bg-(--color-bg-primary)/20"
+                        }`}
+                        onClick={() => {
+                          if (editingId !== host.id) {
+                            selectHost(host.id);
+                          }
+                        }}
+                      >
+                        {editingId === host.id ? (
+                          <div className="flex-1 flex flex-col gap-2.5 p-2 bg-(--color-bg-secondary)/60 rounded-lg border border-(--color-accent)/40" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-bold text-(--color-accent) uppercase tracking-wide">
+                                Edit {editType === DATA_SOURCE_TYPES.DORIS ? "Apache Doris" : "Apache Spark"} Connection
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleSaveEdit(host.id); }}
+                                  className="px-2 py-1 rounded bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-[10px] font-semibold flex items-center gap-1 transition-colors"
+                                  title="Save Connection"
+                                >
+                                  <Save size={12} /> Save
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setEditingId(null); }}
+                                  className="px-2 py-1 rounded bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) text-[10px] font-semibold transition-colors"
+                                  title="Cancel"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <input
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                className="flex-1 bg-(--color-bg-primary)/80 border border-(--color-border) rounded-lg px-2.5 py-1.5 text-xs text-(--color-text-primary) outline-none focus:border-(--color-accent) font-medium"
+                                placeholder="Label"
+                              />
+                              <input
+                                value={editUrl}
+                                onChange={(e) => setEditUrl(e.target.value)}
+                                className="flex-[2] bg-(--color-bg-primary)/80 border border-(--color-border) rounded-lg px-2.5 py-1.5 text-xs text-(--color-text-primary) font-mono outline-none focus:border-(--color-accent)"
+                                placeholder="URL endpoint"
+                              />
+                            </div>
+                            {editType === DATA_SOURCE_TYPES.DORIS && (
+                              <div className="grid grid-cols-4 gap-2">
+                                <input
+                                  value={editCluster}
+                                  onChange={(e) => setEditCluster(e.target.value)}
+                                  className="bg-(--color-bg-primary)/80 border border-(--color-border) rounded-lg px-2 py-1 text-xs text-(--color-text-primary) font-mono outline-none focus:border-(--color-accent)"
+                                  placeholder="Cluster (default_cluster)"
+                                />
+                                <input
+                                  value={editDatabase}
+                                  onChange={(e) => setEditDatabase(e.target.value)}
+                                  className="bg-(--color-bg-primary)/80 border border-(--color-border) rounded-lg px-2 py-1 text-xs text-(--color-text-primary) outline-none focus:border-(--color-accent)"
+                                  placeholder="Default DB (optional)"
+                                />
+                                <input
+                                  value={editUsername}
+                                  onChange={(e) => setEditUsername(e.target.value)}
+                                  className="bg-(--color-bg-primary)/80 border border-(--color-border) rounded-lg px-2 py-1 text-xs text-(--color-text-primary) outline-none focus:border-(--color-accent)"
+                                  placeholder="User (root)"
+                                />
+                                <input
+                                  type="password"
+                                  value={editPassword}
+                                  onChange={(e) => setEditPassword(e.target.value)}
+                                  className="bg-(--color-bg-primary)/80 border border-(--color-border) rounded-lg px-2 py-1 text-xs text-(--color-text-primary) outline-none focus:border-(--color-accent)"
+                                  placeholder="Password"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <span className="text-base select-none shrink-0" role="img" aria-label={isDorisHost ? "Doris" : "Spark"}>
+                                {isDorisHost ? "🐬" : "⚡"}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 leading-none">
+                                  <span className="text-xs font-bold text-(--color-text-primary) truncate">{host.name}</span>
+                                  <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border ${
+                                    isDorisHost
+                                      ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/25"
+                                      : "bg-amber-500/10 text-amber-500 border-amber-500/25"
+                                  }`}>
+                                    {isDorisHost ? "Doris" : "Spark"}
+                                  </span>
+                                  {host.id === activeHostId && (
+                                    <span className="text-[8px] font-bold text-(--color-accent) bg-(--color-accent)/10 border border-(--color-accent)/20 px-1.5 py-0.5 rounded">
+                                      ACTIVE
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[9px] text-(--color-text-muted) font-mono truncate mt-1 block leading-none">
+                                  {host.url}{isDorisHost && host.database ? ` · db: ${host.database}` : ""}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              {/* Latency and Status Info */}
+                              <div className="flex items-center gap-1.5">
+                                {testStatus[host.id] === "loading" && (
+                                  <Loader2 size={11} className="text-(--color-accent) animate-spin shrink-0" />
+                                )}
+                                {testStatus[host.id] === "success" && (
+                                  <span className="text-[9px] font-semibold text-emerald-400 px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-md shrink-0">
+                                    Connected {latencies[host.id] !== undefined && `(${latencies[host.id]}ms)`}
                                   </span>
                                 )}
+                                {testStatus[host.id] === "error" && (
+                                  <span className="text-[9px] font-semibold text-rose-400 px-1.5 py-0.5 bg-rose-500/10 border border-rose-500/20 rounded-md shrink-0 cursor-help" title={testErrorMessage[host.id]}>
+                                    Offline
+                                  </span>
+                                )}
+                                {testStatus[host.id] === "cors_warning" && (
+                                  <span className="text-[9px] font-semibold text-amber-500 px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded-md shrink-0 cursor-help" title={testErrorMessage[host.id]}>
+                                    CORS Warning
+                                  </span>
+                                )}
+                                
+                                {(!testStatus[host.id] || testStatus[host.id] === "idle" || testStatus[host.id] === "error" || testStatus[host.id] === "cors_warning" || testStatus[host.id] === "success") && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleTestConnection(host.id, host);
+                                    }}
+                                    className="px-2 py-1 text-[9px] font-bold text-(--color-text-secondary) hover:text-white bg-(--color-bg-tertiary)/30 hover:bg-(--color-accent) border border-(--color-border)/50 hover:border-(--color-accent) rounded-md transition-all dg-spring-btn cursor-pointer"
+                                    title="Ping Connection"
+                                  >
+                                    Ping
+                                  </button>
+                                )}
                               </div>
-                              <span className="text-[9px] text-(--color-text-muted) font-mono truncate mt-1 block leading-none">{host.url}</span>
-                            </div>
-                          </div>
 
-                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                            {/* Latency and Status Info */}
-                            <div className="flex items-center gap-1.5">
-                              {testStatus[host.id] === "loading" && (
-                                <Loader2 size={11} className="text-(--color-accent) animate-spin shrink-0" />
-                              )}
-                              {testStatus[host.id] === "success" && (
-                                <span className="text-[9px] font-semibold text-emerald-400 px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-md shrink-0">
-                                  Connected {latencies[host.id] !== undefined && `(${latencies[host.id]}ms)`}
-                                </span>
-                              )}
-                              {testStatus[host.id] === "error" && (
-                                <span className="text-[9px] font-semibold text-rose-400 px-1.5 py-0.5 bg-rose-500/10 border border-rose-500/20 rounded-md shrink-0 cursor-help" title={testErrorMessage[host.id]}>
-                                  Offline
-                                </span>
-                              )}
-                              {testStatus[host.id] === "cors_warning" && (
-                                <span className="text-[9px] font-semibold text-amber-500 px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded-md shrink-0 cursor-help" title={testErrorMessage[host.id]}>
-                                  CORS Warning
-                                </span>
-                              )}
-                              
-                              {(!testStatus[host.id] || testStatus[host.id] === "idle" || testStatus[host.id] === "error" || testStatus[host.id] === "cors_warning" || testStatus[host.id] === "success") && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEdit(host);
+                                }}
+                                className="p-1 rounded-lg hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-colors dg-spring-btn"
+                                title="Edit Host Details"
+                              >
+                                <Pencil size={12} />
+                              </button>
+                              {host.id !== "default" && (
                                 <button
                                   onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleTestConnection(host.id, host.url);
+                                      e.stopPropagation();
+                                      setConfirmDeleteId(host.id);
                                   }}
-                                  className="px-2 py-1 text-[9px] font-bold text-(--color-text-secondary) hover:text-white bg-(--color-bg-tertiary)/30 hover:bg-(--color-accent) border border-(--color-border)/50 hover:border-(--color-accent) rounded-md transition-all dg-spring-btn cursor-pointer"
-                                  title="Ping Connection"
+                                  className="p-1 rounded-lg hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-rose-400 transition-colors dg-spring-btn"
+                                  title="Remove Host"
                                 >
-                                  Ping
+                                  <Trash2 size={12} />
                                 </button>
                               )}
                             </div>
-
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEdit(host);
-                              }}
-                              className="p-1 rounded-lg hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-colors dg-spring-btn"
-                              title="Edit Host Details"
-                            >
-                              <Pencil size={12} />
-                            </button>
-                            {host.id !== "default" && (
-                              <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setConfirmDeleteId(host.id);
-                                }}
-                                className="p-1 rounded-lg hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-rose-400 transition-colors dg-spring-btn"
-                                title="Remove Host"
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            )}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ))}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Add connection form card */}
                 <div className="bg-(--color-bg-primary)/40 border border-(--color-border)/40 p-4 rounded-xl flex flex-col gap-3 mt-1.5">
-                  <span className="text-[9px] text-(--color-text-muted) font-bold uppercase tracking-wider">Register Connection Endpoint</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] text-(--color-text-muted) font-bold uppercase tracking-wider">Register Connection Endpoint</span>
+                    <div className="flex items-center gap-1 bg-(--color-bg-secondary)/60 p-0.5 rounded-lg border border-(--color-border)/40">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewType(DATA_SOURCE_TYPES.SPARK);
+                          if (newUrl === "http://localhost:8030") setNewUrl("http://localhost:8998");
+                        }}
+                        className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${
+                          newType === DATA_SOURCE_TYPES.SPARK
+                            ? "bg-amber-500/20 text-amber-400 shadow-xs"
+                            : "text-(--color-text-muted) hover:text-(--color-text-primary)"
+                        }`}
+                      >
+                        ⚡ Spark (Livy)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewType(DATA_SOURCE_TYPES.DORIS);
+                          if (newUrl === "http://localhost:8998") setNewUrl("http://localhost:8030");
+                        }}
+                        className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${
+                          newType === DATA_SOURCE_TYPES.DORIS
+                            ? "bg-cyan-500/20 text-cyan-400 shadow-xs"
+                            : "text-(--color-text-muted) hover:text-(--color-text-primary)"
+                        }`}
+                      >
+                        🐬 Doris (FE HTTP)
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="flex gap-2.5">
                     <input
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
-                      placeholder="Label (e.g., Localhost Cluster)"
+                      placeholder={newType === DATA_SOURCE_TYPES.DORIS ? "Label (e.g., Local Doris Cluster)" : "Label (e.g., Localhost Cluster)"}
                       onKeyDown={(e) => e.key === "Enter" && handleAdd()}
                       className="flex-1 bg-(--color-bg-primary)/70 border border-(--color-border) rounded-lg px-3 py-2 text-xs text-(--color-text-primary) outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted)/80 font-medium"
                     />
                     <input
                       value={newUrl}
                       onChange={(e) => setNewUrl(e.target.value)}
-                      placeholder="http://host:8998"
+                      placeholder={newType === DATA_SOURCE_TYPES.DORIS ? "http://localhost:8030" : "http://localhost:8998"}
                       onKeyDown={(e) => e.key === "Enter" && handleAdd()}
                       className="flex-[2] bg-(--color-bg-primary)/70 border border-(--color-border) rounded-lg px-3 py-2 text-xs text-(--color-text-primary) font-mono outline-none focus:border-(--color-accent) placeholder:text-(--color-text-muted)/80"
                     />
                     <button
                       onClick={handleAdd}
                       disabled={!newName.trim() || !newUrl.trim()}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-(--color-accent) hover:bg-(--color-accent-hover) disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-colors dg-spring-btn"
+                      className="flex items-center gap-1.5 px-4 py-2 bg-(--color-accent) hover:bg-(--color-accent-hover) disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-colors dg-spring-btn shrink-0"
                     >
                       <Plus size={14} />
                       <span>Register</span>
                     </button>
                   </div>
+
+                  {newType === DATA_SOURCE_TYPES.DORIS && (
+                    <div className="grid grid-cols-4 gap-2 pt-1 border-t border-(--color-border)/20">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[9px] text-(--color-text-muted) font-semibold uppercase">Cluster</label>
+                        <input
+                          value={newCluster}
+                          onChange={(e) => setNewCluster(e.target.value)}
+                          placeholder="default_cluster"
+                          className="bg-(--color-bg-primary)/70 border border-(--color-border) rounded-lg px-2.5 py-1.5 text-xs text-(--color-text-primary) font-mono outline-none focus:border-(--color-accent)"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[9px] text-(--color-text-muted) font-semibold uppercase">Default DB</label>
+                        <input
+                          value={newDatabase}
+                          onChange={(e) => setNewDatabase(e.target.value)}
+                          placeholder="e.g. default"
+                          className="bg-(--color-bg-primary)/70 border border-(--color-border) rounded-lg px-2.5 py-1.5 text-xs text-(--color-text-primary) outline-none focus:border-(--color-accent)"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[9px] text-(--color-text-muted) font-semibold uppercase">User</label>
+                        <input
+                          value={newUsername}
+                          onChange={(e) => setNewUsername(e.target.value)}
+                          placeholder="root"
+                          className="bg-(--color-bg-primary)/70 border border-(--color-border) rounded-lg px-2.5 py-1.5 text-xs text-(--color-text-primary) outline-none focus:border-(--color-accent)"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[9px] text-(--color-text-muted) font-semibold uppercase">Password</label>
+                        <input
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Optional"
+                          className="bg-(--color-bg-primary)/70 border border-(--color-border) rounded-lg px-2.5 py-1.5 text-xs text-(--color-text-primary) outline-none focus:border-(--color-accent)"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -889,13 +1090,14 @@ export default function ConnectionModal({ isOpen, onClose }) {
               <div className="flex flex-col gap-4 animate-in fade-in duration-150">
                 <div className="flex flex-col gap-1 border-b border-(--color-border)/15 pb-3">
                   <h3 className="text-sm font-bold text-(--color-text-primary)">CORS Troubleshooter & Diagnostics</h3>
-                  <p className="text-[11px] text-(--color-text-muted) font-medium">Solve browser cross-origin policy blockages connecting with Livy endpoints.</p>
+                  <p className="text-[11px] text-(--color-text-muted) font-medium">Solve browser cross-origin policy blockages connecting with Livy or Doris endpoints.</p>
                 </div>
 
+                {/* Livy CORS */}
                 <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl text-xs text-amber-500 flex flex-col gap-2.5 leading-relaxed">
                   <div className="flex items-center gap-2 font-bold">
                     <AlertTriangle size={16} />
-                    <span>Livy Server CORS Config Required</span>
+                    <span>Apache Livy Server CORS Configuration</span>
                   </div>
                   <p className="text-(--color-text-secondary) text-[11px] leading-relaxed">
                     Browser sandboxed calls will automatically fail unless the host node is instructed to allow foreign requests. You must append these configuration filters inside your node's <code>livy.conf</code> file:
@@ -920,6 +1122,33 @@ livy.server.access-control.allow-methods = GET, POST, OPTIONS, DELETE`}
                   </p>
                   <pre className="p-2.5 bg-black/30 border border-(--color-border)/25 rounded-md text-[10px] font-mono text-(--color-text-secondary)">
                     sudo systemctl restart livy
+                  </pre>
+                </div>
+
+                {/* Doris CORS */}
+                <div className="p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-xl text-xs text-cyan-400 flex flex-col gap-2.5 leading-relaxed">
+                  <div className="flex items-center gap-2 font-bold">
+                    <Database size={16} />
+                    <span>Apache Doris FE HTTP API CORS / Proxy Configuration</span>
+                  </div>
+                  <p className="text-(--color-text-secondary) text-[11px] leading-relaxed">
+                    Apache Doris FE serves queries via its HTTP server (default port <code>8030</code>). If your browser blocks cross-origin requests, you can proxy through Nginx with CORS headers:
+                  </p>
+
+                  <pre className="p-3 bg-black/40 border border-(--color-border)/35 rounded-lg text-[10px] font-mono text-(--color-text-primary) select-all overflow-x-auto whitespace-pre leading-relaxed">
+{`# Nginx reverse proxy snippet:
+server {
+    listen 8080;
+    location / {
+        proxy_pass http://<doris-fe-host>:8030;
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, Accept' always;
+        if ($request_method = 'OPTIONS') {
+            return 204;
+        }
+    }
+}`}
                   </pre>
                 </div>
               </div>

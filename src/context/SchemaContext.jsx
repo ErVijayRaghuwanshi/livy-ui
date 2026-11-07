@@ -1,19 +1,25 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { useLivy } from "./LivyContext";
-import { SESSION_STATES } from "../utils/constants";
+import { SESSION_STATES, DATA_SOURCE_TYPES } from "../utils/constants";
 import * as livyApi from "../services/livyApi";
+import * as dorisApi from "../services/dorisApi";
 
 const SchemaContext = createContext(null);
 
 export function SchemaProvider({ children }) {
-  const { sessionId, sessionState } = useLivy();
+  const { sessionId, sessionState, activeHost, isServerReachable } = useLivy();
   const [databases, setDatabases] = useState([]);
   const [tables, setTables] = useState({});
   const [columns, setColumns] = useState({});
   const [loading, setLoading] = useState({});
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const isReady = sessionState === SESSION_STATES.IDLE && sessionId !== null;
+  const isDoris = activeHost?.type === DATA_SOURCE_TYPES.DORIS;
+  const isSpark = !isDoris;
+
+  const isReady = isDoris
+    ? isServerReachable !== false
+    : sessionState === SESSION_STATES.IDLE && sessionId !== null;
 
   const tablesRef = useRef(tables);
   tablesRef.current = tables;
@@ -30,11 +36,16 @@ export function SchemaProvider({ children }) {
     inFlightRef.current.add("_dbs");
     setLoading((p) => ({ ...p, _dbs: true }));
     try {
-      const rows = await livyApi.runSql(sessionId, "SHOW DATABASES");
-      const dbNames = rows.map(
-        (r) => r.databaseName || r.namespace || Object.values(r)[0]
-      );
-      setDatabases(dbNames);
+      if (isDoris) {
+        const dbs = await dorisApi.getDorisDatabases(activeHost);
+        setDatabases(dbs);
+      } else {
+        const rows = await livyApi.runSql(sessionId, "SHOW DATABASES");
+        const dbNames = rows.map(
+          (r) => r.databaseName || r.namespace || Object.values(r)[0]
+        );
+        setDatabases(dbNames);
+      }
       setTables({});
       setColumns({});
     } catch (err) {
@@ -43,7 +54,7 @@ export function SchemaProvider({ children }) {
       inFlightRef.current.delete("_dbs");
       setLoading((p) => ({ ...p, _dbs: false }));
     }
-  }, [sessionId, isReady]);
+  }, [sessionId, isReady, isDoris, activeHost]);
 
   const loadTables = useCallback(async (db) => {
     if (!isReady) return;
@@ -51,17 +62,22 @@ export function SchemaProvider({ children }) {
     inFlightRef.current.add(`db:${db}`);
     setLoading((p) => ({ ...p, [db]: true }));
     try {
-      const rows = await livyApi.runSql(
-        sessionId,
-        `SHOW TABLES IN \`${db}\``
-      );
-      const tableNames = rows
-        .map(
-          (r) =>
-            r.tableName || Object.values(r)[1] || Object.values(r)[0]
-        )
-        .filter((name) => name && name.trim() !== "");
-      setTables((p) => ({ ...p, [db]: tableNames }));
+      if (isDoris) {
+        const tbls = await dorisApi.getDorisTables(db, activeHost);
+        setTables((p) => ({ ...p, [db]: tbls }));
+      } else {
+        const rows = await livyApi.runSql(
+          sessionId,
+          `SHOW TABLES IN \`${db}\``
+        );
+        const tableNames = rows
+          .map(
+            (r) =>
+              r.tableName || Object.values(r)[1] || Object.values(r)[0]
+          )
+          .filter((name) => name && name.trim() !== "");
+        setTables((p) => ({ ...p, [db]: tableNames }));
+      }
     } catch (err) {
       console.error(`[SchemaContext] Error loading tables for ${db}:`, err);
       setTables((p) => ({ ...p, [db]: [] }));
@@ -69,7 +85,7 @@ export function SchemaProvider({ children }) {
       inFlightRef.current.delete(`db:${db}`);
       setLoading((p) => ({ ...p, [db]: false }));
     }
-  }, [sessionId, isReady]);
+  }, [sessionId, isReady, isDoris, activeHost]);
 
   const loadColumns = useCallback(async (db, table) => {
     const key = `${db}.${table}`;
@@ -78,20 +94,25 @@ export function SchemaProvider({ children }) {
     inFlightRef.current.add(`col:${key}`);
     setLoading((p) => ({ ...p, [key]: true }));
     try {
-      const rows = await livyApi.runSql(
-        sessionId,
-        `DESCRIBE \`${db}\`.\`${table}\``
-      );
-      const cols = rows
-        .filter((r) => {
-          const name = r.col_name || Object.values(r)[0];
-          return name && !name.startsWith("#") && name.trim() !== "";
-        })
-        .map((r) => ({
-          name: r.col_name || Object.values(r)[0],
-          type: r.data_type || Object.values(r)[1] || "",
-        }));
-      setColumns((p) => ({ ...p, [key]: cols }));
+      if (isDoris) {
+        const cols = await dorisApi.getDorisColumns(db, table, activeHost);
+        setColumns((p) => ({ ...p, [key]: cols }));
+      } else {
+        const rows = await livyApi.runSql(
+          sessionId,
+          `DESCRIBE \`${db}\`.\`${table}\``
+        );
+        const cols = rows
+          .filter((r) => {
+            const name = r.col_name || Object.values(r)[0];
+            return name && !name.startsWith("#") && name.trim() !== "";
+          })
+          .map((r) => ({
+            name: r.col_name || Object.values(r)[0],
+            type: r.data_type || Object.values(r)[1] || "",
+          }));
+        setColumns((p) => ({ ...p, [key]: cols }));
+      }
     } catch (err) {
       console.error(`[SchemaContext] Error loading columns for ${key}:`, err);
       setColumns((p) => ({ ...p, [key]: [] }));
@@ -99,7 +120,7 @@ export function SchemaProvider({ children }) {
       inFlightRef.current.delete(`col:${key}`);
       setLoading((p) => ({ ...p, [key]: false }));
     }
-  }, [sessionId, isReady]);
+  }, [sessionId, isReady, isDoris, activeHost]);
 
   const clearSchema = useCallback(() => {
     inFlightRef.current.clear();

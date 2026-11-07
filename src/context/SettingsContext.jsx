@@ -31,6 +31,12 @@ export const DEFAULT_SETTINGS = {
   "spark.dynamicAllocation.enabled": "false",
   "spark.sql.warehouse.dir": "file:/opt/spark/warehouse",
 
+  // Apache Doris Configurations
+  "doris.defaultDatabase": "demo_db",
+  "doris.queryTimeout": 45,
+  "doris.defaultAiResource": "ollama_gemma2",
+  "doris.enableProfile": false,
+
   // Connection & Host Settings
   "livy.activeHostUrl": "http://localhost:8998",
   "livy.hosts": [

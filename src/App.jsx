@@ -282,6 +282,14 @@ export default function App() {
         return;
       }
 
+      // Ctrl+Shift+M / Cmd+Shift+M — open/focus compute & session manager
+      if (ctrl && !e.altKey && e.shiftKey && (e.key.toLowerCase() === "m" || e.code === "KeyM")) {
+        e.preventDefault();
+        setActiveSidebarTab("compute");
+        setSidebarCollapsed(false);
+        return;
+      }
+
       // Ctrl+Shift+V / Cmd+Shift+V — toggle Markdown preview (VS Code standard)
       if (ctrl && !e.altKey && e.shiftKey && (e.key.toLowerCase() === "v" || e.code === "KeyV")) {
         e.preventDefault();
@@ -549,6 +557,7 @@ export default function App() {
         onClose={() => setShowCommandPalette(false)}
         initialSearch={commandPaletteInitialQuery}
         toggleTheme={toggleTheme}
+        setActiveSidebarTab={setActiveSidebarTab}
         setSidebarCollapsed={setSidebarCollapsed}
         setShowShortcuts={setShowShortcuts}
         setShowHistory={setShowHistory}
@@ -579,6 +588,10 @@ export default function App() {
           setCommandPaletteInitialQuery("");
           setShowCommandPalette(true);
         }}
+        onOpenComputePanel={() => {
+          setActiveSidebarTab("compute");
+          setSidebarCollapsed(false);
+        }}
       />
 
       <div className={`flex flex-1 min-h-0 bg-(--color-bg-workbench) ${isSidebarDragging ? "select-none" : ""}`}>
@@ -602,6 +615,7 @@ export default function App() {
             collapsed={sidebarCollapsed}
             setCollapsed={setSidebarCollapsed}
             onInsertAtCursor={handleInsertAtCursor}
+            onRunSql={(sql) => editorRef.current?.runSql?.(sql)}
             width={sidebarWidth}
             theme={theme}
             toggleTheme={toggleTheme}

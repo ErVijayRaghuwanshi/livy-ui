@@ -1,7 +1,9 @@
 import { useLivy } from "../context/LivyContext";
 import { SESSION_STATES } from "../utils/constants";
 import { useSqlFiles } from "../context/SqlFilesContext";
+import { useSettings } from "../context/SettingsContext";
 import { Keyboard, History, AlertCircle, Check, WrapText } from "lucide-react";
+import { getLanguageForFile } from "./SqlEditor";
 
 const stateLabels = {
   [SESSION_STATES.NOT_STARTED]: "No Session",
@@ -27,13 +29,15 @@ const stateColors = {
   [SESSION_STATES.SUCCESS]: "bg-green-500",
 };
 
-function getLanguageLabel(fileName = "") {
-  const lower = (fileName || "").toLowerCase();
-  if (lower.endsWith(".sql") || lower.endsWith(".sparksql") || lower.endsWith(".hql")) return "Spark SQL";
-  if (lower.endsWith(".md") || lower.endsWith(".markdown")) return "Markdown";
-  if (lower.endsWith(".json")) return "JSON";
-  if (lower.endsWith(".py")) return "Python";
-  if (lower.endsWith(".sh") || lower.endsWith(".bash")) return "Shell";
+function getLanguageLabel(fileName = "", isDoris = false) {
+  const lang = getLanguageForFile(fileName);
+  if (lang === "sql") {
+    return isDoris ? "Doris SQL" : "Spark SQL";
+  }
+  if (lang === "markdown") return "Markdown";
+  if (lang === "json") return "JSON";
+  if (lang === "python") return "Python";
+  if (lang === "shell") return "Shell";
   return "Plain Text";
 }
 
@@ -48,37 +52,52 @@ export default function StatusBar({
   isSqlValidationEnabled = true,
   onToggleSqlValidation,
 }) {
-  const { activeHost, sessionId, sessionState, isOnline, isServerReachable } = useLivy();
+  const { activeHost, sessionId, sessionState, isOnline, isServerReachable, isDoris, isSpark } = useLivy();
   const { activeResult, activeFile, autoSave, toggleAutoSave } = useSqlFiles();
+  const { settings } = useSettings();
+
+  const dorisDb = activeHost.database || settings["doris.defaultDatabase"] || "demo_db";
 
   const rowCount = activeResult?.status === "ok" && activeResult?.data?.["application/json"]
     ? activeResult.data["application/json"].data?.length ?? null
     : null;
 
   return (
-    <div className="flex items-center justify-between px-3 py-1 bg-(--color-bg-workbench) border-t border-(--color-border) shrink-0 text-[11px] text-(--color-text-muted) select-none">
+    <div className="flex items-center justify-between px-3 py-1 bg-(--color-bg-workbench) border-t border-(--color-border) shrink-0 text-[11px] text-(--color-text-muted) select-none overflow-hidden">
       {/* Left */}
-      <div className="flex items-center gap-3">
-        {/* Session state */}
-        <div className="flex items-center gap-1.5">
-          <span className={`w-1.5 h-1.5 rounded-full ${stateColors[sessionState] || "bg-gray-500"}`} />
-          <span>
-            {sessionId !== null ? `Session #${sessionId}` : "No Session"}
-            {" · "}
-            {stateLabels[sessionState] || sessionState}
-          </span>
-        </div>
+      <div className="flex items-center gap-3 truncate min-w-0">
+        {/* Session state / Engine readiness */}
+        {isDoris ? (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+            <span className="text-cyan-400 font-medium">
+              🐬 Doris · {dorisDb} · Ready
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            <span className={`w-1.5 h-1.5 rounded-full ${stateColors[sessionState] || "bg-gray-500"}`} />
+            <span>
+              {sessionId !== null ? `Session #${sessionId}` : "No Session"}
+              {" · "}
+              {stateLabels[sessionState] || sessionState}
+            </span>
+          </div>
+        )}
 
         {/* Host */}
-        <span className="text-(--color-text-muted)/70">{activeHost.name}</span>
+        <span className="text-(--color-text-muted)/70 flex items-center gap-1">
+          <span>{isDoris ? "🐬" : "⚡"}</span>
+          <span>{activeHost.name}</span>
+        </span>
 
         {/* Connection status */}
         <div className="flex items-center gap-1.5" title={
           !isOnline
             ? "Browser Offline: running on cached PWA app shell"
             : isServerReachable === false
-            ? "Livy Server down/unreachable"
-            : "Livy Server connected"
+            ? `${isDoris ? "Apache Doris FE" : "Livy Server"} down/unreachable`
+            : `${isDoris ? "Apache Doris FE" : "Livy Server"} connected`
         }>
           <span className={`w-1.5 h-1.5 rounded-full ${
             !isOnline
@@ -90,7 +109,7 @@ export default function StatusBar({
               : "bg-green-500"
           }`} />
           <span className="text-[10px] text-(--color-text-muted)/70">
-            {!isOnline ? "Offline" : isServerReachable === false ? "Server Down" : "Connected"}
+            {!isOnline ? "Offline" : isServerReachable === false ? (isDoris ? "Doris Unreachable" : "Server Down") : "Connected"}
           </span>
         </div>
 
@@ -137,7 +156,7 @@ export default function StatusBar({
         {/* Language indicator (read-only, determined strictly by file extension) */}
         {activeFile && !activeFile.isSpecial && activeFile.id !== "settings" && (
           <span className="px-1.5 py-0.5 font-medium text-[11px] text-(--color-text-muted) select-none">
-            {getLanguageLabel(activeFile.name)}
+            {getLanguageLabel(activeFile.name, isDoris)}
           </span>
         )}
 

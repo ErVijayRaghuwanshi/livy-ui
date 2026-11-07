@@ -10,9 +10,14 @@ import { useLivy } from "../context/LivyContext";
 import { useSchema } from "../context/SchemaContext";
 import { SESSION_STATES, STATEMENT_STATES, POLL_INTERVAL_MS } from "../utils/constants";
 import * as livyApi from "../services/livyApi";
+import { executeDorisQuery } from "../services/dorisApi";
 import { SPARK_FUNCTIONS_DATA } from "../utils/spark-functions-data";
 import { SPARK_SQL_KEYWORDS } from "../utils/spark-keywords-data";
 import { SPARK_SQL_SNIPPETS } from "../utils/spark_sql_snippets";
+import { DORIS_DATA_TYPES } from "../utils/doris-data-types-data";
+import { DORIS_SQL_KEYWORDS } from "../utils/doris-keywords-data";
+import { DORIS_FUNCTIONS_DATA } from "../utils/doris-functions-data";
+import { DORIS_SQL_SNIPPETS } from "../utils/doris-snippets-data";
 import { useToast } from "./Toast";
 import { addHistoryEntry } from "./QueryHistory";
 import { useSettings } from "../context/SettingsContext";
@@ -25,7 +30,7 @@ loader.config({ monaco });
 
 import { language as sqlLanguage } from "monaco-editor/esm/vs/basic-languages/sql/sql.js";
 
-// Extend SQL tokenizer to support Spark SQL backticked identifiers
+// Extend SQL tokenizer to support Spark & Doris SQL backticked identifiers
 if (sqlLanguage && sqlLanguage.tokenizer) {
   if (!sqlLanguage.tokenizer.quotedIdentifier) {
     if (Array.isArray(sqlLanguage.tokenizer.complexIdentifiers)) {
@@ -42,15 +47,49 @@ if (sqlLanguage && sqlLanguage.tokenizer) {
   }
 }
 
+// Extend SQL tokenizer for Doris-specific keywords and AI functions
+if (sqlLanguage && Array.isArray(sqlLanguage.keywords)) {
+  const existingKw = new Set(sqlLanguage.keywords);
+  const extraDorisKeywords = [
+    "DUPLICATE", "AGGREGATE", "DISTRIBUTED", "BUCKETS", "PROPERTIES",
+    "LARGEINT", "DATEV2", "DATETIMEV2", "QUANTILE_STATE", "AGG_STATE",
+    "BITMAP", "HLL", "RESOURCE", "WORKLOAD", "ROUTINE", "INVERTED",
+    "NGRAM_BF", "COMPACT", "SYNC", "REPLICATION_NUM", "STORAGE_POLICY"
+  ];
+  extraDorisKeywords.forEach((kw) => {
+    if (!existingKw.has(kw)) sqlLanguage.keywords.push(kw);
+  });
+}
+if (sqlLanguage && Array.isArray(sqlLanguage.builtinFunctions)) {
+  const existingFn = new Set(sqlLanguage.builtinFunctions);
+  const extraDorisFunctions = [
+    "AI_TRANSLATE", "AI_GENERATE", "AI_SUMMARIZE", "AI_EXTRACT", "AI_FILTER",
+    "AI_SENTIMENT", "AI_CLASSIFY", "AI_FIXGRAMMAR", "AI_MASK", "AI_SIMILARITY", "AI_AGG",
+    "TO_BITMAP", "BITMAP_UNION", "BITMAP_COUNT", "BITMAP_AND", "BITMAP_OR", "BITMAP_XOR",
+    "BITMAP_NOT", "BITMAP_CONTAINS", "BITMAP_TO_ARRAY", "BITMAP_FROM_STRING", "BITMAP_EMPTY",
+    "HLL_UNION_AGG", "HLL_CARDINALITY", "HLL_EMPTY", "HLL_HASH",
+    "JSONB_EXTRACT", "JSONB_EXTRACT_INT", "JSONB_EXTRACT_STRING", "JSONB_PARSE", "JSONB_EXISTS",
+    "QUANTILE_PERCENT", "QUANTILE_UNION", "PERCENTILE_APPROX",
+    "TO_IPV4", "TO_IPV6", "IPV4_NUM_TO_STRING", "IPV4_STRING_TO_NUM"
+  ];
+  extraDorisFunctions.forEach((fn) => {
+    if (!existingFn.has(fn)) sqlLanguage.builtinFunctions.push(fn);
+  });
+}
+
 export function getLanguageForFile(fileName = "") {
   const lower = (fileName || "").toLowerCase();
-  if (lower.endsWith(".sql") || lower.endsWith(".sparksql") || lower.endsWith(".hql")) return "sql";
+  if (lower.endsWith(".sql") || lower.endsWith(".sparksql") || lower.endsWith(".hql") || lower.endsWith(".dorisql")) return "sql";
   if (lower.endsWith(".md") || lower.endsWith(".markdown")) return "markdown";
   if (lower.endsWith(".json")) return "json";
   if (lower.endsWith(".py")) return "python";
   if (lower.endsWith(".sh") || lower.endsWith(".bash")) return "shell";
-  if (lower.startsWith("untitled")) return "sql";
+  if (!lower || lower.startsWith("untitled") || !lower.includes(".")) return "sql";
   return "plaintext";
+}
+
+export function isSqlFileName(fileName = "") {
+  return getLanguageForFile(fileName) === "sql";
 }
 
 export const VSCODE_DARK_CUSTOM = "vscode-dark-custom";
@@ -157,16 +196,23 @@ function getSqlContext(model, position) {
   return 'any';
 }
 
-function registerSparkProviders(monaco, schemaDataRef) {
-  // Filter to only named functions (skip operators like !, !=, etc.)
-  const namedFunctions = SPARK_FUNCTIONS_DATA.filter((f) =>
+function registerSqlProviders(monaco, schemaDataRef, isDorisRef) {
+  // Filter named functions
+  const sparkNamedFunctions = SPARK_FUNCTIONS_DATA.filter((f) =>
+    /^[a-z_]/i.test(f.name)
+  );
+  const dorisNamedFunctions = DORIS_FUNCTIONS_DATA.filter((f) =>
     /^[a-z_]/i.test(f.name)
   );
 
-  // Completion provider for functions, keywords, snippets, and schema
+  const uniqueSparkKeywords = Array.from(new Set(SPARK_SQL_KEYWORDS));
+  const uniqueDorisKeywords = Array.from(new Set(DORIS_SQL_KEYWORDS));
+
+  // Completion provider for functions, data types, keywords, snippets, and schema
   const completionProvider = monaco.languages.registerCompletionItemProvider("sql", {
     triggerCharacters: [".", " "],
     provideCompletionItems: (model, position, completionContext) => {
+      const isDoris = isDorisRef?.current ?? false;
       const lineContent = model.getLineContent(position.lineNumber);
       const textBeforeCursor = lineContent.substring(0, position.column - 1);
 
@@ -186,34 +232,53 @@ function registerSparkProviders(monaco, schemaDataRef) {
 
       const sqlContext = getSqlContext(model, position);
 
-      const functionSuggestions = namedFunctions.map((fn) => ({
+      // Functions suggestions based on active compute
+      const activeFunctions = isDoris ? dorisNamedFunctions : sparkNamedFunctions;
+      const functionSuggestions = activeFunctions.map((fn) => ({
         label: fn.name,
         kind: monaco.languages.CompletionItemKind.Function,
         insertText: fn.name.includes("(") ? fn.name : fn.name + "($0)",
-        insertTextRules:
-          monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-        detail: `[${fn.category}] ${fn.usage}`,
+        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+        detail: `[${isDoris ? "Doris " : ""}${fn.category}] ${fn.usage}`,
         documentation: {
-          value: `**${fn.name}**\n\n\`${fn.usage}\`\n\n${fn.description}`,
+          value: `**${fn.name}** (${fn.category})\n\n\`${fn.usage}\`\n\n${fn.description}${fn.example ? `\n\n*Example:*\n\`\`\`sql\n${fn.example}\n\`\`\`` : ""}`,
         },
         range,
       }));
 
-      const uniqueKeywords = Array.from(new Set(SPARK_SQL_KEYWORDS));
-      const keywordSuggestions = uniqueKeywords.map((kw) => ({
+      // Doris Data Types suggestions (when on Doris)
+      const dataTypeSuggestions = isDoris
+        ? DORIS_DATA_TYPES.map((dt) => ({
+            label: dt.name,
+            kind: monaco.languages.CompletionItemKind.TypeParameter,
+            insertText: dt.syntax.includes("(") ? dt.syntax.replace(/\([^)]+\)/, "($0)") : dt.name,
+            insertTextRules: dt.syntax.includes("(") ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet : undefined,
+            detail: `[Doris Data Type] ${dt.size}`,
+            documentation: {
+              value: `**${dt.name}** — *${dt.category}*\n\n**Syntax:** \`${dt.syntax}\`\n\n**Size:** ${dt.size} | **Range:** ${dt.range}\n\n${dt.description}\n\n*Example:*\n\`\`\`sql\n${dt.example}\n\`\`\``,
+            },
+            range,
+          }))
+        : [];
+
+      // Keyword suggestions based on active compute
+      const activeKeywords = isDoris ? uniqueDorisKeywords : uniqueSparkKeywords;
+      const keywordSuggestions = activeKeywords.map((kw) => ({
         label: kw,
         kind: monaco.languages.CompletionItemKind.Keyword,
         insertText: kw,
-        detail: "Spark SQL Keyword",
+        detail: isDoris ? "Doris SQL Keyword" : "Spark SQL Keyword",
         range,
       }));
 
-      const snippetSuggestions = SPARK_SQL_SNIPPETS.map((snippet) => ({
+      // Snippet suggestions based on active compute
+      const activeSnippets = isDoris ? DORIS_SQL_SNIPPETS : SPARK_SQL_SNIPPETS;
+      const snippetSuggestions = activeSnippets.map((snippet) => ({
         label: snippet.label,
         kind: monaco.languages.CompletionItemKind.Snippet,
         insertText: snippet.insertText,
         insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-        detail: "Spark SQL Template",
+        detail: isDoris ? "Doris SQL Template" : "Spark SQL Template",
         documentation: snippet.description,
         range,
       }));
@@ -307,8 +372,8 @@ function registerSparkProviders(monaco, schemaDataRef) {
         const w = wordMatch[0];
         if (
           w.length > 2 && 
-          !uniqueKeywords.includes(w.toUpperCase()) && 
-          !namedFunctions.some((f) => f.name.toLowerCase() === w.toLowerCase())
+          !activeKeywords.includes(w.toUpperCase()) && 
+          !activeFunctions.some((f) => f.name.toLowerCase() === w.toLowerCase())
         ) {
           docWords.add(w);
         }
@@ -326,6 +391,7 @@ function registerSparkProviders(monaco, schemaDataRef) {
       const allSuggestions = [
         ...keywordSuggestions,
         ...functionSuggestions,
+        ...dataTypeSuggestions,
         ...snippetSuggestions,
         ...schemaSuggestions,
         ...wordSuggestions
@@ -346,30 +412,79 @@ function registerSparkProviders(monaco, schemaDataRef) {
     },
   });
 
-  // Hover provider for functions
+  // Hover provider for functions & data types
   const hoverProvider = monaco.languages.registerHoverProvider("sql", {
     provideHover: (model, position) => {
+      const isDoris = isDorisRef?.current ?? false;
       const word = model.getWordAtPosition(position);
       if (!word) return null;
+      const term = word.word.toLowerCase();
 
-      const match = namedFunctions.find(
-        (fn) => fn.name.toLowerCase() === word.word.toLowerCase()
-      );
-      if (!match) return null;
+      if (isDoris) {
+        // 1. Check Doris Functions
+        const fnMatch = dorisNamedFunctions.find(
+          (fn) => fn.name.toLowerCase() === term
+        );
+        if (fnMatch) {
+          return {
+            range: new monaco.Range(
+              position.lineNumber,
+              word.startColumn,
+              position.lineNumber,
+              word.endColumn
+            ),
+            contents: [
+              { value: `**${fnMatch.name}** — *Doris ${fnMatch.category} Function*` },
+              { value: `\`\`\`sql\n${fnMatch.usage}\n\`\`\`` },
+              { value: fnMatch.description },
+              ...(fnMatch.example ? [{ value: `*Example:*\n\`\`\`sql\n${fnMatch.example}\n\`\`\`` }] : []),
+            ],
+          };
+        }
 
-      return {
-        range: new monaco.Range(
-          position.lineNumber,
-          word.startColumn,
-          position.lineNumber,
-          word.endColumn
-        ),
-        contents: [
-          { value: `**${match.name}** — *${match.category}*` },
-          { value: `\`\`\`sql\n${match.usage}\n\`\`\`` },
-          { value: match.description },
-        ],
-      };
+        // 2. Check Doris Data Types
+        const dtMatch = DORIS_DATA_TYPES.find(
+          (dt) => dt.name.toLowerCase() === term
+        );
+        if (dtMatch) {
+          return {
+            range: new monaco.Range(
+              position.lineNumber,
+              word.startColumn,
+              position.lineNumber,
+              word.endColumn
+            ),
+            contents: [
+              { value: `**${dtMatch.name}** — *Doris ${dtMatch.category} Data Type*` },
+              { value: `\`\`\`sql\n${dtMatch.syntax}\n\`\`\`` },
+              { value: `**Size:** ${dtMatch.size} | **Range:** ${dtMatch.range}\n\n${dtMatch.description}` },
+              { value: `*Example:*\n\`\`\`sql\n${dtMatch.example}\n\`\`\`` },
+            ],
+          };
+        }
+      } else {
+        // Spark Mode: Check Spark Functions
+        const match = sparkNamedFunctions.find(
+          (fn) => fn.name.toLowerCase() === term
+        );
+        if (match) {
+          return {
+            range: new monaco.Range(
+              position.lineNumber,
+              word.startColumn,
+              position.lineNumber,
+              word.endColumn
+            ),
+            contents: [
+              { value: `**${match.name}** — *Spark ${match.category}*` },
+              { value: `\`\`\`sql\n${match.usage}\n\`\`\`` },
+              { value: match.description },
+            ],
+          };
+        }
+      }
+
+      return null;
     },
   });
 
@@ -1163,14 +1278,16 @@ export const SQL_PARAM_TYPES = {
  * @param {number} [tabWidth=2] - Indentation width
  * @returns {string} - Formatted SQL statement
  */
-export function formatSqlStatement(statement, tabWidth = 2) {
+export function formatSqlStatement(statement, tabWidth = 2, language = "spark") {
   const trimmed = statement.trim();
   if (!trimmed) return "";
+
+  const dialect = language || "spark";
 
   // 1. Primary: format directly using sql-formatter configured with custom paramTypes
   try {
     return format(trimmed, {
-      language: "spark",
+      language: dialect,
       tabWidth,
       paramTypes: SQL_PARAM_TYPES,
     });
@@ -1189,7 +1306,7 @@ export function formatSqlStatement(statement, tabWidth = 2) {
       });
 
       let formattedMasked = format(masked, {
-        language: "spark",
+        language: dialect,
         tabWidth,
         paramTypes: SQL_PARAM_TYPES,
       });
@@ -1492,7 +1609,11 @@ const SqlEditor = forwardRef(function SqlEditor({
     onTriggerSnakeRef.current = onTriggerSnake;
   });
 
-  const { sessionId, sessionState, isOnline, isServerReachable } = useLivy();
+  const { sessionId, sessionState, isOnline, isServerReachable, isDoris, isSpark, activeHost } = useLivy();
+  const isDorisRef = useRef(isDoris);
+  useEffect(() => {
+    isDorisRef.current = isDoris;
+  }, [isDoris]);
   const schemaContext = useSchema();
   const schemaDataRef = useRef({ databases: [], tables: {}, columns: {} });
   const { addToast } = useToast();
@@ -1507,6 +1628,7 @@ const SqlEditor = forwardRef(function SqlEditor({
   const viewStatesRef = useRef({});
   const [monacoInstance, setMonacoInstance] = useState(null);
   const [running, setRunning] = useState(false);
+  const dorisAbortRef = useRef(null);
   const [wordWrap, setWordWrap] = useState(() => {
     const saved = localStorage.getItem('livy-ui-word-wrap');
     if (saved !== null) return saved !== 'off';
@@ -1560,7 +1682,7 @@ const SqlEditor = forwardRef(function SqlEditor({
 
     // Only validate SQL files
     const fileName = activeFileRef.current?.name || "";
-    const isSqlFile = !fileName || /\.(sql|sparksql|hql)$/i.test(fileName);
+    const isSqlFile = isSqlFileName(fileName);
     if (!isSqlFile || model.getLanguageId() !== "sql") {
       monacoRef.current.editor.setModelMarkers(model, "sql-validator", []);
       lastSyntaxErrorsRef.current = [];
@@ -1578,7 +1700,8 @@ const SqlEditor = forwardRef(function SqlEditor({
     }
 
     const sql = model.getValue();
-    const dialect = currentSettings["editor.sqlValidation.dialect"] || "spark";
+    const isCurrentDoris = isDorisRef?.current ?? isDoris;
+    const dialect = isCurrentDoris ? "mysql" : (currentSettings["editor.sqlValidation.dialect"] || "spark");
     const result = validateSql(sql, dialect);
 
     if (model.isDisposed()) return;
@@ -1672,7 +1795,7 @@ const SqlEditor = forwardRef(function SqlEditor({
     const currentSettings = settingsRef.current || {};
 
     const fileName = activeFileRef.current?.name || "";
-    const isSqlFile = !fileName || /\.(sql|sparksql|hql)$/i.test(fileName);
+    const isSqlFile = isSqlFileName(fileName);
     if (!isSqlFile) {
       addToast("info", "Validation is only supported for SQL files", null, "Validation Skipped");
       return;
@@ -1690,7 +1813,8 @@ const SqlEditor = forwardRef(function SqlEditor({
       return;
     }
 
-    const dialect = currentSettings["editor.sqlValidation.dialect"] || "spark";
+    const isCurrentDoris = isDorisRef?.current ?? isDoris;
+    const dialect = isCurrentDoris ? "mysql" : (currentSettings["editor.sqlValidation.dialect"] || "spark");
     const result = validateSql(sql, dialect);
 
     if (result.isValid || result.errors.length === 0) {
@@ -1724,7 +1848,7 @@ const SqlEditor = forwardRef(function SqlEditor({
     }
   }, [addToast]);
 
-  // Re-run or clear validation when settings change
+  // Re-run or clear validation when settings or active compute change
   useEffect(() => {
     if (editorRef.current) {
       const currentModel = editorRef.current.getModel();
@@ -1732,7 +1856,7 @@ const SqlEditor = forwardRef(function SqlEditor({
         scheduleSqlValidation(currentModel, true);
       }
     }
-  }, [settings["editor.sqlValidation.enabled"], settings["editor.sqlValidation.dialect"], scheduleSqlValidation]);
+  }, [settings["editor.sqlValidation.enabled"], settings["editor.sqlValidation.dialect"], isDoris, scheduleSqlValidation]);
 
   // Clean up debounce timer on unmount
   useEffect(() => {
@@ -1756,10 +1880,12 @@ const SqlEditor = forwardRef(function SqlEditor({
 
   const canRun =
     !isMarkdownFile &&
-    sessionState === SESSION_STATES.IDLE &&
-    sessionId !== null &&
     !running &&
-    (isServerReachable === true || (isOnline && isServerReachable === null));
+    (isDoris
+      ? isServerReachable !== false
+      : sessionState === SESSION_STATES.IDLE &&
+        sessionId !== null &&
+        (isServerReachable === true || (isOnline && isServerReachable === null)));
 
   // Trigger Monaco layout recalculation on markdown view mode changes and initial sync
   useEffect(() => {
@@ -1809,11 +1935,11 @@ const SqlEditor = forwardRef(function SqlEditor({
   useEffect(() => {
     if (!monacoInstance) return;
 
-    const sparkProviders = registerSparkProviders(monacoInstance, schemaDataRef);
+    const sqlProviders = registerSqlProviders(monacoInstance, schemaDataRef, isDorisRef);
     const markdownProviders = registerMarkdownProviders(monacoInstance);
 
     return () => {
-      sparkProviders.forEach((p) => p.dispose());
+      sqlProviders.forEach((p) => p.dispose());
       markdownProviders.forEach((p) => p.dispose());
     };
   }, [monacoInstance]);
@@ -2475,12 +2601,13 @@ const SqlEditor = forwardRef(function SqlEditor({
     const text = model.getValueInRange(range);
     try {
       const parts = splitSqlStatements(text);
+      const dialectLang = isDoris ? "mysql" : "spark";
       const formattedParts = parts.map((part) => {
         const trimmed = part.trim();
         if (!trimmed) return "";
         const withoutComments = stripComments(trimmed).trim();
         if (!withoutComments) return trimmed;
-        return formatSqlStatement(trimmed, 2);
+        return formatSqlStatement(trimmed, 2, dialectLang);
       });
       const formatted = formattedParts.filter(p => p !== "").join(";\n\n") + (text.trim().endsWith(";") ? ";" : "");
       editor.executeEdits("format-sql", [{ range, text: formatted }]);
@@ -2524,12 +2651,13 @@ const SqlEditor = forwardRef(function SqlEditor({
     const value = editor.getValue();
     try {
       const parts = splitSqlStatements(value);
+      const dialectLang = isDoris ? "mysql" : "spark";
       const formattedParts = parts.map((part) => {
         const trimmed = part.trim();
         if (!trimmed) return "";
         const withoutComments = stripComments(trimmed).trim();
         if (!withoutComments) return trimmed;
-        return formatSqlStatement(trimmed, 2);
+        return formatSqlStatement(trimmed, 2, dialectLang);
       });
       const formatted = formattedParts.filter(p => p !== "").join(";\n\n") + (value.trim().endsWith(";") ? ";" : "");
       const fullRange = editor.getModel().getFullModelRange();
@@ -2615,9 +2743,9 @@ const SqlEditor = forwardRef(function SqlEditor({
     if (!canRun) return;
 
     const fileName = activeFileRef.current?.name || "";
-    const isSqlFile = !fileName || /\.(sql|sparksql|hql)$/i.test(fileName);
+    const isSqlFile = isSqlFileName(fileName);
     if (!isSqlFile) {
-      addToast("info", "Cannot execute non-SQL file as a Spark SQL query", null, "SQL Execution");
+      addToast("info", "Cannot execute non-SQL file as a SQL query", null, "SQL Execution");
       return;
     }
 
@@ -2690,34 +2818,123 @@ const SqlEditor = forwardRef(function SqlEditor({
       setRunningHighlight(finalStartLine, finalEndLine);
     }
 
-    try {
-      const stmt = await livyApi.submitStatement(sessionId, sql);
-      let stmtId = stmt.id;
+    if (isDoris) {
+      const controller = new AbortController();
+      dorisAbortRef.current = controller;
+      try {
+        const res = await executeDorisQuery({
+          url: activeHost?.url || "http://localhost:8030",
+          cluster: activeHost?.cluster || "default_cluster",
+          database: activeHost?.database || "",
+          username: activeHost?.username || "root",
+          password: activeHost?.password || "",
+          sql,
+          signal: controller.signal,
+        });
 
-      // Poll until complete
-      while (true) {
-        if (abortRef.current) {
-          await livyApi.cancelStatement(sessionId, stmtId);
-          finalStatus = "cancelled";
-          setResult(activeFile.id, { status: "cancelled", data: null, error: "Query cancelled", elapsed: performance.now() - startTime, sql }, executionId);
-          break;
+        finalStatus = "ok";
+        setResult(
+          activeFile.id,
+          {
+            status: "ok",
+            data: res.data,
+            error: null,
+            elapsed: res.elapsed || (performance.now() - startTime),
+            sql,
+          },
+          executionId
+        );
+
+        // Trigger schema refresh if this was a DDL operation
+        if (isDDLOperation(sql)) {
+          schemaContext.refreshSchema();
         }
+      } catch (err) {
+        if (err.name === "AbortError" || abortRef.current) {
+          finalStatus = "cancelled";
+          setResult(
+            activeFile.id,
+            {
+              status: "cancelled",
+              data: null,
+              error: "Query cancelled",
+              elapsed: performance.now() - startTime,
+              sql,
+            },
+            executionId
+          );
+        } else {
+          finalStatus = "error";
+          finalError = err.message || "Doris query execution failed";
+          setResult(
+            activeFile.id,
+            {
+              status: "error",
+              data: null,
+              error: finalError,
+              elapsed: performance.now() - startTime,
+              sql,
+            },
+            executionId
+          );
+        }
+      } finally {
+        dorisAbortRef.current = null;
+        clearRunningHighlight();
+        setRunning(false);
+        if (finalStatus) {
+          addHistoryEntry({
+            sql: sql.length > 500 ? sql.substring(0, 500) + "..." : sql,
+            status: finalStatus,
+            elapsed: performance.now() - startTime,
+            fileName: activeFile?.name,
+            engine: "doris",
+          });
+        }
+      }
+    } else {
+      try {
+        const stmt = await livyApi.submitStatement(sessionId, sql);
+        let stmtId = stmt.id;
 
-        const result = await livyApi.getStatement(sessionId, stmtId);
+        // Poll until complete
+        while (true) {
+          if (abortRef.current) {
+            await livyApi.cancelStatement(sessionId, stmtId);
+            finalStatus = "cancelled";
+            setResult(activeFile.id, { status: "cancelled", data: null, error: "Query cancelled", elapsed: performance.now() - startTime, sql }, executionId);
+            break;
+          }
 
-        if (result.state === STATEMENT_STATES.AVAILABLE) {
-          const output = result.output;
-          if (output.status === "ok") {
-            finalStatus = "ok";
-            setResult(activeFile.id, { status: "ok", data: output.data, error: null, elapsed: performance.now() - startTime, sql }, executionId);
-            
-            // Trigger schema refresh if this was a DDL operation
-            if (isDDLOperation(sql)) {
-              schemaContext.refreshSchema();
+          const result = await livyApi.getStatement(sessionId, stmtId);
+
+          if (result.state === STATEMENT_STATES.AVAILABLE) {
+            const output = result.output;
+            if (output.status === "ok") {
+              finalStatus = "ok";
+              setResult(activeFile.id, { status: "ok", data: output.data, error: null, elapsed: performance.now() - startTime, sql }, executionId);
+              
+              // Trigger schema refresh if this was a DDL operation
+              if (isDDLOperation(sql)) {
+                schemaContext.refreshSchema();
+              }
+            } else {
+              finalStatus = "error";
+              finalError = output.evalue || output.traceback?.join("\n") || "Unknown error";
+              setResult(activeFile.id, {
+                status: "error",
+                data: null,
+                error: finalError,
+                elapsed: performance.now() - startTime,
+                sql,
+              }, executionId);
             }
-          } else {
+            break;
+          }
+
+          if (result.state === STATEMENT_STATES.ERROR || result.state === STATEMENT_STATES.CANCELLED) {
             finalStatus = "error";
-            finalError = output.evalue || output.traceback?.join("\n") || "Unknown error";
+            finalError = result.output?.evalue || `Statement ${result.state}`;
             setResult(activeFile.id, {
               status: "error",
               data: null,
@@ -2725,40 +2942,28 @@ const SqlEditor = forwardRef(function SqlEditor({
               elapsed: performance.now() - startTime,
               sql,
             }, executionId);
+            break;
           }
-          break;
-        }
 
-        if (result.state === STATEMENT_STATES.ERROR || result.state === STATEMENT_STATES.CANCELLED) {
-          finalStatus = "error";
-          finalError = result.output?.evalue || `Statement ${result.state}`;
-          setResult(activeFile.id, {
-            status: "error",
-            data: null,
-            error: finalError,
+          await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        }
+      } catch (err) {
+        finalStatus = "error";
+        finalError = err.message;
+        setResult(activeFile.id, { status: "error", data: null, error: err.message, elapsed: performance.now() - startTime, sql }, executionId);
+      } finally {
+        clearRunningHighlight();
+        setRunning(false);
+        // Record in query history
+        if (finalStatus) {
+          addHistoryEntry({
+            sql: sql.length > 500 ? sql.substring(0, 500) + "..." : sql,
+            status: finalStatus,
             elapsed: performance.now() - startTime,
-            sql,
-          }, executionId);
-          break;
+            fileName: activeFile?.name,
+            engine: "spark",
+          });
         }
-
-        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-      }
-    } catch (err) {
-      finalStatus = "error";
-      finalError = err.message;
-      setResult(activeFile.id, { status: "error", data: null, error: err.message, elapsed: performance.now() - startTime, sql }, executionId);
-    } finally {
-      clearRunningHighlight();
-      setRunning(false);
-      // Record in query history
-      if (finalStatus) {
-        addHistoryEntry({
-          sql: sql.length > 500 ? sql.substring(0, 500) + "..." : sql,
-          status: finalStatus,
-          elapsed: performance.now() - startTime,
-          fileName: activeFile?.name,
-        });
       }
     }
 
@@ -2810,6 +3015,10 @@ const SqlEditor = forwardRef(function SqlEditor({
 
   const handleCancel = () => {
     abortRef.current = true;
+    if (dorisAbortRef.current) {
+      dorisAbortRef.current.abort();
+      dorisAbortRef.current = null;
+    }
   };
 
   useImperativeHandle(ref, () => ({

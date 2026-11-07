@@ -18,7 +18,7 @@ import {
   Settings2,
 } from "lucide-react";
 import { useLivy } from "../context/LivyContext";
-import { SESSION_STATES } from "../utils/constants";
+import { SESSION_STATES, DATA_SOURCE_TYPES } from "../utils/constants";
 
 const stateColors = {
   [SESSION_STATES.NOT_STARTED]: "bg-gray-500",
@@ -53,6 +53,9 @@ export default function SettingsPanel({
   const {
     hosts,
     activeHostId,
+    activeHost,
+    isDoris,
+    isSpark,
     selectHost,
     removeHost,
     sessionId,
@@ -144,7 +147,7 @@ export default function SettingsPanel({
               }`}
             />
             <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wider truncate">
-              Livy Hosts
+              Compute Hosts
             </span>
           </div>
           <button
@@ -163,6 +166,7 @@ export default function SettingsPanel({
           <div className="flex flex-col py-2 px-3 border-t border-(--color-border)/20 bg-(--color-bg-secondary)/10 gap-1.5">
             {hosts.map((h) => {
               const isSelected = h.id === activeHostId;
+              const isDorisHost = h.type === DATA_SOURCE_TYPES.DORIS || h.type === "doris" || h.engine === "doris";
               return (
                 <div
                   key={h.id}
@@ -174,14 +178,20 @@ export default function SettingsPanel({
                   }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <Server
-                      size={13}
-                      className={
-                        isSelected ? "text-(--color-accent)" : "text-(--color-text-muted) group-hover:text-(--color-text-secondary)"
-                      }
-                    />
+                    <span className="text-xs shrink-0 select-none">
+                      {isDorisHost ? "🐬" : "⚡"}
+                    </span>
                     <div className="flex flex-col truncate">
-                      <span className="truncate leading-tight">{h.name}</span>
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="truncate leading-tight">{h.name}</span>
+                        <span className={`text-[8px] font-semibold uppercase px-1 py-0.2 rounded shrink-0 ${
+                          isDorisHost
+                            ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
+                            : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                        }`}>
+                          {isDorisHost ? "Doris" : "Spark"}
+                        </span>
+                      </div>
                       <span className="text-[9px] text-(--color-text-muted) font-mono truncate mt-0.5">
                         {h.url}
                       </span>
@@ -214,7 +224,7 @@ export default function SettingsPanel({
         )}
       </div>
 
-      {/* 2. LIVY SESSIONS SECTION */}
+      {/* 2. COMPUTE / SESSION MANAGER SECTION */}
       <div className="flex flex-col border-b border-(--color-border)/60">
         <div
           onClick={() => toggleSection("sessions")}
@@ -228,175 +238,212 @@ export default function SettingsPanel({
               }`}
             />
             <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wider truncate">
-              Session Manager
+              {isDoris ? "🐬 Doris Engine" : "⚡ Livy Sessions"}
             </span>
           </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              fetchSessions();
-            }}
-            disabled={sessionsLoading}
-            className="p-1 rounded-md hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-all duration-150 disabled:opacity-40 dg-spring-btn"
-            title="Refresh active sessions list"
-          >
-            <RefreshCw size={12} className={sessionsLoading ? "animate-spin" : ""} />
-          </button>
+          {!isDoris && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                fetchSessions();
+              }}
+              disabled={sessionsLoading}
+              className="p-1 rounded-md hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-all duration-150 disabled:opacity-40 dg-spring-btn"
+              title="Refresh active sessions list"
+            >
+              <RefreshCw size={12} className={sessionsLoading ? "animate-spin" : ""} />
+            </button>
+          )}
         </div>
 
         {expandedSections.sessions && (
-          <div className="flex flex-col py-3.5 px-3.5 border-t border-(--color-border)/20 bg-(--color-bg-secondary)/10 gap-4">
-            {/* Active Session Info Card */}
-            <div className="flex flex-col gap-2.5 bg-(--color-bg-primary)/40 border border-(--color-border)/40 p-3.5 rounded-xl shadow-xs">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="relative flex h-2 w-2 shrink-0 items-center justify-center">
-                    {(isActive || isStarting) && (
-                      <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping ${stateColors[sessionState] || "bg-gray-500"}`} />
-                    )}
-                    <span className={`relative inline-flex rounded-full h-2 w-2 ${stateColors[sessionState] || "bg-gray-500"}`} />
+          isDoris ? (
+            <div className="flex flex-col py-3.5 px-3.5 border-t border-(--color-border)/20 bg-(--color-bg-secondary)/10 gap-3">
+              <div className="flex flex-col gap-2.5 bg-(--color-bg-primary)/40 border border-cyan-500/20 p-3.5 rounded-xl shadow-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                    <span className="text-xs font-semibold truncate text-(--color-text-primary)">
+                      🐬 Apache Doris Engine
+                    </span>
                   </div>
-                  <span className="text-xs font-semibold truncate text-(--color-text-primary)">
-                    {sessionLabel}
+                  <span className="text-[8px] font-bold uppercase px-2 py-0.5 rounded-full tracking-wider shrink-0 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                    Stateless Ready
+                  </span>
+                </div>
+                <p className="text-[11px] text-(--color-text-muted) leading-relaxed">
+                  Queries run statelessly against the Doris FE HTTP API. No background sessions or cluster allocation needed.
+                </p>
+                <div className="flex flex-col gap-1.5 text-[10px] text-(--color-text-muted) bg-(--color-bg-primary)/60 px-2.5 py-2 rounded-lg border border-(--color-border)/25">
+                  <div className="flex justify-between items-center">
+                    <span>Cluster:</span>
+                    <span className="text-(--color-text-primary) font-mono font-medium">{activeHost.cluster || "default_cluster"}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Target Database:</span>
+                    <span className="text-cyan-400 font-mono font-medium">{activeHost.database || "demo_db"}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Auth User:</span>
+                    <span className="text-(--color-text-primary) font-mono">{activeHost.username || "root"}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col py-3.5 px-3.5 border-t border-(--color-border)/20 bg-(--color-bg-secondary)/10 gap-4">
+              {/* Active Session Info Card */}
+              <div className="flex flex-col gap-2.5 bg-(--color-bg-primary)/40 border border-(--color-border)/40 p-3.5 rounded-xl shadow-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="relative flex h-2 w-2 shrink-0 items-center justify-center">
+                      {(isActive || isStarting) && (
+                        <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping ${stateColors[sessionState] || "bg-gray-500"}`} />
+                      )}
+                      <span className={`relative inline-flex rounded-full h-2 w-2 ${stateColors[sessionState] || "bg-gray-500"}`} />
+                    </div>
+                    <span className="text-xs font-semibold truncate text-(--color-text-primary)">
+                      {sessionLabel}
+                    </span>
+                  </div>
+                  
+                  <span className={`text-[8px] font-bold uppercase px-2 py-0.5 rounded-full tracking-wider shrink-0 ${
+                    statusBadgeStyles[sessionState] || "bg-gray-500/10 text-gray-400 border border-gray-500/20"
+                  }`}>
+                    {sessionState}
                   </span>
                 </div>
                 
-                <span className={`text-[8px] font-bold uppercase px-2 py-0.5 rounded-full tracking-wider shrink-0 ${
-                  statusBadgeStyles[sessionState] || "bg-gray-500/10 text-gray-400 border border-gray-500/20"
-                }`}>
-                  {sessionState}
-                </span>
-              </div>
-              
-              {appId && (
-                <div className="text-[9px] text-(--color-text-muted) font-mono truncate bg-(--color-bg-primary)/60 px-2.5 py-1 rounded-lg border border-(--color-border)/25">
-                  App ID: <span className="text-(--color-accent) font-semibold select-all">{appId}</span>
+                {appId && (
+                  <div className="text-[9px] text-(--color-text-muted) font-mono truncate bg-(--color-bg-primary)/60 px-2.5 py-1 rounded-lg border border-(--color-border)/25">
+                    App ID: <span className="text-(--color-accent) font-semibold select-all">{appId}</span>
+                  </div>
+                )}
+
+                {/* Session Controls */}
+                <div className="flex items-center gap-2 mt-1 border-t border-(--color-border)/15 pt-2.5 justify-end">
+                  {isStarting ? (
+                    <button
+                      disabled
+                      className="flex-1 flex items-center justify-center h-8 px-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-semibold"
+                    >
+                      <Loader2 size={13} className="animate-spin mr-1.5" />
+                      Starting...
+                    </button>
+                  ) : isActive ? (
+                    <button
+                      onClick={stopSession}
+                      disabled={loading}
+                      className="flex-1 flex items-center justify-center h-8 gap-1.5 px-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/40 text-xs rounded-lg transition-all disabled:opacity-40 cursor-pointer shadow-xs font-semibold dg-spring-btn"
+                      title="Stop Active Session"
+                    >
+                      {loading ? <Loader2 size={12} className="animate-spin" /> : <Square size={11} className="fill-current" />}
+                      Stop Session
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => startSession().catch((err) => console.error("Failed to start session:", err.message))}
+                      disabled={loading}
+                      className="flex-1 flex items-center justify-center h-8 gap-1.5 px-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/40 text-xs rounded-lg transition-all disabled:opacity-40 cursor-pointer shadow-xs font-semibold dg-spring-btn"
+                      title="Start New Session"
+                    >
+                      {loading ? <Loader2 size={12} className="animate-spin" /> : <Play size={11} className="fill-current" />}
+                      Start Session
+                    </button>
+                  )}
+
+                  <button
+                    onClick={refreshSession}
+                    disabled={loading || sessionId === null}
+                    className="flex items-center justify-center w-8 h-8 rounded-lg bg-(--color-bg-primary)/40 border border-(--color-border)/40 text-(--color-text-muted) hover:text-(--color-text-primary) hover:border-(--color-accent) active:scale-95 transition-all duration-150 cursor-pointer disabled:opacity-40 shadow-xs dg-spring-btn"
+                    title="Refresh Session Status"
+                  >
+                    <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+                  </button>
                 </div>
-              )}
-
-              {/* Session Controls */}
-              <div className="flex items-center gap-2 mt-1 border-t border-(--color-border)/15 pt-2.5 justify-end">
-                {isStarting ? (
-                  <button
-                    disabled
-                    className="flex-1 flex items-center justify-center h-8 px-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-semibold"
-                  >
-                    <Loader2 size={13} className="animate-spin mr-1.5" />
-                    Starting...
-                  </button>
-                ) : isActive ? (
-                  <button
-                    onClick={stopSession}
-                    disabled={loading}
-                    className="flex-1 flex items-center justify-center h-8 gap-1.5 px-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/40 text-xs rounded-lg transition-all disabled:opacity-40 cursor-pointer shadow-xs font-semibold dg-spring-btn"
-                    title="Stop Active Session"
-                  >
-                    {loading ? <Loader2 size={12} className="animate-spin" /> : <Square size={11} className="fill-current" />}
-                    Stop Session
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => startSession().catch((err) => console.error("Failed to start session:", err.message))}
-                    disabled={loading}
-                    className="flex-1 flex items-center justify-center h-8 gap-1.5 px-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/40 text-xs rounded-lg transition-all disabled:opacity-40 cursor-pointer shadow-xs font-semibold dg-spring-btn"
-                    title="Start New Session"
-                  >
-                    {loading ? <Loader2 size={12} className="animate-spin" /> : <Play size={11} className="fill-current" />}
-                    Start Session
-                  </button>
-                )}
-
-                <button
-                  onClick={refreshSession}
-                  disabled={loading || sessionId === null}
-                  className="flex items-center justify-center w-8 h-8 rounded-lg bg-(--color-bg-primary)/40 border border-(--color-border)/40 text-(--color-text-muted) hover:text-(--color-text-primary) hover:border-(--color-accent) active:scale-95 transition-all duration-150 cursor-pointer disabled:opacity-40 shadow-xs dg-spring-btn"
-                  title="Refresh Session Status"
-                >
-                  <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-                </button>
               </div>
-            </div>
 
-            {/* Create New Session Form */}
-            <div className="flex flex-col gap-1.5 border-t border-(--color-border)/15 pt-3">
-              <span className="text-[9px] text-(--color-text-muted) uppercase tracking-wider font-bold">
-                Create Session Profile
-              </span>
-              <div className="flex gap-2">
-                <input
-                  value={newSessionName}
-                  onChange={(e) => setNewSessionName(e.target.value)}
-                  placeholder="Optional session name..."
-                  className="flex-1 min-w-0 bg-(--color-bg-primary)/40 border border-(--color-border)/50 rounded-lg px-2.5 py-1.5 text-xs text-(--color-text-primary) outline-none focus:border-(--color-accent) focus:ring-1 focus:ring-(--color-accent)/20 placeholder:text-(--color-text-muted)/80 transition-all font-medium"
-                  onKeyDown={(e) => e.key === "Enter" && handleCreateSession()}
-                />
-                <button
-                  onClick={handleCreateSession}
-                  disabled={loading}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-(--color-accent) hover:bg-(--color-accent-hover) text-white rounded-lg text-xs font-semibold transition-all active:scale-95 disabled:opacity-40 cursor-pointer dg-spring-btn"
-                >
-                  {loading ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
-                  Create
-                </button>
+              {/* Create New Session Form */}
+              <div className="flex flex-col gap-1.5 border-t border-(--color-border)/15 pt-3">
+                <span className="text-[9px] text-(--color-text-muted) uppercase tracking-wider font-bold">
+                  Create Session Profile
+                </span>
+                <div className="flex gap-2">
+                  <input
+                    value={newSessionName}
+                    onChange={(e) => setNewSessionName(e.target.value)}
+                    placeholder="Optional session name..."
+                    className="flex-1 min-w-0 bg-(--color-bg-primary)/40 border border-(--color-border)/50 rounded-lg px-2.5 py-1.5 text-xs text-(--color-text-primary) outline-none focus:border-(--color-accent) focus:ring-1 focus:ring-(--color-accent)/20 placeholder:text-(--color-text-muted)/80 transition-all font-medium"
+                    onKeyDown={(e) => e.key === "Enter" && handleCreateSession()}
+                  />
+                  <button
+                    onClick={handleCreateSession}
+                    disabled={loading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-(--color-accent) hover:bg-(--color-accent-hover) text-white rounded-lg text-xs font-semibold transition-all active:scale-95 disabled:opacity-40 cursor-pointer dg-spring-btn"
+                  >
+                    {loading ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                    Create
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {/* Active Sessions List on Host */}
-            <div className="flex flex-col gap-2 border-t border-(--color-border)/15 pt-3">
-              <span className="text-[9px] text-(--color-text-muted) uppercase tracking-wider font-bold">
-                Sessions on Cluster
-              </span>
-              <div className="flex flex-col gap-1.5">
-                {sessionsLoading && sessions.length === 0 ? (
-                  <div className="flex items-center justify-center gap-2 py-4 text-(--color-text-muted)">
-                    <Loader2 size={12} className="animate-spin" />
-                    <span className="text-[11px] font-medium">Loading sessions...</span>
-                  </div>
-                ) : sessions.length === 0 ? (
-                  <div className="py-4 text-center text-[11px] text-(--color-text-muted) italic">
-                    No active sessions detected
-                  </div>
-                ) : (
-                  sessions.map((s) => {
-                    const isCurrent = s.id === sessionId;
-                    const sAlive =
-                      s.state === "idle" ||
-                      s.state === "busy" ||
-                      s.state === "starting";
-                    return (
-                      <div
-                        key={s.id}
-                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-all ${
-                          isCurrent
-                            ? "bg-(--color-accent-hover)/10 border-(--color-accent)"
-                            : sAlive
-                            ? "hover:bg-(--color-bg-tertiary)/40 border-transparent hover:border-(--color-border)/40 cursor-pointer"
-                            : "border-transparent opacity-40 cursor-not-allowed"
-                        }`}
-                        onClick={() => !isCurrent && sAlive && attachSession(s.id)}
-                      >
-                        <span className={`w-2 h-2 rounded-full ${stateColors[s.state] || "bg-gray-500"}`} />
-                        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                          <span className="text-xs font-semibold text-(--color-text-primary) truncate">
-                            {s.name || `Session ${s.id}`}
-                          </span>
-                          <span className="text-[9px] text-(--color-text-muted) font-mono uppercase tracking-wide">
-                            #{s.id} · {s.state}
-                          </span>
+              {/* Active Sessions List on Host */}
+              <div className="flex flex-col gap-2 border-t border-(--color-border)/15 pt-3">
+                <span className="text-[9px] text-(--color-text-muted) uppercase tracking-wider font-bold">
+                  Sessions on Cluster
+                </span>
+                <div className="flex flex-col gap-1.5">
+                  {sessionsLoading && sessions.length === 0 ? (
+                    <div className="flex items-center justify-center gap-2 py-4 text-(--color-text-muted)">
+                      <Loader2 size={12} className="animate-spin" />
+                      <span className="text-[11px] font-medium">Loading sessions...</span>
+                    </div>
+                  ) : sessions.length === 0 ? (
+                    <div className="py-4 text-center text-[11px] text-(--color-text-muted) italic">
+                      No active sessions detected
+                    </div>
+                  ) : (
+                    sessions.map((s) => {
+                      const isCurrent = s.id === sessionId;
+                      const sAlive =
+                        s.state === "idle" ||
+                        s.state === "busy" ||
+                        s.state === "starting";
+                      return (
+                        <div
+                          key={s.id}
+                          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-all ${
+                            isCurrent
+                              ? "bg-(--color-accent-hover)/10 border-(--color-accent)"
+                              : sAlive
+                              ? "hover:bg-(--color-bg-tertiary)/40 border-transparent hover:border-(--color-border)/40 cursor-pointer"
+                              : "border-transparent opacity-40 cursor-not-allowed"
+                          }`}
+                          onClick={() => !isCurrent && sAlive && attachSession(s.id)}
+                        >
+                          <span className={`w-2 h-2 rounded-full ${stateColors[s.state] || "bg-gray-500"}`} />
+                          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                            <span className="text-xs font-semibold text-(--color-text-primary) truncate">
+                              {s.name || `Session ${s.id}`}
+                            </span>
+                            <span className="text-[9px] text-(--color-text-muted) font-mono uppercase tracking-wide">
+                              #{s.id} · {s.state}
+                            </span>
+                          </div>
+                          {!isCurrent && sAlive && (
+                            <Link size={11} className="text-(--color-text-muted) hover:text-(--color-text-secondary) shrink-0" />
+                          )}
+                          {isCurrent && (
+                            <span className="text-[8px] font-bold text-(--color-accent) uppercase px-1.5 py-0.5 bg-(--color-accent)/10 border border-(--color-accent)/20 rounded-md">Active</span>
+                          )}
                         </div>
-                        {!isCurrent && sAlive && (
-                          <Link size={11} className="text-(--color-text-muted) hover:text-(--color-text-secondary) shrink-0" />
-                        )}
-                        {isCurrent && (
-                          <span className="text-[8px] font-bold text-(--color-accent) uppercase px-1.5 py-0.5 bg-(--color-accent)/10 border border-(--color-accent)/20 rounded-md">Active</span>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
+                      );
+                    })
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          )
         )}
       </div>
 

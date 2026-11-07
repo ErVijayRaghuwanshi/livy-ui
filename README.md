@@ -1,29 +1,33 @@
 # Livy UI
 
-A modern web-based SQL editor for [Apache Livy](https://livy.incubator.apache.org/), built with React 19, Vite 7, and Monaco Editor. Write, run, and manage Spark SQL queries against remote Livy servers — all from your browser.
+A modern, high-performance web-based SQL workbench for **Apache Spark SQL** (via [Apache Livy](https://livy.incubator.apache.org/)) and **Apache Doris**, built with React 19, Vite 7, and Monaco Editor. Write, run, and manage analytical queries against remote Spark clusters and Doris data warehouses — completely client-side from your browser.
 
-![Tech Stack](https://img.shields.io/badge/React-19-blue) ![Tech Stack](https://img.shields.io/badge/Vite-7-purple) ![Tech Stack](https://img.shields.io/badge/Tailwind_CSS-4-cyan) ![Tech Stack](https://img.shields.io/badge/Monaco_Editor-0.52-green)
+![Tech Stack](https://img.shields.io/badge/React-19-blue) ![Tech Stack](https://img.shields.io/badge/Vite-7-purple) ![Tech Stack](https://img.shields.io/badge/Tailwind_CSS-4-cyan) ![Tech Stack](https://img.shields.io/badge/Monaco_Editor-0.52-green) ![Release](https://img.shields.io/badge/Release-v3.0.0-emerald)
 
 ## Features
 
-- **Progressive Web App (PWA)** — Installable web app with service worker asset caching, manifest icons, and offline loopback execution
-- **Connection Health & Reachability** — Real-time server status indicators (`Online`, `Offline`, `Server Down`) with periodic health checks
-- **Compute Resource Manager** — Fine-grained cluster configuration presets (memory, CPU cores, custom Spark submit options)
-- **Multi-tab SQL Editor** — Create, rename, and manage multiple SQL files with Monaco Editor
-- **Spark SQL Autocomplete** — Built-in completion for 300+ Spark SQL functions and keywords with documentation on hover
-- **Smart SQL Snippets** — Interactive boilerplate templates for common Spark SQL operations with tab-stop navigation
-- **Keyboard Shortcuts** — VS Code-style shortcuts for sidebar, result panel, tabs, and query execution
-- **Query Execution** — Run queries against any Livy server with live elapsed timer, cancellation, and comment-based run history titles
-- **Result Table** — Structured table display with column data types, row counts, and execution time
-- **EXPLAIN Plan Viewer** — Syntax-highlighted execution plan display for EXPLAIN queries
-- **Schema Explorer** — Collapsible left sidebar with lazy-loaded tree view of databases, tables, and columns
-- **Session Management** — Start, stop, and monitor Spark sessions with real-time status
-- **Session Configuration** — Pass custom Spark properties (e.g. Hive metastore, executor memory) when creating sessions
-- **Multi-host Support** — Connect to multiple Livy servers and switch between them
-- **HDFS / Parquet Support** — Query HDFS files directly using Spark SQL path-based table syntax
-- **Dark Theme** — Modern dark UI optimized for long coding sessions
-- **LocalStorage Persistence** — All hosts, SQL files, session config, and session info persist across browser reloads
-- **Native CORS Support** — Built-in `livy-next` REST API handles cross-origin requests (`--cors-allowed-origins "*"`) on port 8998 without requiring external proxy containers
+- **Dual-Engine Architecture (Spark SQL ⇋ Apache Doris)** — Seamless 1-click switching between Apache Spark SQL sessions and Apache Doris MPP data warehouse query execution.
+- **Compute & Session Manager (`⌘⇧M`)** — Dedicated sidebar panel with quick engine switcher (`⚡ Spark` / `🐬 Doris`), active connection health & latency ping, database selector, and saved endpoints catalog.
+- **Stateless Apache Doris FE Query Execution** — Instant query execution against Doris Frontends (`/api/query/<cluster>/<database>`) with zero startup wait time.
+- **Doris Cluster Tools** — 1-click introspection shortcuts for storage backends, frontend nodes, databases, tables, AI resources, and workload groups with inline `▶ Run` and insert.
+- **Engine-Aware Autocomplete & Documentation** — Dynamic Monaco autocompletion for 112+ Doris functions (including native `AI_*` and bitmap operations), 32 data types, 178 keywords, and 13 DDL snippets, plus 600+ Spark SQL functions.
+- **Real-Time Static SQL Syntax Validation** — Instant dialect-aware SQL validation powered by `dt-sql-parser` (`MySQL` parser for Doris with syntax masking for custom DDL/SHOW commands; `SparkSQL` parser for Spark).
+- **Native Doris AI & LLM Integration** — Built-in templates and query support for Ollama and OpenAI model resources (`AI_TRANSLATE`, `AI_GENERATE`, `AI_SUMMARIZE`, `AI_MASK`).
+- **Progressive Web App (PWA)** — Installable web app with service worker asset caching, manifest icons, and offline loopback execution.
+- **Connection Health & Reachability** — Real-time server status indicators (`Online`, `Offline`, `Server Down`) with periodic health checks.
+- **Compute Resource Manager** — Fine-grained cluster configuration presets (memory, CPU cores, custom Spark submit options).
+- **Multi-tab SQL Editor** — Create, rename, and manage multiple SQL files with Monaco Editor.
+- **Smart SQL Snippets** — Interactive boilerplate templates for common Spark SQL and Doris operations with tab-stop navigation.
+- **Keyboard Shortcuts** — VS Code-style shortcuts for sidebar, result panel, tabs, and query execution.
+- **Query Execution** — Run queries against any Livy or Doris server with live elapsed timer, cancellation, and comment-based run history titles.
+- **Result Table** — Structured table display with column data types, row counts, execution time, and raw value fidelity.
+- **EXPLAIN Plan Viewer** — Syntax-highlighted execution plan display for EXPLAIN queries.
+- **Schema Explorer** — Collapsible left sidebar with lazy-loaded tree view of databases, tables, and columns.
+- **Session Management** — Start, stop, and monitor Spark sessions with real-time status.
+- **Multi-host Support** — Connect to multiple Livy and Doris servers and switch between them seamlessly.
+- **Dark Theme** — Modern VS Code dark UI optimized for long coding sessions.
+- **LocalStorage Persistence** — All hosts, SQL files, session config, and settings persist across browser reloads.
+- **Native CORS Support** — Built-in `livy-next` REST API handles cross-origin requests (`--cors-allowed-origins "*"`) on port 8998 without requiring external proxy containers.
 
 ## Tech Stack
 

@@ -3,8 +3,8 @@ import { useLivy } from "../context/LivyContext";
 
 const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 
-export default function TitleBar({ onOpenCommandPalette }) {
-  const { activeHost, sessionState } = useLivy();
+export default function TitleBar({ onOpenCommandPalette, onOpenComputePanel }) {
+  const { activeHost, sessionState, isDoris } = useLivy();
 
   const stateColors = {
     not_started: "bg-gray-500",
@@ -20,10 +20,17 @@ export default function TitleBar({ onOpenCommandPalette }) {
 
   return (
     <div className="relative flex items-center justify-between h-9 px-3 bg-(--color-bg-secondary) border-b border-(--color-border) shrink-0 select-none text-xs text-(--color-text-secondary) z-40">
-      {/* Left: Brand logo & name */}
+      {/* Left: Brand logo & name + active compute badge */}
       <div className="flex items-center gap-2 font-semibold text-(--color-text-primary) z-10">
         <Zap size={14} className="text-(--color-accent) fill-current" />
         <span className="tracking-tight text-[12px] font-medium">Livy UI</span>
+        <span className={`text-[9px] font-semibold uppercase px-1.5 py-0.2 rounded tracking-wider border select-none ${
+          isDoris
+            ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/30"
+            : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+        }`}>
+          {isDoris ? "🐬 Doris" : "⚡ Spark"}
+        </span>
       </div>
 
       {/* Center: Command Center Pill (Dead Centered Horizontally) */}
@@ -44,15 +51,26 @@ export default function TitleBar({ onOpenCommandPalette }) {
         </button>
       </div>
 
-      {/* Right: Quick connection status & shortcuts */}
+      {/* Right: Quick compute switcher & status pill */}
       <div className="flex items-center gap-3 z-10">
-        {/* Connection status snippet */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-(--color-bg-primary) border border-(--color-border) rounded-md">
-          <span className={`w-1.5 h-1.5 rounded-full ${stateColors[sessionState] || "bg-gray-500"}`} />
-          <span className="text-[10px] font-mono text-(--color-text-muted) truncate max-w-28">
+        <button
+          onClick={onOpenComputePanel}
+          className="flex items-center gap-2 px-2.5 py-1 bg-(--color-bg-primary) hover:bg-(--color-bg-tertiary)/60 border border-(--color-border) hover:border-(--color-accent)/40 rounded-md transition-all cursor-pointer shadow-2xs group"
+          title={`Compute Manager: ${activeHost.name} (${isDoris ? "Apache Doris" : "Spark Livy"}). Click to open.`}
+        >
+          <span className="text-xs select-none">{isDoris ? "🐬" : "⚡"}</span>
+          <span className={`w-1.5 h-1.5 rounded-full ${isDoris ? "bg-cyan-400" : (stateColors[sessionState] || "bg-gray-500")}`} />
+          <span className="text-[10px] font-mono text-(--color-text-secondary) group-hover:text-(--color-text-primary) font-medium truncate max-w-28">
             {activeHost.name}
           </span>
-        </div>
+          <span className={`text-[8px] font-bold uppercase px-1 py-0.2 rounded ${
+            isDoris
+              ? "bg-cyan-500/15 text-cyan-400 border border-cyan-500/25"
+              : "bg-amber-500/15 text-amber-400 border border-amber-500/25"
+          }`}>
+            {isDoris ? "Doris" : "Spark"}
+          </span>
+        </button>
       </div>
     </div>
   );

@@ -1,13 +1,24 @@
 import { createContext, useContext, useReducer, useCallback, useEffect } from "react";
 import { getItem, setItem, removeItem } from "../utils/localStorage";
-import { STORAGE_KEYS, DEFAULT_HOST, SESSION_STATES } from "../utils/constants";
+import { STORAGE_KEYS, DEFAULT_HOST, DEFAULT_DORIS_HOST, SESSION_STATES, DATA_SOURCE_TYPES } from "../utils/constants";
 import { useSettings } from "./SettingsContext";
 import * as livyApi from "../services/livyApi";
+import { testDorisConnection } from "../services/dorisApi";
 
 const LivyContext = createContext(null);
 
+const rawSavedHosts = getItem(STORAGE_KEYS.HOSTS, [DEFAULT_HOST, DEFAULT_DORIS_HOST]);
+let normalizedInitialHosts = (Array.isArray(rawSavedHosts) ? rawSavedHosts : [DEFAULT_HOST, DEFAULT_DORIS_HOST]).map((h) => ({
+  ...h,
+  type: h.type || DATA_SOURCE_TYPES.SPARK,
+}));
+
+if (!normalizedInitialHosts.some((h) => h.type === DATA_SOURCE_TYPES.DORIS)) {
+  normalizedInitialHosts.push(DEFAULT_DORIS_HOST);
+}
+
 const initialState = {
-  hosts: getItem(STORAGE_KEYS.HOSTS, [DEFAULT_HOST]),
+  hosts: normalizedInitialHosts,
   activeHostId: getItem(STORAGE_KEYS.ACTIVE_HOST, DEFAULT_HOST.id),
   sessionId: getItem(STORAGE_KEYS.SESSION_ID, null),
   sessionState: SESSION_STATES.NOT_STARTED,
@@ -79,10 +90,16 @@ export function LivyProvider({ children }) {
   }, [state.sessionId]);
 
   const activeHost = state.hosts.find((h) => h.id === state.activeHostId) || DEFAULT_HOST;
+  const isDoris = activeHost.type === DATA_SOURCE_TYPES.DORIS;
+  const isSpark = !isDoris;
 
   // Add host
   const addHost = useCallback((host) => {
-    const updated = [...state.hosts, host];
+    const normalized = {
+      ...host,
+      type: host.type || DATA_SOURCE_TYPES.SPARK,
+    };
+    const updated = [...state.hosts, normalized];
     setItem(STORAGE_KEYS.HOSTS, updated);
     dispatch({ type: "SET_HOSTS", payload: updated });
   }, [state.hosts]);
@@ -111,22 +128,34 @@ export function LivyProvider({ children }) {
     setItem(STORAGE_KEYS.ACTIVE_HOST, hostId);
     removeItem(STORAGE_KEYS.SESSION_ID);
     dispatch({ type: "SET_ACTIVE_HOST", payload: hostId });
-  }, []);
+    const targetHost = state.hosts.find((h) => h.id === hostId);
+    if (targetHost && targetHost.type === DATA_SOURCE_TYPES.DORIS) {
+      dispatch({ type: "SET_SESSION_STATE", payload: SESSION_STATES.IDLE });
+      dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
+    }
+  }, [state.hosts]);
 
   // Server Reachability Checker
   const checkServerReachability = useCallback(async () => {
     const currentHost = state.hosts.find((h) => h.id === state.activeHostId) || DEFAULT_HOST;
+    const isDorisHost = currentHost.type === DATA_SOURCE_TYPES.DORIS;
     const isLocalhost = currentHost.url.includes("localhost") || currentHost.url.includes("127.0.0.1");
     if (typeof window !== "undefined" && !window.navigator.onLine && !isLocalhost) {
       dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
       return false;
     }
     try {
-      await livyApi.listSessions();
-      dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
-      return true;
+      if (isDorisHost) {
+        const res = await testDorisConnection(currentHost);
+        dispatch({ type: "SET_SERVER_REACHABLE", payload: res.success });
+        return res.success;
+      } else {
+        await livyApi.listSessions();
+        dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
+        return true;
+      }
     } catch (err) {
-      console.warn("Livy host reachability check failed:", err.message);
+      console.warn("Data source reachability check failed:", err.message);
       dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
       return false;
     }
@@ -134,6 +163,12 @@ export function LivyProvider({ children }) {
 
   // Refresh session
   const refreshSession = useCallback(async () => {
+    const currentHost = state.hosts.find((h) => h.id === state.activeHostId) || DEFAULT_HOST;
+    if (currentHost.type === DATA_SOURCE_TYPES.DORIS) {
+      dispatch({ type: "SET_SESSION_STATE", payload: SESSION_STATES.IDLE });
+      dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
+      return;
+    }
     if (state.sessionId === null) return;
     dispatch({ type: "SET_LOADING", payload: true });
     try {
@@ -142,8 +177,6 @@ export function LivyProvider({ children }) {
       dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
     } catch (err) {
       dispatch({ type: "SET_ERROR", payload: err.message });
-      // Only clear the active session if the server explicitly returned 404 (session doesn't exist).
-      // During server restarts or network blips, preserve sessionId so the UI can reconnect once back online.
       if (err.response && err.response.status === 404) {
         dispatch({ type: "CLEAR_SESSION" });
       }
@@ -151,7 +184,7 @@ export function LivyProvider({ children }) {
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
-  }, [state.sessionId]);
+  }, [state.hosts, state.activeHostId, state.sessionId]);
 
   // Persist session conf
   useEffect(() => {
@@ -173,6 +206,12 @@ export function LivyProvider({ children }) {
 
   // Fetch all sessions for current host
   const fetchSessions = useCallback(async () => {
+    const currentHost = state.hosts.find((h) => h.id === state.activeHostId) || DEFAULT_HOST;
+    if (currentHost.type === DATA_SOURCE_TYPES.DORIS) {
+      dispatch({ type: "SET_SESSIONS", payload: [] });
+      dispatch({ type: "SET_SESSIONS_LOADING", payload: false });
+      return;
+    }
     dispatch({ type: "SET_SESSIONS_LOADING", payload: true });
     try {
       const data = await livyApi.listSessions();
@@ -187,7 +226,7 @@ export function LivyProvider({ children }) {
     } finally {
       dispatch({ type: "SET_SESSIONS_LOADING", payload: false });
     }
-  }, []);
+  }, [state.hosts, state.activeHostId]);
 
   // Attach to an existing session
   const attachSession = useCallback(async (id) => {
@@ -332,6 +371,9 @@ export function LivyProvider({ children }) {
   const value = {
     ...state,
     activeHost,
+    isDoris,
+    isSpark,
+    dataSourceType: activeHost.type || DATA_SOURCE_TYPES.SPARK,
     addHost,
     removeHost,
     updateHost,

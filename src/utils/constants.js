@@ -1,7 +1,32 @@
+export const DATA_SOURCE_TYPES = {
+  SPARK: "spark",
+  DORIS: "doris",
+};
+
 export const DEFAULT_HOST = {
   id: "default",
+  type: DATA_SOURCE_TYPES.SPARK,
   name: "livy-next",
   url: "http://localhost:8998",
+};
+
+export const DEFAULT_DORIS_CONFIG = {
+  cluster: "default_cluster",
+  database: "",
+  username: "root",
+  password: "",
+  url: "http://localhost:8030",
+};
+
+export const DEFAULT_DORIS_HOST = {
+  id: "default-doris",
+  type: DATA_SOURCE_TYPES.DORIS,
+  name: "Local Doris (FE HTTP)",
+  url: "http://localhost:8030",
+  cluster: "default_cluster",
+  database: "demo_db",
+  username: "root",
+  password: "",
 };
 
 export const SESSION_KIND = "sql";

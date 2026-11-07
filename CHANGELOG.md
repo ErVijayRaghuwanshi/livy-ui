@@ -3,12 +3,28 @@
 All notable changes to the Livy SQL Editor project will be documented in this file.
 
 ## [Unreleased]
+
+## [v3.0.0] - 2026-11-07
 ### Added
-* Decoupled backend architecture housing Spark and `livy-next` inside a dedicated `spark/` sidecar directory.
-* Unified Spark container image (`spark/Dockerfile.spark`) with built-in `livy-next` REST API on port 8998 and native CORS (`--cors-allowed-origins "*"`).
-* Declarative Spark package management via `spark/conf/spark-defaults.conf` (Delta Lake, Kafka, Avro, Apache Sedona, PostgreSQL).
-* Installed PySpark Data Science libraries (`pandas`, `pyarrow`, `grpcio`, `protobuf`, `redis`, `neo4j`) inside the Spark container.
-* Streamlined 2-service Docker Compose orchestration (`spark` and `livy-ui`).
+* **Dual-Engine Architecture (Apache Spark SQL ⇋ Apache Doris)**: Universal big-data SQL workbench supporting both Apache Spark SQL (via Livy REST sessions) and Apache Doris (via stateless FE HTTP Query API).
+* **Compute & Session Manager (`Cpu` / `⌘⇧M`)**: Dedicated left sidebar panel featuring 1-click engine switcher pills (`⚡ Spark` / `🐬 Doris`), active connection health & latency ping, inline target database selector, and saved endpoints catalog.
+* **Stateless Doris FE HTTP Query Execution**: Instant SQL query dispatch against Apache Doris frontends (`/api/query/<cluster>/<database>`) with zero session startup latency.
+* **Doris Quick Cluster Tools**: 1-click cluster inspection shortcuts with inline `▶ Run` and click-to-insert for `SHOW PROC '/backends'`, `SHOW PROC '/frontends'`, `SHOW DATABASES`, `SHOW TABLES`, `SHOW RESOURCES`, `SHOW WORKLOAD GROUPS`, and `SHOW PROCESSLIST`.
+* **Engine-Aware Autocomplete & Hover Docs**: Dynamic Monaco completion catalog that switches based on active compute—offering 112+ Doris functions, 32 Doris data types (`LARGEINT`, `BITMAP`, `JSONB`, `VARIANT`), 178 keywords, and 13 DDL snippets, while preserving Spark's 600+ functions when Spark is selected.
+* **Native Doris AI & LLM Integration**: Pre-configured autocomplete and snippets for Ollama & OpenAI model resources (`CREATE RESOURCE "ollama_gemma2"`, `SET default_ai_resource`, `AI_TRANSLATE`, `AI_GENERATE`, `AI_SUMMARIZE`, `AI_MASK`).
+* **Engine-Aware Static SQL Syntax Validation**: Intelligent parser switching (`MySQL` dialect for Doris, `SparkSQL` for Spark) with syntax masking for Doris-specific DDL and `SHOW` commands (`SHOW RESOURCES`, `SHOW PROC`, `DUPLICATE KEY`, etc.) to eliminate false-positive red squigglies while accurately catching real syntax errors.
+* **Modernized Title Bar & Status Bar**: Header compute pill indicating engine, cluster, and status; status bar engine badge (`🐬 Doris · demo_db · Ready`) and latency diagnostics.
+* **Universal SQL Scratchpads**: Scratchpad buffers (`Untitled-*`) automatically default to SQL syntax and execution mode.
+* **Decoupled Backend Sidecar**: Spark container sidecar with built-in `livy-next` native CORS (`--cors-allowed-origins "*"`).
+
+### Fixed
+* Extensionless files and scratchpads misidentified as plain text preventing SQL execution.
+* Validation false positives on Doris SHOW statements and custom resource properties.
+* Ollama local AI resource connection endpoint routing for Docker containers.
+
+[Details in Release Notes](release-notes/v3.0.0.md)
+
+---
 
 ## [v2.0.0] - 2026-09-06
 ### Added

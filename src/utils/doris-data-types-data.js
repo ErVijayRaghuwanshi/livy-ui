@@ -1,0 +1,318 @@
+/**
+ * Apache Doris SQL Data Types Specification
+ * Based on official documentation: https://doris.apache.org/docs/dev/sql-manual/basic-element/sql-data-types/data-type-overview
+ */
+
+export const DORIS_DATA_TYPES = [
+  /* =====================
+     NUMERIC TYPES
+     ===================== */
+  {
+    name: "BOOLEAN",
+    category: "Numeric",
+    syntax: "BOOLEAN",
+    size: "1 byte",
+    range: "0 (false) or 1 (true)",
+    description: "Boolean value representing true or false. Stored as 1 or 0.",
+    example: "is_active BOOLEAN",
+  },
+  {
+    name: "TINYINT",
+    category: "Numeric",
+    syntax: "TINYINT",
+    size: "1 byte",
+    range: "[-128, 127]",
+    description: "Very small signed 8-bit integer.",
+    example: "status TINYINT",
+  },
+  {
+    name: "SMALLINT",
+    category: "Numeric",
+    syntax: "SMALLINT",
+    size: "2 bytes",
+    range: "[-32768, 32767]",
+    description: "Small signed 16-bit integer.",
+    example: "port SMALLINT",
+  },
+  {
+    name: "INT",
+    category: "Numeric",
+    syntax: "INT",
+    size: "4 bytes",
+    range: "[-2147483648, 2147483647]",
+    description: "Standard signed 32-bit integer. Alias for INTEGER.",
+    example: "id INT",
+  },
+  {
+    name: "INTEGER",
+    category: "Numeric",
+    syntax: "INTEGER",
+    size: "4 bytes",
+    range: "[-2147483648, 2147483647]",
+    description: "Standard signed 32-bit integer. Synonym for INT.",
+    example: "user_id INTEGER",
+  },
+  {
+    name: "BIGINT",
+    category: "Numeric",
+    syntax: "BIGINT",
+    size: "8 bytes",
+    range: "[-9223372036854775808, 9223372036854775807]",
+    description: "Large signed 64-bit integer.",
+    example: "order_id BIGINT",
+  },
+  {
+    name: "LARGEINT",
+    category: "Numeric",
+    syntax: "LARGEINT",
+    size: "16 bytes",
+    range: "[-2^127, 2^127 - 1] (approx ±1.7014118 × 10^38)",
+    description: "128-bit large signed integer specific to Doris. Preserves up to 38-39 digits of exact precision for high-cardinality IDs and financial arithmetic without overflow.",
+    example: "transaction_uuid LARGEINT",
+  },
+  {
+    name: "FLOAT",
+    category: "Numeric",
+    syntax: "FLOAT",
+    size: "4 bytes",
+    range: "-3.402823466E+38 to 3.402823466E+38",
+    description: "Single-precision 32-bit floating-point number.",
+    example: "rate FLOAT",
+  },
+  {
+    name: "DOUBLE",
+    category: "Numeric",
+    syntax: "DOUBLE",
+    size: "8 bytes",
+    range: "-1.7976931348623157E+308 to 1.7976931348623157E+308",
+    description: "Double-precision 64-bit floating-point number.",
+    example: "salary DOUBLE",
+  },
+  {
+    name: "DECIMAL",
+    category: "Numeric",
+    syntax: "DECIMAL(precision, scale)",
+    size: "4 - 32 bytes (depending on precision)",
+    range: "Precision 1-76 (DecimalV3/Decimal256), scale 0-precision",
+    description: "High-precision fixed-point number for exact monetary calculations. Doris DecimalV3 provides superior performance and avoids floating-point inaccuracies.",
+    example: "price DECIMAL(18, 4)",
+  },
+  {
+    name: "DECIMALV3",
+    category: "Numeric",
+    syntax: "DECIMALV3(precision, scale)",
+    size: "4 - 32 bytes",
+    range: "Precision 1-76, scale 0-precision",
+    description: "Doris V3 high-performance decimal storage type.",
+    example: "amount DECIMALV3(20, 6)",
+  },
+
+  /* =====================
+     DATE & TIME TYPES
+     ===================== */
+  {
+    name: "DATE",
+    category: "Date & Time",
+    syntax: "DATE",
+    size: "4 bytes",
+    range: "0000-01-01 to 9999-12-31",
+    description: "Standard calendar date (year, month, day) without time component. Formatted as 'YYYY-MM-DD'.",
+    example: "birth_date DATE",
+  },
+  {
+    name: "DATEV2",
+    category: "Date & Time",
+    syntax: "DATEV2",
+    size: "4 bytes",
+    range: "0000-01-01 to 9999-12-31",
+    description: "Doris V2 highly-optimized date type with reduced memory footprint and faster comparison.",
+    example: "event_date DATEV2",
+  },
+  {
+    name: "DATETIME",
+    category: "Date & Time",
+    syntax: "DATETIME([scale])",
+    size: "8 bytes",
+    range: "0000-01-01 00:00:00 to 9999-12-31 23:59:59",
+    description: "Combined calendar date and time. Formatted as 'YYYY-MM-DD HH:MM:SS'.",
+    example: "created_at DATETIME",
+  },
+  {
+    name: "DATETIMEV2",
+    category: "Date & Time",
+    syntax: "DATETIMEV2([scale])",
+    size: "8 bytes",
+    range: "0000-01-01 00:00:00.000000 to 9999-12-31 23:59:59.999999",
+    description: "Optimized DateTime supporting microsecond fractional precision scale from 0 to 6. Default scale is 0.",
+    example: "event_ts DATETIMEV2(3)",
+  },
+  {
+    name: "TIME",
+    category: "Date & Time",
+    syntax: "TIME",
+    size: "3 bytes",
+    range: "-838:59:59 to 838:59:59",
+    description: "Time of day or time duration. Formatted as 'HH:MM:SS'.",
+    example: "work_hours TIME",
+  },
+  {
+    name: "TIMESTAMPTZ",
+    category: "Date & Time",
+    syntax: "TIMESTAMPTZ",
+    size: "8 - 12 bytes",
+    range: "Timestamp with dynamic timezone offset",
+    description: "Time zone-aware date-time stored internally in UTC and dynamically converted to session timezone on display.",
+    example: "global_ts TIMESTAMPTZ",
+  },
+
+  /* =====================
+     STRING TYPES
+     ===================== */
+  {
+    name: "CHAR",
+    category: "String",
+    syntax: "CHAR(M)",
+    size: "Fixed M bytes (1 to 255)",
+    range: "Length M in [1, 255]",
+    description: "Fixed-length string. Right-padded with spaces when stored if shorter than M.",
+    example: "country_code CHAR(2)",
+  },
+  {
+    name: "VARCHAR",
+    category: "String",
+    syntax: "VARCHAR(M)",
+    size: "Variable length up to M bytes + 1-2 bytes overhead",
+    range: "Length M in [1, 65533]",
+    description: "Variable-length character string. The recommended string type for most relational text attributes in Doris.",
+    example: "user_name VARCHAR(128)",
+  },
+  {
+    name: "STRING",
+    category: "String",
+    syntax: "STRING",
+    size: "Variable length up to 1 MB",
+    range: "Up to 1,048,576 bytes (1 MB)",
+    description: "Variable-length large string without mandatory length constraint. Ideal for free text, HTML, and log messages.",
+    example: "payload STRING",
+  },
+
+  /* =====================
+     COMPLEX & SEMI-STRUCTURED TYPES
+     ===================== */
+  {
+    name: "ARRAY",
+    category: "Complex",
+    syntax: "ARRAY<element_type>",
+    size: "Variable",
+    range: "Nested elements of any valid Doris data type",
+    description: "Ordered sequence of elements of the same type. Supports rich manipulation functions like array_contains, array_map, and array_join.",
+    example: "tags ARRAY<STRING>",
+  },
+  {
+    name: "MAP",
+    category: "Complex",
+    syntax: "MAP<key_type, value_type>",
+    size: "Variable",
+    range: "Key-value collection",
+    description: "Associative collection of unique keys to values. Keys must not be complex types.",
+    example: "attributes MAP<STRING, STRING>",
+  },
+  {
+    name: "STRUCT",
+    category: "Complex",
+    syntax: "STRUCT<field_name:type, ...>",
+    size: "Variable",
+    range: "Collection of named fields",
+    description: "Composite data type containing multiple named fields with individual types.",
+    example: "address STRUCT<city:STRING, zip:INT>",
+  },
+  {
+    name: "JSON",
+    category: "Semi-Structured",
+    syntax: "JSON",
+    size: "Variable",
+    range: "Arbitrary JSON documents",
+    description: "Structured representation of JSON data supporting fast path querying and indexing.",
+    example: "meta JSON",
+  },
+  {
+    name: "JSONB",
+    category: "Semi-Structured",
+    syntax: "JSONB",
+    size: "Variable binary encoded JSON",
+    range: "Binary decomposed JSON format",
+    description: "Binary-encoded JSON providing sub-millisecond key lookups and inverted indexing inside Doris.",
+    example: "event_data JSONB",
+  },
+  {
+    name: "VARIANT",
+    category: "Semi-Structured",
+    syntax: "VARIANT",
+    size: "Variable",
+    range: "Dynamic schema JSON/semi-structured object",
+    description: "Dynamic column type that automatically extracts sub-fields and infers column schemas on ingestion for high performance analytics without predefined schemas.",
+    example: "raw_log VARIANT",
+  },
+
+  /* =====================
+     HIGH-PERFORMANCE ANALYTICS TYPES
+     ===================== */
+  {
+    name: "BITMAP",
+    category: "Analytics",
+    syntax: "BITMAP",
+    size: "Variable (Roaring Bitmap compression)",
+    range: "Set of non-negative 32-bit or 64-bit integers",
+    description: "High-performance Roaring Bitmap data type. Powers sub-second exact distinct count (COUNT(DISTINCT)) and user retention / funnel analysis over billions of rows.",
+    example: "user_bitmap BITMAP",
+  },
+  {
+    name: "HLL",
+    category: "Analytics",
+    syntax: "HLL",
+    size: "Up to 16 KB",
+    range: "HyperLogLog state with standard error ~1%",
+    description: "HyperLogLog approximate distinct count structure. Enables rapid approximate counting over massive datasets with predictable memory.",
+    example: "uv_hll HLL",
+  },
+  {
+    name: "QUANTILE_STATE",
+    category: "Analytics",
+    syntax: "QUANTILE_STATE",
+    size: "Variable",
+    range: "Quantile state structure",
+    description: "Pre-aggregated state for computing fast, highly-accurate percentiles (p50, p90, p99) over continuous numerical metrics.",
+    example: "latency_quantile QUANTILE_STATE",
+  },
+  {
+    name: "AGG_STATE",
+    category: "Analytics",
+    syntax: "AGG_STATE<agg_func(args)>",
+    size: "Variable",
+    range: "Intermediate aggregation state",
+    description: "Intermediate state for aggregate functions. Used in aggregate tables and materialized views for incremental rollups.",
+    example: "avg_state AGG_STATE<avg(INT)>",
+  },
+
+  /* =====================
+     NETWORK TYPES
+     ===================== */
+  {
+    name: "IPV4",
+    category: "Network",
+    syntax: "IPV4",
+    size: "4 bytes",
+    range: "0.0.0.0 to 255.255.255.255",
+    description: "Native IPv4 address stored as a 32-bit unsigned integer. Saves up to 70% storage vs VARCHAR and enables fast CIDR subnet queries.",
+    example: "client_ip IPV4",
+  },
+  {
+    name: "IPV6",
+    category: "Network",
+    syntax: "IPV6",
+    size: "16 bytes",
+    range: ":: to ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+    description: "Native IPv6 address stored in 128-bit binary representation. Enables direct CIDR masking and fast lookup.",
+    example: "server_ip IPV6",
+  },
+];

@@ -31,11 +31,15 @@ import {
   Minimize2,
   X,
   Filter,
+  Database,
+  Layers,
+  Cpu,
 } from "lucide-react";
 import { useSettings, DEFAULT_SETTINGS } from "../context/SettingsContext";
 import { useLivy } from "../context/LivyContext";
 import { v4 as uuidv4 } from "uuid";
-import { COMMON_CONF_KEYS, SPARK_PRESETS } from "../utils/constants";
+import { COMMON_CONF_KEYS, SPARK_PRESETS, DATA_SOURCE_TYPES } from "../utils/constants";
+import { testDorisConnection } from "../services/dorisApi";
 
 export default function SettingsView({
   theme,
@@ -80,12 +84,21 @@ export default function SettingsView({
   const [showResetModal, setShowResetModal] = useState(false);
 
   // Host Manager Form State
+  const [newHostType, setNewHostType] = useState(DATA_SOURCE_TYPES.SPARK);
   const [newHostName, setNewHostName] = useState("");
   const [newHostUrl, setNewHostUrl] = useState("http://localhost:8998");
+  const [newHostCluster, setNewHostCluster] = useState("default_cluster");
+  const [newHostDb, setNewHostDb] = useState("demo_db");
+  const [newHostUsername, setNewHostUsername] = useState("root");
+  const [newHostPassword, setNewHostPassword] = useState("");
   const [editingHostId, setEditingHostId] = useState(null);
   const [editName, setEditName] = useState("");
   const [editUrl, setEditUrl] = useState("");
-  const [pingResults, setPingResults] = useState({}); // { [hostId]: 'loading' | 'online' | 'offline' }
+  const [editCluster, setEditCluster] = useState("");
+  const [editDb, setEditDb] = useState("");
+  const [editUsername, setEditUsername] = useState("");
+  const [editPassword, setEditPassword] = useState("");
+  const [pingResults, setPingResults] = useState({}); // { [hostId]: 'loading' | 'online' | 'offline', latency?: number, error?: string }
 
   // Session Manager Form State
   const [showCreateSessionForm, setShowCreateSessionForm] = useState(false);
@@ -160,6 +173,7 @@ export default function SettingsView({
     { id: "editor", label: "Text Editor", icon: FileCode },
     { id: "workbench", label: "Workbench", icon: Palette },
     { id: "compute", label: "Spark & Compute", icon: Zap },
+    { id: "doris", label: "Apache Doris", icon: Database },
     { id: "connection", label: "Connection & Hosts", icon: Server },
     { id: "history", label: "Execution & History", icon: History },
   ];
@@ -419,6 +433,52 @@ export default function SettingsView({
       type: "text",
     },
     {
+      key: "doris.manager",
+      category: "doris",
+      categoryLabel: "Apache Doris",
+      title: "Doris Frontend & Cluster Status",
+      description: "Manage connected Apache Doris Frontend (FE) endpoints, test live API connectivity, and inspect cluster status.",
+      type: "dorisManager",
+      commonlyUsed: true,
+    },
+    {
+      key: "doris.defaultDatabase",
+      category: "doris",
+      categoryLabel: "Apache Doris",
+      title: "Default Database",
+      description: "Default target database in Apache Doris when queries do not explicitly specify a db prefix (e.g. demo_db).",
+      type: "text",
+      commonlyUsed: true,
+    },
+    {
+      key: "doris.queryTimeout",
+      category: "doris",
+      categoryLabel: "Apache Doris",
+      title: "Query Timeout (seconds)",
+      description: "Maximum execution timeout in seconds for queries submitted to the Doris FE HTTP API.",
+      type: "number",
+      min: 5,
+      max: 600,
+      commonlyUsed: true,
+    },
+    {
+      key: "doris.defaultAiResource",
+      category: "doris",
+      categoryLabel: "Apache Doris",
+      title: "Default AI Resource",
+      description: "The default AI resource name used in built-in Doris AI functions like AI_TRANSLATE, AI_GENERATE, and AI_SUMMARIZE.",
+      type: "text",
+      commonlyUsed: true,
+    },
+    {
+      key: "doris.enableProfile",
+      category: "doris",
+      categoryLabel: "Apache Doris",
+      title: "Enable Execution Profile",
+      description: "Collect detailed execution profile and timeline metrics for Doris queries.",
+      type: "boolean",
+    },
+    {
       key: "livy.activeHostUrl",
       category: "connection",
       categoryLabel: "Livy",
@@ -458,33 +518,63 @@ export default function SettingsView({
   // Test Host Ping / Connection
   const handleTestHost = async (host) => {
     setPingResults((prev) => ({ ...prev, [host.id]: "loading" }));
-    try {
-      const res = await fetch(`${host.url.replace(/\/$/, "")}/sessions`, {
-        headers: { Accept: "application/json" },
-      });
-      if (res.ok) {
-        setPingResults((prev) => ({ ...prev, [host.id]: "online" }));
-      } else {
+    const isDorisHost = host.type === DATA_SOURCE_TYPES.DORIS || host.engine === "doris";
+
+    if (isDorisHost) {
+      try {
+        const res = await testDorisConnection(host);
+        if (res.success) {
+          setPingResults((prev) => ({ ...prev, [host.id]: "online", latency: Math.round(res.elapsed) }));
+        } else {
+          setPingResults((prev) => ({ ...prev, [host.id]: "offline", error: res.error }));
+        }
+      } catch (err) {
+        setPingResults((prev) => ({ ...prev, [host.id]: "offline", error: err.message }));
+      }
+    } else {
+      const start = performance.now();
+      try {
+        const res = await fetch(`${host.url.replace(/\/$/, "")}/sessions`, {
+          headers: { Accept: "application/json" },
+        });
+        const elapsed = Math.round(performance.now() - start);
+        if (res.ok) {
+          setPingResults((prev) => ({ ...prev, [host.id]: "online", latency: elapsed }));
+        } else {
+          setPingResults((prev) => ({ ...prev, [host.id]: "offline" }));
+        }
+      } catch {
         setPingResults((prev) => ({ ...prev, [host.id]: "offline" }));
       }
-    } catch {
-      setPingResults((prev) => ({ ...prev, [host.id]: "offline" }));
     }
   };
 
   // Add Host Form Handler
   const handleAddHostSubmit = (e) => {
     e.preventDefault();
-    const name = newHostName.trim() || "New Livy Cluster";
+    const isDorisNew = newHostType === DATA_SOURCE_TYPES.DORIS;
+    const name = newHostName.trim() || (isDorisNew ? "Doris FE Cluster" : "Livy Cluster");
     let url = newHostUrl.trim();
     if (!url) return;
     if (!/^https?:\/\//i.test(url)) {
       url = "http://" + url;
     }
-    const newHost = { id: uuidv4(), name, url };
+    const newHost = {
+      id: uuidv4(),
+      name,
+      url,
+      type: newHostType,
+      engine: newHostType,
+    };
+    if (isDorisNew) {
+      newHost.cluster = newHostCluster.trim() || "default_cluster";
+      newHost.database = newHostDb.trim() || "demo_db";
+      newHost.username = newHostUsername.trim() || "root";
+      newHost.password = newHostPassword;
+    }
     addHost(newHost);
     setNewHostName("");
-    setNewHostUrl("http://localhost:8998");
+    setNewHostUrl(isDorisNew ? "http://localhost:8030" : "http://localhost:8998");
   };
 
   // Save Edit Host Handler
@@ -495,7 +585,12 @@ export default function SettingsView({
     if (!/^https?:\/\//i.test(url)) {
       url = "http://" + url;
     }
-    updateHost(hostId, { name, url });
+    const updates = { name, url };
+    if (editCluster) updates.cluster = editCluster.trim();
+    if (editDb) updates.database = editDb.trim();
+    if (editUsername) updates.username = editUsername.trim();
+    if (editPassword !== undefined) updates.password = editPassword;
+    updateHost(hostId, updates);
     setEditingHostId(null);
   };
 
@@ -588,7 +683,12 @@ export default function SettingsView({
   }, [resetSetting, setSessionConf]);
 
   const isSettingModified = useCallback((def) => {
-    if (def.type === "sparkConfManager" || def.type === "sessionManager" || def.type === "hostManager") {
+    if (
+      def.type === "sparkConfManager" ||
+      def.type === "sessionManager" ||
+      def.type === "hostManager" ||
+      def.type === "dorisManager"
+    ) {
       return false;
     }
     const current = getSettingValue(def.key, def.type);
@@ -1136,6 +1236,114 @@ export default function SettingsView({
                         </div>
                       )}
 
+                      {/* Apache Doris Manager */}
+                      {def.type === "dorisManager" && (() => {
+                        const isCurrentlyDoris = activeHost.type === DATA_SOURCE_TYPES.DORIS || activeHost.engine === "doris";
+                        const ping = pingResults[activeHost.id];
+
+                        return (
+                          <div className="space-y-4 pt-1 max-w-3xl">
+                            {/* Doris Status Hero Card */}
+                            <div className="p-4 rounded-xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/20 to-teal-950/10 space-y-3">
+                              <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 font-bold text-base select-none">
+                                    🐬
+                                  </div>
+                                  <div>
+                                    <h4 className="text-xs font-bold text-white flex items-center gap-2">
+                                      {activeHost.name}
+                                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                                        {isCurrentlyDoris ? "Active Compute Engine" : "Configured Endpoint"}
+                                      </span>
+                                    </h4>
+                                    <span className="font-mono text-[11px] text-[#858585]">
+                                      {activeHost.url}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  {ping?.state === "loading" && (
+                                    <span className="flex items-center gap-1 text-xs text-amber-400">
+                                      <Loader2 size={13} className="animate-spin" /> Pinging FE...
+                                    </span>
+                                  )}
+                                  {ping?.state === "online" && (
+                                    <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium font-mono">
+                                      <CheckCircle2 size={14} /> FE Connected ({ping.latency}ms)
+                                    </span>
+                                  )}
+                                  {ping?.state === "offline" && (
+                                    <span className="flex items-center gap-1 text-xs text-rose-400 font-medium" title={ping.error}>
+                                      <XCircle size={14} /> Unreachable
+                                    </span>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleTestHost(activeHost)}
+                                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded bg-[#2b2b2b] hover:bg-[#333] border border-[#3c3c3c] text-[#cccccc] hover:text-white transition-colors cursor-pointer"
+                                  >
+                                    <Wifi size={13} /> Test Ping
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Doris Cluster Details */}
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-cyan-500/20 text-xs">
+                                <div className="p-2 rounded-lg bg-[#181818]/60 border border-[#2b2b2b]">
+                                  <span className="text-[10px] text-[#858585] block">Target Cluster</span>
+                                  <span className="font-mono font-medium text-white truncate block">
+                                    {activeHost.cluster || "default_cluster"}
+                                  </span>
+                                </div>
+                                <div className="p-2 rounded-lg bg-[#181818]/60 border border-[#2b2b2b]">
+                                  <span className="text-[10px] text-[#858585] block">Active Database</span>
+                                  <span className="font-mono font-medium text-cyan-400 truncate block">
+                                    {activeHost.database || settings["doris.defaultDatabase"] || "demo_db"}
+                                  </span>
+                                </div>
+                                <div className="p-2 rounded-lg bg-[#181818]/60 border border-[#2b2b2b]">
+                                  <span className="text-[10px] text-[#858585] block">Default AI Resource</span>
+                                  <span className="font-mono font-medium text-emerald-400 truncate block">
+                                    {settings["doris.defaultAiResource"] || "ollama_gemma2"}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Quick SQL Inspect Actions */}
+                            <div className="p-3.5 rounded-lg border border-[#333333] bg-[#252526] space-y-2">
+                              <h5 className="text-xs font-semibold text-white flex items-center gap-1.5">
+                                <Layers size={13} className="text-cyan-400" /> Doris Cluster Inspection Shortcuts
+                              </h5>
+                              <p className="text-[11px] text-[#858585]">
+                                Quick administrative statements you can run to inspect backend storage, frontends, or databases:
+                              </p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 font-mono text-xs">
+                                <div className="p-2 rounded bg-[#1e1e1e] border border-[#3c3c3c] text-cyan-300">
+                                  SHOW PROC '/backends';
+                                  <span className="text-[10px] font-sans text-[#858585] block mt-0.5">Inspect BE storage nodes & disks</span>
+                                </div>
+                                <div className="p-2 rounded bg-[#1e1e1e] border border-[#3c3c3c] text-cyan-300">
+                                  SHOW PROC '/frontends';
+                                  <span className="text-[10px] font-sans text-[#858585] block mt-0.5">Inspect FE query coordinators</span>
+                                </div>
+                                <div className="p-2 rounded bg-[#1e1e1e] border border-[#3c3c3c] text-cyan-300">
+                                  SHOW DATABASES;
+                                  <span className="text-[10px] font-sans text-[#858585] block mt-0.5">List databases on cluster</span>
+                                </div>
+                                <div className="p-2 rounded bg-[#1e1e1e] border border-[#3c3c3c] text-cyan-300">
+                                  SHOW ROUTINE LOAD;
+                                  <span className="text-[10px] font-sans text-[#858585] block mt-0.5">List Kafka streaming ingestion jobs</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       {/* Spark Configuration Properties Manager */}
                       {def.type === "sparkConfManager" && (() => {
                         const confEntries = Object.entries(sessionConf || {});
@@ -1380,6 +1588,7 @@ export default function SettingsView({
                             {hosts.map((host) => {
                               const isActive = host.id === activeHostId;
                               const isEditing = editingHostId === host.id;
+                              const isDorisHost = host.type === DATA_SOURCE_TYPES.DORIS || host.engine === "doris";
                               const pingState = pingResults[host.id];
 
                               return (
@@ -1399,7 +1608,7 @@ export default function SettingsView({
                                 >
                                   {isEditing ? (
                                     <div
-                                      className="flex flex-1 items-center gap-2"
+                                      className="flex flex-1 flex-wrap items-center gap-2"
                                       onClick={(e) => e.stopPropagation()}
                                     >
                                       <input
@@ -1413,9 +1622,27 @@ export default function SettingsView({
                                         type="text"
                                         value={editUrl}
                                         onChange={(e) => setEditUrl(e.target.value)}
-                                        placeholder="http://localhost:8998"
+                                        placeholder="URL"
                                         className="flex-1 px-2.5 py-1 text-xs rounded bg-[#1e1e1e] border border-[#3c3c3c] text-white font-mono outline-none"
                                       />
+                                      {isDorisHost && (
+                                        <>
+                                          <input
+                                            type="text"
+                                            value={editCluster}
+                                            onChange={(e) => setEditCluster(e.target.value)}
+                                            placeholder="Cluster"
+                                            className="w-28 px-2 py-1 text-xs rounded bg-[#1e1e1e] border border-[#3c3c3c] text-white outline-none"
+                                          />
+                                          <input
+                                            type="text"
+                                            value={editDb}
+                                            onChange={(e) => setEditDb(e.target.value)}
+                                            placeholder="Database"
+                                            className="w-28 px-2 py-1 text-xs rounded bg-[#1e1e1e] border border-[#3c3c3c] text-white outline-none"
+                                          />
+                                        </>
+                                      )}
                                       <button
                                         onClick={() => handleSaveEditHost(host.id)}
                                         className="px-2.5 py-1 text-xs rounded bg-emerald-600 text-white font-medium cursor-pointer"
@@ -1441,37 +1668,53 @@ export default function SettingsView({
                                         >
                                           {isActive && <Check size={10} strokeWidth={3} />}
                                         </div>
-                                        <Server size={15} className="text-[#0078d4] shrink-0" />
+                                        <span className="text-base select-none shrink-0">
+                                          {isDorisHost ? "🐬" : "⚡"}
+                                        </span>
                                         <div className="min-w-0">
                                           <div className="flex items-center gap-2">
                                             <span className="text-xs font-semibold text-white truncate">
                                               {host.name}
                                             </span>
+                                            <span
+                                              className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${
+                                                isDorisHost
+                                                  ? "bg-cyan-500/15 text-cyan-400 border border-cyan-500/30"
+                                                  : "bg-blue-500/15 text-blue-400 border border-blue-500/30"
+                                              }`}
+                                            >
+                                              {isDorisHost ? "Doris FE" : "Spark Livy"}
+                                            </span>
                                             {isActive && (
                                               <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                                                Active Host
+                                                Active
                                               </span>
                                             )}
                                           </div>
-                                          <span className="text-[11px] font-mono text-[#858585] truncate block">
-                                            {host.url}
-                                          </span>
+                                          <div className="flex items-center gap-2 text-[11px] font-mono text-[#858585]">
+                                            <span className="truncate">{host.url}</span>
+                                            {isDorisHost && (
+                                              <span className="text-cyan-400/80 text-[10px]">
+                                                [{host.cluster || "default_cluster"} / {host.database || "demo_db"}]
+                                              </span>
+                                            )}
+                                          </div>
                                         </div>
                                       </div>
 
                                       {/* Host Actions */}
                                       <div className="flex items-center gap-2">
-                                        {pingState === "loading" && (
+                                        {pingState?.state === "loading" && (
                                           <span className="flex items-center gap-1 text-[11px] text-amber-400">
                                             <Loader2 size={12} className="animate-spin" /> Ping...
                                           </span>
                                         )}
-                                        {pingState === "online" && (
-                                          <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
-                                            <CheckCircle2 size={12} /> Connected
+                                        {pingState?.state === "online" && (
+                                          <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-medium font-mono">
+                                            <CheckCircle2 size={12} /> {pingState.latency ? `${pingState.latency}ms` : "Connected"}
                                           </span>
                                         )}
-                                        {pingState === "offline" && (
+                                        {pingState?.state === "offline" && (
                                           <span className="flex items-center gap-1 text-[11px] text-rose-400 font-medium">
                                             <XCircle size={12} /> Unreachable
                                           </span>
@@ -1494,6 +1737,10 @@ export default function SettingsView({
                                             setEditingHostId(host.id);
                                             setEditName(host.name);
                                             setEditUrl(host.url);
+                                            setEditCluster(host.cluster || "default_cluster");
+                                            setEditDb(host.database || "demo_db");
+                                            setEditUsername(host.username || "root");
+                                            setEditPassword(host.password || "");
                                           }}
                                           className="p-1 rounded text-[#858585] hover:text-white hover:bg-[#333] cursor-pointer"
                                           title="Edit Host"
@@ -1501,7 +1748,7 @@ export default function SettingsView({
                                           <Edit2 size={13} />
                                         </button>
 
-                                        {host.id !== "default" && (
+                                        {host.id !== "default" && host.id !== "default-doris" && (
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
@@ -1524,22 +1771,97 @@ export default function SettingsView({
                           {/* Add Host Form */}
                           <form
                             onSubmit={handleAddHostSubmit}
-                            className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#333]"
+                            className="p-3.5 rounded-lg border border-[#333] bg-[#252526] space-y-3"
                           >
-                            <input
-                              type="text"
-                              placeholder="Host Name (e.g. Staging Cluster)"
-                              value={newHostName}
-                              onChange={(e) => setNewHostName(e.target.value)}
-                              className="px-3 py-1.5 text-xs rounded bg-[#1e1e1e] border border-[#3c3c3c] text-white outline-none focus:border-[#0078d4]"
-                            />
-                            <input
-                              type="text"
-                              placeholder="http://localhost:8998"
-                              value={newHostUrl}
-                              onChange={(e) => setNewHostUrl(e.target.value)}
-                              className="flex-1 min-w-48 px-3 py-1.5 text-xs rounded bg-[#1e1e1e] border border-[#3c3c3c] text-white font-mono outline-none focus:border-[#0078d4]"
-                            />
+                            <span className="text-xs font-semibold text-white block">
+                              Add New Compute Host
+                            </span>
+
+                            {/* Engine selector */}
+                            <div className="grid grid-cols-2 gap-2 max-w-xs">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setNewHostType(DATA_SOURCE_TYPES.SPARK);
+                                  setNewHostUrl("http://localhost:8998");
+                                  setNewHostName("Local Spark Cluster");
+                                }}
+                                className={`flex items-center justify-center gap-1.5 py-1 px-2.5 rounded text-xs font-semibold border transition-all cursor-pointer ${
+                                  newHostType === DATA_SOURCE_TYPES.SPARK
+                                    ? "bg-blue-500/20 text-blue-400 border-blue-500/40"
+                                    : "bg-[#1e1e1e] border-[#3c3c3c] text-[#858585] hover:text-white"
+                                }`}
+                              >
+                                <span>⚡</span> Spark SQL (Livy)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setNewHostType(DATA_SOURCE_TYPES.DORIS);
+                                  setNewHostUrl("http://localhost:8030");
+                                  setNewHostName("Local Doris FE");
+                                }}
+                                className={`flex items-center justify-center gap-1.5 py-1 px-2.5 rounded text-xs font-semibold border transition-all cursor-pointer ${
+                                  newHostType === DATA_SOURCE_TYPES.DORIS
+                                    ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/40"
+                                    : "bg-[#1e1e1e] border-[#3c3c3c] text-[#858585] hover:text-white"
+                                }`}
+                              >
+                                <span>🐬</span> Apache Doris (FE)
+                              </button>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                              <input
+                                type="text"
+                                placeholder={newHostType === DATA_SOURCE_TYPES.DORIS ? "Doris Cluster Name" : "Spark Cluster Name"}
+                                value={newHostName}
+                                onChange={(e) => setNewHostName(e.target.value)}
+                                className="px-3 py-1.5 text-xs rounded bg-[#1e1e1e] border border-[#3c3c3c] text-white outline-none focus:border-[#0078d4]"
+                              />
+                              <input
+                                type="text"
+                                placeholder={newHostType === DATA_SOURCE_TYPES.DORIS ? "http://localhost:8030" : "http://localhost:8998"}
+                                value={newHostUrl}
+                                onChange={(e) => setNewHostUrl(e.target.value)}
+                                className="flex-1 min-w-48 px-3 py-1.5 text-xs rounded bg-[#1e1e1e] border border-[#3c3c3c] text-white font-mono outline-none focus:border-[#0078d4]"
+                                required
+                              />
+                            </div>
+
+                            {newHostType === DATA_SOURCE_TYPES.DORIS && (
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-[#333]">
+                                <input
+                                  type="text"
+                                  placeholder="Cluster (default_cluster)"
+                                  value={newHostCluster}
+                                  onChange={(e) => setNewHostCluster(e.target.value)}
+                                  className="px-2.5 py-1 text-xs rounded bg-[#1e1e1e] border border-[#3c3c3c] text-white outline-none"
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="Database (demo_db)"
+                                  value={newHostDb}
+                                  onChange={(e) => setNewHostDb(e.target.value)}
+                                  className="px-2.5 py-1 text-xs rounded bg-[#1e1e1e] border border-[#3c3c3c] text-white outline-none"
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="Username (root)"
+                                  value={newHostUsername}
+                                  onChange={(e) => setNewHostUsername(e.target.value)}
+                                  className="px-2.5 py-1 text-xs rounded bg-[#1e1e1e] border border-[#3c3c3c] text-white outline-none"
+                                />
+                                <input
+                                  type="password"
+                                  placeholder="Password"
+                                  value={newHostPassword}
+                                  onChange={(e) => setNewHostPassword(e.target.value)}
+                                  className="px-2.5 py-1 text-xs rounded bg-[#1e1e1e] border border-[#3c3c3c] text-white outline-none"
+                                />
+                              </div>
+                            )}
+
                             <button
                               type="submit"
                               className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded bg-[#0078d4] text-white hover:bg-[#0078d4]/90 transition-colors cursor-pointer"

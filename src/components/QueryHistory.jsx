@@ -154,6 +154,15 @@ export default function QueryHistory({ isOpen, onClose, onRerun }) {
                       {entry.fileName && (
                         <span className="text-[10px] text-(--color-text-muted)">{entry.fileName}</span>
                       )}
+                      {entry.engine && (
+                        <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold border ${
+                          entry.engine === "doris"
+                            ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20"
+                            : "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                        }`}>
+                          {entry.engine === "doris" ? "🐬 Doris" : "⚡ Spark"}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <button

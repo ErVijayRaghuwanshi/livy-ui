@@ -445,7 +445,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
         : isJson
         ? "{\n  \n}\n"
         : isSql
-        ? "-- Write your Spark SQL here\nSELECT 1;\n"
+        ? "-- Write your SQL here\nSELECT 1;\n"
         : "";
 
       try {
