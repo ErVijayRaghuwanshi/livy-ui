@@ -208,80 +208,168 @@ function registerSqlProviders(monaco, schemaDataRef, isDorisRef) {
   const uniqueSparkKeywords = Array.from(new Set(SPARK_SQL_KEYWORDS));
   const uniqueDorisKeywords = Array.from(new Set(DORIS_SQL_KEYWORDS));
 
+  // Fast O(1) lookup maps for hover provider
+  const dorisFunctionsMap = new Map(
+    dorisNamedFunctions.map((fn) => [fn.name.toLowerCase(), fn])
+  );
+  const sparkFunctionsMap = new Map(
+    sparkNamedFunctions.map((fn) => [fn.name.toLowerCase(), fn])
+  );
+  const dorisDataTypesMap = new Map(
+    DORIS_DATA_TYPES.map((dt) => [dt.name.toLowerCase(), dt])
+  );
+
+  // Pre-generate base templates for functions, keywords, snippets, and data types
+  const dorisFunctionSuggestionsBase = dorisNamedFunctions.map((fn) => ({
+    label: fn.name,
+    kind: monaco.languages.CompletionItemKind.Function,
+    insertText: fn.name.includes("(") ? fn.name : fn.name + "($0)",
+    insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+    detail: `[Doris ${fn.category}] ${fn.usage}`,
+    documentation: {
+      value: `**${fn.name}** (${fn.category})\n\n\`${fn.usage}\`\n\n${fn.description}${fn.example ? `\n\n*Example:*\n\`\`\`sql\n${fn.example}\n\`\`\`` : ""}`,
+    },
+  }));
+
+  const sparkFunctionSuggestionsBase = sparkNamedFunctions.map((fn) => ({
+    label: fn.name,
+    kind: monaco.languages.CompletionItemKind.Function,
+    insertText: fn.name.includes("(") ? fn.name : fn.name + "($0)",
+    insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+    detail: `[${fn.category}] ${fn.usage}`,
+    documentation: {
+      value: `**${fn.name}** (${fn.category})\n\n\`${fn.usage}\`\n\n${fn.description}${fn.example ? `\n\n*Example:*\n\`\`\`sql\n${fn.example}\n\`\`\`` : ""}`,
+    },
+  }));
+
+  const dorisDataTypeSuggestionsBase = DORIS_DATA_TYPES.map((dt) => ({
+    label: dt.name,
+    kind: monaco.languages.CompletionItemKind.TypeParameter,
+    insertText: dt.syntax.includes("(") ? dt.syntax.replace(/\([^)]+\)/, "($0)") : dt.name,
+    insertTextRules: dt.syntax.includes("(") ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet : undefined,
+    detail: `[Doris Data Type] ${dt.size}`,
+    documentation: {
+      value: `**${dt.name}** — *${dt.category}*\n\n**Syntax:** \`${dt.syntax}\`\n\n**Size:** ${dt.size} | **Range:** ${dt.range}\n\n${dt.description}\n\n*Example:*\n\`\`\`sql\n${dt.example}\n\`\`\``,
+    },
+  }));
+
+  const dorisKeywordSuggestionsBase = uniqueDorisKeywords.map((kw) => ({
+    label: kw,
+    kind: monaco.languages.CompletionItemKind.Keyword,
+    insertText: kw,
+    detail: "Doris SQL Keyword",
+  }));
+
+  const sparkKeywordSuggestionsBase = uniqueSparkKeywords.map((kw) => ({
+    label: kw,
+    kind: monaco.languages.CompletionItemKind.Keyword,
+    insertText: kw,
+    detail: "Spark SQL Keyword",
+  }));
+
+  const formatSnippetDoc = (snippet, engineLabel) => {
+    const cleanSql = (snippet.insertText || "")
+      .replace(/\$\{\d+:([^}]+)\}/g, "$1")
+      .replace(/\$\d+/g, "");
+    return {
+      value: `**${snippet.label}** (${engineLabel} Template)\n\n${snippet.description}\n\n\`\`\`sql\n${cleanSql}\n\`\`\``,
+    };
+  };
+
+  const createFilterText = (snippet, engine) => {
+    const label = snippet.label;
+    const spaceVariant = label.replace(/_/g, " ");
+    const noUnderscore = label.replace(/_/g, "");
+    const words = label.split("_");
+    const acronym = words.map((w) => w[0]).join("");
+    return `${label} ${spaceVariant} ${noUnderscore} ${acronym} ${words.join(" ")} snippet template ${engine}`.toLowerCase();
+  };
+
+  const dorisSnippetSuggestionsBase = DORIS_SQL_SNIPPETS.map((snippet) => ({
+    label: snippet.label,
+    kind: monaco.languages.CompletionItemKind.Snippet,
+    insertText: snippet.insertText,
+    insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+    detail: "🐬 Doris SQL Template",
+    documentation: formatSnippetDoc(snippet, "Doris"),
+    filterText: createFilterText(snippet, "doris"),
+    sortText: "0_0_snippet_" + snippet.label,
+  }));
+
+  const sparkSnippetSuggestionsBase = SPARK_SQL_SNIPPETS.map((snippet) => ({
+    label: snippet.label,
+    kind: monaco.languages.CompletionItemKind.Snippet,
+    insertText: snippet.insertText,
+    insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+    detail: "⚡ Spark SQL Template",
+    documentation: formatSnippetDoc(snippet, "Spark"),
+    filterText: createFilterText(snippet, "spark"),
+    sortText: "0_0_snippet_" + snippet.label,
+  }));
+
   // Completion provider for functions, data types, keywords, snippets, and schema
   const completionProvider = monaco.languages.registerCompletionItemProvider("sql", {
-    triggerCharacters: [".", " "],
+    triggerCharacters: [".", " ", "_", "@"],
     provideCompletionItems: (model, position, completionContext) => {
-      const isDoris = isDorisRef?.current ?? false;
-      const lineContent = model.getLineContent(position.lineNumber);
-      const textBeforeCursor = lineContent.substring(0, position.column - 1);
+      try {
+        const isDoris = isDorisRef?.current ?? false;
+        const lineContent = model.getLineContent(position.lineNumber);
+        const textBeforeCursor = lineContent.substring(0, position.column - 1);
 
-      // Only suppress autocomplete when user literally just typed a comma or open paren (without manual invocation)
-      const isManualInvoke = completionContext && completionContext.triggerKind === 0;
-      if (!isManualInvoke && (textBeforeCursor.endsWith(",") || textBeforeCursor.endsWith("("))) {
-        return { suggestions: [] };
-      }
+        // Only suppress autocomplete when user literally just typed a comma or open paren (without manual invocation)
+        const isManualInvoke = completionContext && completionContext.triggerKind === 0;
+        if (!isManualInvoke && (textBeforeCursor.endsWith(",") || textBeforeCursor.endsWith("("))) {
+          return { suggestions: [] };
+        }
 
-      const word = model.getWordUntilPosition(position);
-      const range = {
-        startLineNumber: position.lineNumber,
-        endLineNumber: position.lineNumber,
-        startColumn: word.startColumn,
-        endColumn: word.endColumn,
-      };
+        const word = model.getWordUntilPosition(position);
+        const range = {
+          startLineNumber: position.lineNumber,
+          endLineNumber: position.lineNumber,
+          startColumn: word.startColumn,
+          endColumn: word.endColumn,
+        };
 
-      const sqlContext = getSqlContext(model, position);
+        const sqlContext = getSqlContext(model, position);
 
-      // Functions suggestions based on active compute
-      const activeFunctions = isDoris ? dorisNamedFunctions : sparkNamedFunctions;
-      const functionSuggestions = activeFunctions.map((fn) => ({
-        label: fn.name,
-        kind: monaco.languages.CompletionItemKind.Function,
-        insertText: fn.name.includes("(") ? fn.name : fn.name + "($0)",
-        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-        detail: `[${isDoris ? "Doris " : ""}${fn.category}] ${fn.usage}`,
-        documentation: {
-          value: `**${fn.name}** (${fn.category})\n\n\`${fn.usage}\`\n\n${fn.description}${fn.example ? `\n\n*Example:*\n\`\`\`sql\n${fn.example}\n\`\`\`` : ""}`,
-        },
-        range,
-      }));
+        // Functions suggestions based on active compute
+        const activeFunctionBases = isDoris ? dorisFunctionSuggestionsBase : sparkFunctionSuggestionsBase;
+        const functionSuggestions = activeFunctionBases.map((fn) => ({ ...fn, range }));
 
-      // Doris Data Types suggestions (when on Doris)
-      const dataTypeSuggestions = isDoris
-        ? DORIS_DATA_TYPES.map((dt) => ({
-            label: dt.name,
-            kind: monaco.languages.CompletionItemKind.TypeParameter,
-            insertText: dt.syntax.includes("(") ? dt.syntax.replace(/\([^)]+\)/, "($0)") : dt.name,
-            insertTextRules: dt.syntax.includes("(") ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet : undefined,
-            detail: `[Doris Data Type] ${dt.size}`,
-            documentation: {
-              value: `**${dt.name}** — *${dt.category}*\n\n**Syntax:** \`${dt.syntax}\`\n\n**Size:** ${dt.size} | **Range:** ${dt.range}\n\n${dt.description}\n\n*Example:*\n\`\`\`sql\n${dt.example}\n\`\`\``,
-            },
-            range,
-          }))
-        : [];
+        // Doris Data Types suggestions (when on Doris)
+        const dataTypeSuggestions = isDoris
+          ? dorisDataTypeSuggestionsBase.map((dt) => ({ ...dt, range }))
+          : [];
 
-      // Keyword suggestions based on active compute
-      const activeKeywords = isDoris ? uniqueDorisKeywords : uniqueSparkKeywords;
-      const keywordSuggestions = activeKeywords.map((kw) => ({
-        label: kw,
-        kind: monaco.languages.CompletionItemKind.Keyword,
-        insertText: kw,
-        detail: isDoris ? "Doris SQL Keyword" : "Spark SQL Keyword",
-        range,
-      }));
+        // Keyword suggestions based on active compute
+        const activeKeywordBases = isDoris ? dorisKeywordSuggestionsBase : sparkKeywordSuggestionsBase;
+        const keywordSuggestions = activeKeywordBases.map((kw) => ({ ...kw, range }));
 
-      // Snippet suggestions based on active compute
-      const activeSnippets = isDoris ? DORIS_SQL_SNIPPETS : SPARK_SQL_SNIPPETS;
-      const snippetSuggestions = activeSnippets.map((snippet) => ({
-        label: snippet.label,
-        kind: monaco.languages.CompletionItemKind.Snippet,
-        insertText: snippet.insertText,
-        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-        detail: isDoris ? "Doris SQL Template" : "Spark SQL Template",
-        documentation: snippet.description,
-        range,
-      }));
+        // Snippet suggestions based on active compute with seamless prefix deduplication
+        const activeSnippetBases = isDoris ? dorisSnippetSuggestionsBase : sparkSnippetSuggestionsBase;
+        const textBeforeWord = lineContent.substring(0, word.startColumn - 1);
+        const prefixMatch = textBeforeWord.match(/\b(CREATE\s+TABLE|CREATE\s+(?:TEMPORARY\s+)?VIEW|CREATE\s+MATERIALIZED\s+VIEW|CREATE|SELECT\s+\*\s+FROM|SELECT|ALTER\s+TABLE|DROP\s+TABLE)\s+$/i);
+
+        const snippetSuggestions = activeSnippetBases.map((snip) => {
+          let additionalTextEdits = undefined;
+          if (prefixMatch) {
+            const firstLine = (snip.insertText.split("\n")[0] || "").trim().toUpperCase();
+            const prefixWords = prefixMatch[1].trim().toUpperCase();
+            if (firstLine.startsWith(prefixWords)) {
+              const startCol = word.startColumn - prefixMatch[0].length;
+              additionalTextEdits = [{
+                range: {
+                  startLineNumber: position.lineNumber,
+                  endLineNumber: position.lineNumber,
+                  startColumn: startCol,
+                  endColumn: word.startColumn,
+                },
+                text: "",
+              }];
+            }
+          }
+          return { ...snip, range, additionalTextEdits };
+        });
 
       // Schema-based suggestions
       const schemaSuggestions = [];
@@ -363,6 +451,9 @@ function registerSqlProviders(monaco, schemaDataRef, isDorisRef) {
         }
       }
       
+      const currentKeywords = isDoris ? uniqueDorisKeywords : uniqueSparkKeywords;
+      const currentNamedFunctions = isDoris ? dorisNamedFunctions : sparkNamedFunctions;
+
       // Extract unique words from the current document for autocomplete
       const documentText = model.getValue();
       const wordRegex = /\b[a-zA-Z_][a-zA-Z0-9_]*\b/g;
@@ -372,8 +463,8 @@ function registerSqlProviders(monaco, schemaDataRef, isDorisRef) {
         const w = wordMatch[0];
         if (
           w.length > 2 && 
-          !activeKeywords.includes(w.toUpperCase()) && 
-          !activeFunctions.some((f) => f.name.toLowerCase() === w.toLowerCase())
+          !currentKeywords.includes(w.toUpperCase()) && 
+          !currentNamedFunctions.some((f) => f.name.toLowerCase() === w.toLowerCase())
         ) {
           docWords.add(w);
         }
@@ -389,10 +480,10 @@ function registerSqlProviders(monaco, schemaDataRef, isDorisRef) {
 
       // Combine all suggestions
       const allSuggestions = [
+        ...snippetSuggestions,
         ...keywordSuggestions,
         ...functionSuggestions,
         ...dataTypeSuggestions,
-        ...snippetSuggestions,
         ...schemaSuggestions,
         ...wordSuggestions
       ];
@@ -409,8 +500,12 @@ function registerSqlProviders(monaco, schemaDataRef, isDorisRef) {
       }
 
       return { suggestions: uniqueSuggestions };
-    },
-  });
+    } catch (err) {
+      console.error("[SqlEditor] Error in provideCompletionItems:", err);
+      return { suggestions: [] };
+    }
+  },
+});
 
   // Hover provider for functions & data types
   const hoverProvider = monaco.languages.registerHoverProvider("sql", {
@@ -421,10 +516,8 @@ function registerSqlProviders(monaco, schemaDataRef, isDorisRef) {
       const term = word.word.toLowerCase();
 
       if (isDoris) {
-        // 1. Check Doris Functions
-        const fnMatch = dorisNamedFunctions.find(
-          (fn) => fn.name.toLowerCase() === term
-        );
+        // 1. Check Doris Functions (O(1) Map lookup)
+        const fnMatch = dorisFunctionsMap.get(term);
         if (fnMatch) {
           return {
             range: new monaco.Range(
@@ -442,10 +535,8 @@ function registerSqlProviders(monaco, schemaDataRef, isDorisRef) {
           };
         }
 
-        // 2. Check Doris Data Types
-        const dtMatch = DORIS_DATA_TYPES.find(
-          (dt) => dt.name.toLowerCase() === term
-        );
+        // 2. Check Doris Data Types (O(1) Map lookup)
+        const dtMatch = dorisDataTypesMap.get(term);
         if (dtMatch) {
           return {
             range: new monaco.Range(
@@ -463,10 +554,8 @@ function registerSqlProviders(monaco, schemaDataRef, isDorisRef) {
           };
         }
       } else {
-        // Spark Mode: Check Spark Functions
-        const match = sparkNamedFunctions.find(
-          (fn) => fn.name.toLowerCase() === term
-        );
+        // Spark Mode: Check Spark Functions (O(1) Map lookup)
+        const match = sparkFunctionsMap.get(term);
         if (match) {
           return {
             range: new monaco.Range(
@@ -930,6 +1019,93 @@ function expandEmmetAtCursor(editor, monacoInstance) {
   } catch (err) {
     console.warn("[Emmet] Abbreviation expansion error:", err);
     return false;
+  }
+}
+
+function expandSqlSnippetAtCursor(editor, monacoInstance, isDorisRef) {
+  if (!editor || !monacoInstance) return false;
+  const pos = editor.getPosition();
+  const model = editor.getModel();
+  if (!pos || !model || pos.column <= 1) return false;
+
+  const lineContent = model.getLineContent(pos.lineNumber);
+  const textBeforeCursor = lineContent.substring(0, pos.column - 1);
+
+  // Extract the abbreviation / word right before cursor
+  const match = textBeforeCursor.match(/([a-zA-Z0-9_]+)\s*$/);
+  if (!match) return false;
+
+  const rawToken = match[1];
+  const token = rawToken.toLowerCase();
+  const tokenStartCol = pos.column - match[0].length;
+
+  const isDoris = isDorisRef?.current ?? false;
+  const snippets = isDoris ? DORIS_SQL_SNIPPETS : SPARK_SQL_SNIPPETS;
+
+  // 1. Direct label match
+  let matchedSnippet = snippets.find((s) => s.label.toLowerCase() === token);
+
+  // 2. Exact alias shortcuts
+  if (!matchedSnippet) {
+    const aliasMap = isDoris
+      ? {
+          ctd: "create_table_duplicate",
+          ctu: "create_table_unique",
+          cta: "create_table_aggregate",
+          ctp: "create_table_dynamic_partition",
+          mtmv: "create_mtmv",
+          inv: "create_inverted_index",
+          s3: "tvf_s3_parquet",
+          hdfs: "tvf_hdfs_parquet",
+          tvf: "tvf_s3_parquet",
+          ollama: "ai_resource_ollama",
+          openai: "ai_resource_openai",
+          job: "job_schedule_daily",
+          wg: "workload_group_prod",
+          policy: "storage_policy_s3",
+        }
+      : {
+          ctp: "create_table_parquet",
+          ct: "create_table_parquet",
+          cv: "create_view_csv",
+          sel: "select_limit",
+          delta: "delta_create_table",
+          merge: "delta_merge_upsert",
+          vacuum: "delta_vacuum",
+          zorder: "delta_optimize_zorder",
+          sedona: "sedona_spatial_join",
+          cdr: "sample_data_cdr",
+        };
+
+    if (aliasMap[token]) {
+      matchedSnippet = snippets.find((s) => s.label === aliasMap[token]);
+    }
+  }
+
+  // 3. Prefix match if at least 4 chars
+  if (!matchedSnippet && token.length >= 4) {
+    matchedSnippet = snippets.find((s) => s.label.toLowerCase().startsWith(token));
+  }
+
+  if (!matchedSnippet) return false;
+
+  const range = new monacoInstance.Range(
+    pos.lineNumber,
+    tokenStartCol,
+    pos.lineNumber,
+    pos.column
+  );
+
+  const snippetController = editor.getContribution("snippetController2");
+  if (snippetController && typeof snippetController.insert === "function") {
+    snippetController.insert(matchedSnippet.insertText, range);
+    return true;
+  } else {
+    editor.executeEdits("snippet-expand", [{
+      range,
+      text: (matchedSnippet.insertText || "").replace(/\$\{\d+:([^}]+)\}/g, "$1").replace(/\$\d+/g, ""),
+    }]);
+    return true;
   }
 }
 
@@ -2042,7 +2218,20 @@ const SqlEditor = forwardRef(function SqlEditor({
       },
     });
 
-    // Native Emmet Tab expansion (matches VS Code emmet.triggerExpansionOnTab)
+    // Register SQL snippet browser action (Alt+S / Option+S)
+    editor.addAction({
+      id: "editor.action.insertSqlSnippet",
+      label: "SQL: Insert Code Snippet...",
+      keybindings: [
+        monaco.KeyMod.Alt | monaco.KeyCode.KeyS,
+      ],
+      precondition: "!editorReadonly",
+      run: (ed) => {
+        ed.trigger("keyboard", "editor.action.showSnippets");
+      },
+    });
+
+    // Native Emmet & SQL Snippet Tab expansion (matches VS Code triggerExpansionOnTab)
     editor.addCommand(
       monaco.KeyCode.Tab,
       () => {
@@ -2066,7 +2255,14 @@ const SqlEditor = forwardRef(function SqlEditor({
           if (expanded) return;
         }
 
-        // 3. Otherwise, perform standard tab indentation
+        // 3. If editing a SQL file, attempt SQL snippet expansion on Tab
+        const isSqlFile = isSqlFileName(activeName) || editor.getModel()?.getLanguageId() === "sql";
+        if (isSqlFile) {
+          const expanded = expandSqlSnippetAtCursor(editor, monaco, isDorisRef);
+          if (expanded) return;
+        }
+
+        // 4. Otherwise, perform standard tab indentation
         editor.trigger("keyboard", "tab");
       },
       "!suggestWidgetVisible && !inSnippetMode"
@@ -3053,6 +3249,28 @@ const SqlEditor = forwardRef(function SqlEditor({
     triggerEmmet: () => {
       expandEmmetAtCursor(editorRef.current, monacoRef.current);
     },
+    insertSnippet: (snippetText) => {
+      const editor = editorRef.current;
+      if (!editor || !monacoRef.current) return;
+      editor.focus();
+      const position = editor.getPosition();
+      const range = new monacoRef.current.Range(position.lineNumber, position.column, position.lineNumber, position.column);
+      const snippetController = editor.getContribution("snippetController2");
+      if (snippetController && typeof snippetController.insert === "function") {
+        snippetController.insert(snippetText, range);
+      } else {
+        editor.executeEdits("insert-snippet", [{
+          range,
+          text: (snippetText || "").replace(/\$\{\d+:([^}]+)\}/g, "$1").replace(/\$\d+/g, ""),
+        }]);
+      }
+    },
+    triggerSnippet: () => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      editor.focus();
+      editor.trigger("keyboard", "editor.action.showSnippets");
+    },
     jumpToFirstSyntaxError: () => {
       const editor = editorRef.current;
       if (!editor || lastSyntaxErrorsRef.current.length === 0) return;
@@ -3205,12 +3423,14 @@ const SqlEditor = forwardRef(function SqlEditor({
               suggestOnTriggerCharacters: true,
               acceptSuggestionOnEnter: settings["editor.acceptSuggestionOnEnter"] || "smart",
               tabCompletion: "on",
+              snippetSuggestions: "top",
               quickSuggestions: { other: true, comments: true, strings: true },
               wordBasedSuggestions: "currentDocument",
               suggest: {
                 showKeywords: true,
                 showFunctions: true,
                 showSnippets: true,
+                snippetsPreventQuickSuggestions: false,
                 showClasses: true,
                 showModules: true,
                 showFields: true,

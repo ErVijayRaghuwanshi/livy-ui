@@ -61,8 +61,8 @@ export function maskDorisSqlForValidation(sql) {
     return dummy + " ".repeat(match.length - dummy.length);
   });
 
-  // 2. Mask Doris RESOURCE DDL: (CREATE|DROP|ALTER) RESOURCE ...;
-  const dorisResourceRegex = /\b(?:CREATE|DROP|ALTER)\s+RESOURCE\s+[^;]*(?:;|$)/gi;
+  // 2. Mask Doris administrative & custom DDL: (CREATE|DROP|ALTER) (RESOURCE|JOB|ROUTINE LOAD|WORKLOAD|STORAGE POLICY|STAGE|CATALOG) ...;
+  const dorisResourceRegex = /\b(?:CREATE|DROP|ALTER)\s+(?:RESOURCE|JOB|ROUTINE\s+LOAD|WORKLOAD\s+(?:GROUP|POLICY)|STORAGE\s+POLICY|STAGE|REPOSITORY|CATALOG)\s+[^;]*(?:;|$)/gi;
   result = result.replace(dorisResourceRegex, (match) => {
     const lines = match.split("\n");
     return lines.map((line, idx) => {
@@ -74,26 +74,20 @@ export function maskDorisSqlForValidation(sql) {
     }).join("\n");
   });
 
-  // 3. Mask Doris WORKLOAD GROUP DDL: (CREATE|DROP|ALTER) WORKLOAD GROUP ...;
-  const dorisWorkloadRegex = /\b(?:CREATE|DROP|ALTER)\s+WORKLOAD\s+GROUP\s+[^;]*(?:;|$)/gi;
-  result = result.replace(dorisWorkloadRegex, (match) => {
-    const lines = match.split("\n");
-    return lines.map((line, idx) => {
-      if (idx === 0) {
-        const dummy = "SELECT 1;";
-        return dummy + " ".repeat(Math.max(0, line.length - dummy.length));
-      }
-      return " ".repeat(line.length);
-    }).join("\n");
-  });
-
-  // 4. Mask Doris specific table DDL options after column list: DUPLICATE KEY, DISTRIBUTED BY, PROPERTIES
+  // 3. Mask Doris specific table DDL options after column list: DUPLICATE KEY, DISTRIBUTED BY, PROPERTIES
   result = result.replace(/\)\s*(?:DUPLICATE\s+KEY|AGGREGATE\s+KEY|UNIQUE\s+KEY|DISTRIBUTED\s+BY|PARTITION\s+BY|PROPERTIES)[\s\S]*?;/gi, (match) => {
     const lines = match.split("\n");
     return lines.map((line, idx) => {
       if (idx === 0) return ");" + " ".repeat(Math.max(0, line.length - 2));
       return " ".repeat(line.length);
     }).join("\n");
+  });
+
+  // 4. Mask Doris Table-Valued Functions (TVFs) in FROM / JOIN clauses: FROM s3(...), FROM hdfs(...)
+  result = result.replace(/\b(FROM|JOIN)\s+(s3|hdfs|local|http_stream|frontends|backends|catalogs|tables|partitions|workload_groups|active_queries|iceberg_meta|paimon_meta)\s*\([^)]*\)/gi, (match, clause) => {
+    const dummy = `${clause} _doris_tvf_table`;
+    if (match.length <= dummy.length) return dummy.slice(0, match.length);
+    return dummy + " ".repeat(match.length - dummy.length);
   });
 
   // 5. Mask Doris data types to same-length MySQL data types
@@ -107,6 +101,16 @@ export function maskDorisSqlForValidation(sql) {
     .replace(/\bHLL\b/gi, "INT")
     .replace(/\bJSONB\b/gi, "JSON ")
     .replace(/\bVARIANT\b/gi, "JSON   ");
+
+  // 6. Mask Doris bare wildcards (* appearing after other projected columns/expressions)
+  // Apache Doris natively supports `SELECT expr, * FROM tbl` or `SELECT expr, *, col2 FROM tbl`.
+  // Standard MySQL grammar disallows bare * when preceded by an expression (requiring table.* or * first).
+  // We mask the lone * with '_' (same 1-char length) so standard MySQL grammar accepts it without throwing false positives on FROM.
+  const starPattern = /('(?:''|[^'])*'|"(?:""|[^"])*"|`(?:``|[^`])*`|--[^\r\n]*|\/\*[\s\S]*?\*\/)|(,\s*)(\*)(\s*(?=[,\b]|\bFROM\b))/gi;
+  result = result.replace(starPattern, (match, literal, prefix, star, suffix) => {
+    if (literal) return match;
+    return prefix + "_" + suffix;
+  });
 
   return result;
 }

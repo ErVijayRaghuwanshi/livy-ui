@@ -2,6 +2,9 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { Search, FileCode, Terminal, Keyboard } from "lucide-react";
 import { useSqlFiles } from "../context/SqlFilesContext";
 import { useSettings } from "../context/SettingsContext";
+import { useLivy } from "../context/LivyContext";
+import { DORIS_SQL_SNIPPETS } from "../utils/doris-snippets-data";
+import { SPARK_SQL_SNIPPETS } from "../utils/spark_sql_snippets";
 
 const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 
@@ -39,6 +42,7 @@ export default function CommandPalette({
     workspace,
   } = useSqlFiles();
   const { settings, updateSetting } = useSettings();
+  const { isDoris } = useLivy();
 
   const [search, setSearch] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -204,6 +208,28 @@ export default function CommandPalette({
       action: () => editorRef?.current?.triggerEmmet?.(),
     },
     {
+      id: "insert-sql-snippet",
+      name: `SQL: Insert Code Snippet / Template... (${isDoris ? "🐬 Doris" : "⚡ Spark"})`,
+      category: "Snippets",
+      shortcut: isMac ? "⌥S" : "Alt+S",
+      action: () => {
+        setTimeout(() => {
+          editorRef?.current?.triggerSnippet?.();
+        }, 50);
+      },
+    },
+    ...(isDoris ? DORIS_SQL_SNIPPETS : SPARK_SQL_SNIPPETS).map((snip) => ({
+      id: `snippet-${snip.label}`,
+      name: `${snip.label} — ${snip.description}`,
+      category: isDoris ? "🐬 Doris Snippets" : "⚡ Spark Snippets",
+      shortcut: "",
+      action: () => {
+        setTimeout(() => {
+          editorRef?.current?.insertSnippet?.(snip.insertText);
+        }, 50);
+      },
+    })),
+    {
       id: "toggle-sql-validation",
       name: "View: Toggle SQL Validation",
       category: "View",
@@ -315,7 +341,7 @@ export default function CommandPalette({
       shortcut: "",
       action: () => onTriggerSnake?.(),
     },
-  ], [addFile, saveFile, activeTabId, requestCloseFile, closeAllFiles, editorRef, restoreLastClosedTab, setSidebarCollapsed, toggleTheme, setShowConnectionModal, setShowHistory, setShowShortcuts, onTriggerBounce, onTriggerSnake]);
+  ], [addFile, saveFile, activeTabId, requestCloseFile, closeAllFiles, editorRef, restoreLastClosedTab, setSidebarCollapsed, toggleTheme, setShowConnectionModal, setShowHistory, setShowShortcuts, onTriggerBounce, onTriggerSnake, isDoris]);
 
   // Combined list of filtered items
   const filteredItems = useMemo(() => {

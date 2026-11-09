@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
-import { Plus, X, FileCode, FileText, Play, Loader2, Settings, Database, HardDrive, Globe, Eye, Columns, Code } from "lucide-react";
+import { Plus, X, FileCode, FileText, Play, Loader2, Settings, Database, HardDrive, Globe, Eye, Columns, Code, Sparkles } from "lucide-react";
 import { useSqlFiles, SETTINGS_FILE } from "../context/SqlFilesContext";
 
 const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
@@ -43,6 +43,10 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
   
   const handleCancel = () => {
     editorRef?.current?.cancel();
+  };
+
+  const handleInsertSnippet = () => {
+    editorRef?.current?.triggerSnippet?.();
   };
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
@@ -157,6 +161,13 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
               <Play size={11} className={canRun ? "fill-current" : ""} />
             </button>
           )}
+          <button
+            onClick={handleInsertSnippet}
+            className="group flex items-center justify-center w-6 h-6 rounded-md transition-all border border-transparent text-(--color-text-muted) hover:text-amber-400 hover:bg-(--color-bg-tertiary)/40 cursor-pointer select-none active:scale-95"
+            title={`Insert SQL Snippet (${isMac ? "⌥S" : "Alt+S"})`}
+          >
+            <Sparkles size={11} className="transition-transform group-hover:scale-110" />
+          </button>
         </div>
       )}
       <div className="flex items-center gap-1 min-w-0">
