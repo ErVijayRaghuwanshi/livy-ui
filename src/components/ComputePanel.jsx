@@ -38,6 +38,7 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
     activeHost,
     activeHostId,
     selectHost,
+    switchEngine,
     addHost,
     removeHost,
     updateHost,
@@ -169,17 +170,11 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
       return;
     }
 
-    const targetHost = hosts.find((h) =>
-      targetEngine === "spark"
-        ? h.type === DATA_SOURCE_TYPES.SPARK || h.engine === "spark"
-        : h.type === DATA_SOURCE_TYPES.DORIS || h.engine === "doris"
-    );
-
-    if (targetHost) {
-      selectHost(targetHost.id);
+    const switchedHost = switchEngine(targetEngine);
+    if (switchedHost) {
       addToast(
         "info",
-        `Switched to ${targetHost.name} (${targetEngine === "spark" ? "Spark SQL" : "Apache Doris"})`,
+        `Switched and attached compute: ${switchedHost.name} (${targetEngine === "spark" ? "Spark SQL" : "Apache Doris"})`,
         null,
         "Compute Engine"
       );
@@ -360,35 +355,23 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
                 : "bg-amber-950/20 border-amber-500/30"
             }`}
           >
-            {/* Top row: Name, Database, and Ping */}
-            <div className="flex items-center justify-between gap-1 mb-1.5">
+            {/* Top row: Name, Attached Status, and Ping */}
+            <div className="flex items-center justify-between gap-1.5 mb-2">
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="text-sm shrink-0 select-none">{isDoris ? "🐬" : "⚡"}</span>
                 <span className="font-semibold text-xs text-(--color-text-primary) truncate">
                   {activeHost?.name}
                 </span>
-
-                {/* Doris Database Quick Dropdown */}
-                {isDoris && (
-                  <select
-                    value={currentDorisDb}
-                    onChange={(e) => handleSelectDorisDatabase(e.target.value)}
-                    className="text-[10px] font-mono bg-(--color-bg-primary) border border-cyan-500/40 rounded px-1.5 py-0.5 text-cyan-300 outline-none cursor-pointer max-w-[100px] truncate"
-                    title="Active Doris Database"
-                  >
-                    {databases.length > 0 ? (
-                      databases.map((db) => (
-                        <option key={db.name || db} value={db.name || db}>
-                          {db.name || db}
-                        </option>
-                      ))
-                    ) : (
-                      <>
-                        <option value="demo_db">demo_db</option>
-                        <option value="information_schema">info_schema</option>
-                      </>
-                    )}
-                  </select>
+                {isDoris ? (
+                  <span className="text-[9px] font-semibold text-cyan-400 bg-cyan-500/15 border border-cyan-500/30 px-1.5 py-0.2 rounded shrink-0">
+                    Attached
+                  </span>
+                ) : (
+                  sessionId !== null && (
+                    <span className="text-[9px] font-semibold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 rounded shrink-0">
+                      #{sessionId}
+                    </span>
+                  )
                 )}
               </div>
 
@@ -418,6 +401,32 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
                 )}
               </div>
             </div>
+
+            {/* Dedicated Database Row (for Doris) */}
+            {isDoris && (
+              <div className="flex items-center justify-between gap-2 mb-2 px-2 py-1 bg-(--color-bg-primary)/40 rounded-md border border-(--color-border)/30 text-[10px]">
+                <span className="text-(--color-text-muted) font-medium shrink-0">Database:</span>
+                <select
+                  value={currentDorisDb}
+                  onChange={(e) => handleSelectDorisDatabase(e.target.value)}
+                  className="text-[10px] font-mono bg-transparent text-cyan-300 outline-none cursor-pointer truncate max-w-[140px] text-right font-medium"
+                  title="Active Doris Database"
+                >
+                  {databases.length > 0 ? (
+                    databases.map((db) => (
+                      <option key={db.name || db} value={db.name || db} className="bg-(--color-bg-secondary) text-(--color-text-primary)">
+                        {db.name || db}
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="demo_db" className="bg-(--color-bg-secondary) text-(--color-text-primary)">demo_db</option>
+                      <option value="information_schema" className="bg-(--color-bg-secondary) text-(--color-text-primary)">info_schema</option>
+                    </>
+                  )}
+                </select>
+              </div>
+            )}
 
             {/* Bottom row: Endpoint URL & Copy */}
             <div className="flex items-center justify-between text-[10px] font-mono text-(--color-text-muted) bg-(--color-bg-primary)/70 px-2 py-1 rounded-md border border-(--color-border)/40">
@@ -490,6 +499,17 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {isActive && isDorisHost && (
+                        <span className="text-[9px] font-semibold text-cyan-400 bg-cyan-500/15 border border-cyan-500/30 px-1.5 py-0.2 rounded">
+                          Attached
+                        </span>
+                      )}
+                      {isActive && !isDorisHost && sessionId !== null && (
+                        <span className="text-[9px] font-semibold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 rounded">
+                          #{sessionId}
+                        </span>
+                      )}
+
                       {ping?.state === "online" && (
                         <span className="text-[9px] text-emerald-400/80 font-mono">{ping.latency}ms</span>
                       )}

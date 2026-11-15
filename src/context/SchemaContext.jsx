@@ -46,8 +46,6 @@ export function SchemaProvider({ children }) {
         );
         setDatabases(dbNames);
       }
-      setTables({});
-      setColumns({});
     } catch (err) {
       console.error("[SchemaContext] Error loading databases:", err);
     } finally {
@@ -56,9 +54,9 @@ export function SchemaProvider({ children }) {
     }
   }, [sessionId, isReady, isDoris, activeHost]);
 
-  const loadTables = useCallback(async (db) => {
+  const loadTables = useCallback(async (db, force = false) => {
     if (!isReady) return;
-    if (tablesRef.current[db] || loadingRef.current[db] || inFlightRef.current.has(`db:${db}`)) return;
+    if (!force && (tablesRef.current[db] || loadingRef.current[db] || inFlightRef.current.has(`db:${db}`))) return;
     inFlightRef.current.add(`db:${db}`);
     setLoading((p) => ({ ...p, [db]: true }));
     try {
@@ -87,10 +85,10 @@ export function SchemaProvider({ children }) {
     }
   }, [sessionId, isReady, isDoris, activeHost]);
 
-  const loadColumns = useCallback(async (db, table) => {
+  const loadColumns = useCallback(async (db, table, force = false) => {
     const key = `${db}.${table}`;
     if (!isReady) return;
-    if (columnsRef.current[key] || loadingRef.current[key] || inFlightRef.current.has(`col:${key}`)) return;
+    if (!force && (columnsRef.current[key] || loadingRef.current[key] || inFlightRef.current.has(`col:${key}`))) return;
     inFlightRef.current.add(`col:${key}`);
     setLoading((p) => ({ ...p, [key]: true }));
     try {
@@ -122,6 +120,14 @@ export function SchemaProvider({ children }) {
     }
   }, [sessionId, isReady, isDoris, activeHost]);
 
+  const refreshDatabase = useCallback((db) => {
+    return loadTables(db, true);
+  }, [loadTables]);
+
+  const refreshTable = useCallback((db, table) => {
+    return loadColumns(db, table, true);
+  }, [loadColumns]);
+
   const clearSchema = useCallback(() => {
     inFlightRef.current.clear();
     setDatabases([]);
@@ -130,33 +136,38 @@ export function SchemaProvider({ children }) {
     setLoading({});
   }, []);
 
-  const refreshSchema = useCallback(() => {
-    console.log('[SchemaContext] refreshSchema called, incrementing trigger');
+  const refreshSchema = useCallback(async () => {
+    console.log('[SchemaContext] refreshSchema called');
     inFlightRef.current.clear();
-    setTables({});
-    setColumns({});
-    setRefreshTrigger(prev => prev + 1);
-  }, []);
+    const openDbs = Object.keys(tablesRef.current);
+    const openTableKeys = Object.keys(columnsRef.current);
 
-  // Auto-load databases when session becomes ready
+    await loadDatabases();
+    if (openDbs.length > 0) {
+      await Promise.allSettled(openDbs.map((db) => loadTables(db, true)));
+    }
+    if (openTableKeys.length > 0) {
+      await Promise.allSettled(
+        openTableKeys.map((key) => {
+          const [db, table] = key.split(".");
+          return db && table ? loadColumns(db, table, true) : Promise.resolve();
+        })
+      );
+    }
+    setRefreshTrigger((prev) => prev + 1);
+  }, [loadDatabases, loadTables, loadColumns]);
+
+  // Auto-load databases when session becomes ready or active host changes
   useEffect(() => {
     if (isReady) {
       loadDatabases();
     } else {
       clearSchema();
     }
-  }, [isReady, sessionId, loadDatabases, clearSchema]);
-
-  // Reload schema when refreshTrigger changes
-  useEffect(() => {
-    if (isReady && refreshTrigger > 0) {
-      setTables({});
-      setColumns({});
-      loadDatabases();
-    }
-  }, [refreshTrigger, isReady, loadDatabases]);
+  }, [isReady, sessionId, activeHost?.id, activeHost?.url, loadDatabases, clearSchema]);
 
   const value = {
+    isReady,
     databases,
     tables,
     columns,
@@ -164,6 +175,8 @@ export function SchemaProvider({ children }) {
     loadDatabases,
     loadTables,
     loadColumns,
+    refreshDatabase,
+    refreshTable,
     clearSchema,
     refreshSchema,
     refreshTrigger,

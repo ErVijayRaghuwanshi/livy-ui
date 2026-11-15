@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { AlertCircle, Loader2, Table, CheckCircle2, Ban, Clock, FileText, Copy, Check, Download, Search, X, FilterX, Hash, Type, Calendar, ToggleLeft, Binary, List, Braces, ChevronDown, Trash2, Plus, History } from "lucide-react";
+import { AlertCircle, Loader2, Table, CheckCircle2, Ban, Clock, FileText, Copy, Check, Download, Search, X, FilterX, Hash, Type, Calendar, ToggleLeft, Binary, List, Braces, ChevronDown, Trash2, Plus, History, Workflow } from "lucide-react";
 import { useSqlFiles } from "../context/SqlFilesContext";
+import ExplainPlanView, { isExplainResult, extractPlanText } from "./ExplainPlanView";
 
 export function getColumnType(field) {
   if (!field) return "string";
@@ -418,7 +419,7 @@ function ActiveResultView({ result, onClose, onMaximizeToggle, isMaximized, cont
 
     // Try to render as a table if we have structured JSON data
     if (jsonData) {
-      return <JsonTable data={jsonData} elapsed={result.elapsed} onClose={onClose} onMaximizeToggle={onMaximizeToggle} isMaximized={isMaximized} activeWidth={containerWidth} />;
+      return <JsonTable data={jsonData} sql={result.sql} elapsed={result.elapsed} onClose={onClose} onMaximizeToggle={onMaximizeToggle} isMaximized={isMaximized} activeWidth={containerWidth} />;
     }
 
     // Render text output
@@ -698,6 +699,11 @@ export default function ResultTable({ onClose, onMaximizeToggle, isMaximized }) 
                         <span>{defaultName}</span>
                         <span>•</span>
                         <span>{item.timestamp}</span>
+                        {item.sql && /^\s*explain\b/i.test(item.sql.trim()) && (
+                          <span className="px-1 py-0.2 rounded bg-(--color-accent)/15 text-(--color-accent) text-[8px] font-mono font-bold uppercase ml-1">
+                            PLAN
+                          </span>
+                        )}
                       </span>
                       {renamingItemId === item.id ? (
                         <input
@@ -766,109 +772,7 @@ export default function ResultTable({ onClose, onMaximizeToggle, isMaximized }) 
   );
 }
 
-const PLAN_OPERATORS = [
-  "AdaptiveSparkPlan", "Project", "Filter", "BroadcastHashJoin", "SortMergeJoin",
-  "ShuffledHashJoin", "CartesianProduct", "Exchange", "BroadcastExchange",
-  "ObjectHashAggregate", "HashAggregate", "SortAggregate", "Sort", "Generate",
-  "FileScan", "Scan", "SubqueryBroadcast", "ReusedExchange", "Union",
-  "TakeOrderedAndProject", "CollectLimit", "Window", "Expand",
-  "InMemoryTableScan", "InMemoryRelation", "BatchScan",
-];
 
-const PLAN_OP_REGEX = new RegExp(`\\b(${PLAN_OPERATORS.join("|")})\\b`, "g");
-
-function highlightPlanLine(line) {
-  const parts = [];
-  let lastIndex = 0;
-  let match;
-  const regex = new RegExp(PLAN_OP_REGEX.source, "g");
-  while ((match = regex.exec(line)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(<span key={lastIndex}>{line.slice(lastIndex, match.index)}</span>);
-    }
-    parts.push(
-      <span key={match.index} className="text-(--color-accent) font-bold">
-        {match[0]}
-      </span>
-    );
-    lastIndex = regex.lastIndex;
-  }
-  if (lastIndex < line.length) {
-    parts.push(<span key={lastIndex}>{line.slice(lastIndex)}</span>);
-  }
-  return parts;
-}
-
-function ExplainPlan({ planText, elapsed, onClose, onMaximizeToggle, isMaximized, containerWidth }) {
-  const lines = planText.split("\n");
-
-  return (
-    <div className="flex flex-col h-full bg-(--color-bg-secondary)">
-      <div className="flex items-center justify-between border-b border-(--color-border) shrink-0 h-9 bg-(--color-bg-secondary) select-none">
-        {/* Left cluster: Tabs and elapsed time */}
-        <div className="flex items-center h-full">
-          <div className="flex items-center gap-1.5 px-3 border-r border-(--color-border) h-full">
-            <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-(--color-text-primary) border-b-2 border-(--color-accent) bg-(--color-bg-primary)/40 transition-colors h-full">
-              <FileText size={12} className="text-(--color-accent)" />
-              <span>Plan</span>
-            </button>
-          </div>
-          <div className="flex items-center gap-2 px-3 text-[11px] text-(--color-text-muted)">
-            <ElapsedBadge elapsed={elapsed} />
-          </div>
-        </div>
-
-        {/* Right cluster: actions and resize controls */}
-        <div className="flex items-center gap-2 px-3 h-full">
-          {containerWidth >= 380 && (
-            <>
-              <CopyButton getText={() => planText} className="hover:bg-(--color-bg-tertiary) h-7" hideText={containerWidth < 480} />
-              <DownloadButtons getCsv={() => planText} className="h-7" hideText={containerWidth < 480} />
-            </>
-          )}
-          {(onMaximizeToggle || onClose) && <div className="h-4 w-px bg-(--color-border) mx-1" />}
-          {onMaximizeToggle && (
-            <button
-              onClick={onMaximizeToggle}
-              className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) transition-colors cursor-pointer"
-              title={isMaximized ? "Restore Height" : "Maximize Panel"}
-            >
-              {isMaximized ? (
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/></svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-              )}
-            </button>
-          )}
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) hover:text-red-500 transition-colors cursor-pointer"
-              title="Close Panel (Ctrl+`)"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-            </button>
-          )}
-        </div>
-      </div>
-      <div className="grow overflow-auto p-4">
-        <pre className="text-xs font-mono leading-5 text-(--color-text-secondary) whitespace-pre overflow-x-auto">
-          {lines.map((line, i) => (
-            <div key={i}>{highlightPlanLine(line)}</div>
-          ))}
-        </pre>
-      </div>
-    </div>
-  );
-}
-
-function isExplainResult(data) {
-  if (!data || !data.schema || !data.data) return false;
-  const fields = data.schema.fields || [];
-  if (fields.length !== 1) return false;
-  const field = fields[0];
-  return field.name === "plan" && field.type === "string" && data.data.length === 1;
-}
 
 const ROW_HEIGHT = 28;
 const OVERSCAN = 10;
@@ -920,7 +824,19 @@ function estimateInitialColumnWidths(data) {
   return initialWidths;
 }
 
-function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized, activeWidth = 500 }) {
+function JsonTable({ data, sql, elapsed, onClose, onMaximizeToggle, isMaximized, activeWidth = 500 }) {
+  const isExplain = useMemo(() => isExplainResult(data, sql), [data, sql]);
+  const planText = useMemo(() => (isExplain ? extractPlanText(data) : ""), [isExplain, data]);
+  const [viewMode, setViewMode] = useState(() => (isExplain ? "plan" : "table"));
+
+  useEffect(() => {
+    if (isExplain) {
+      setViewMode("plan");
+    } else {
+      setViewMode("table");
+    }
+  }, [isExplain, data]);
+
   const headerScrollRef = useRef(null);
   const scrollRef = useRef(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -971,9 +887,20 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized, acti
     }
   }, []);
 
-  if (isExplainResult(data)) {
-    const planText = Array.isArray(data.data[0]) ? data.data[0][0] : data.data[0].plan;
-    return <ExplainPlan planText={planText} elapsed={elapsed} onClose={onClose} onMaximizeToggle={onMaximizeToggle} isMaximized={isMaximized} containerWidth={activeWidth} />;
+  if (isExplain && viewMode !== "table") {
+    return (
+      <ExplainPlanView
+        data={data}
+        planText={planText}
+        elapsed={elapsed}
+        onClose={onClose}
+        onMaximizeToggle={onMaximizeToggle}
+        isMaximized={isMaximized}
+        activeWidth={activeWidth}
+        currentView={viewMode}
+        onViewChange={setViewMode}
+      />
+    );
   }
 
   if (!(data && data.schema && data.data)) {
@@ -1144,13 +1071,39 @@ function JsonTable({ data, elapsed, onClose, onMaximizeToggle, isMaximized, acti
           </div>
 
           {viewDropdownOpen && (
-            <div className="absolute left-3 top-9 z-50 bg-(--color-bg-secondary) border border-(--color-border) rounded-lg shadow-xl py-1 min-w-45 animate-in fade-in zoom-in-95 duration-100">
+            <div className="absolute left-3 top-9 z-50 bg-(--color-bg-secondary) border border-(--color-border) rounded-lg shadow-xl py-1 min-w-48 animate-in fade-in zoom-in-95 duration-100">
+              {isExplain && (
+                <>
+                  <button 
+                    onClick={() => { setViewMode("plan"); setViewDropdownOpen(false); }}
+                    className="flex items-center justify-between w-full text-left px-3 py-2 text-xs text-(--color-text-primary) hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <FileText size={12} className="text-(--color-accent)" />
+                      <span>Explain Plan (Formatted)</span>
+                    </div>
+                  </button>
+
+                  <button 
+                    onClick={() => { setViewMode("visual"); setViewDropdownOpen(false); }}
+                    className="flex items-center justify-between w-full text-left px-3 py-2 text-xs text-(--color-text-primary) hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Workflow size={12} className="text-(--color-accent)" />
+                      <span>Visual Plan (DAG Flow)</span>
+                    </div>
+                  </button>
+
+                  <div className="h-px bg-(--color-border) my-1" />
+                </>
+              )}
+
               <button 
                 onClick={() => setViewDropdownOpen(false)}
                 className="flex items-center justify-between w-full text-left px-3 py-2 text-xs text-(--color-text-primary) hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 16 16" aria-hidden="true" focusable="false" className="text-(--color-accent)"><path fill="currentColor" fill-rule="evenodd" d="M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75zm1.5.75v2.5h11V2.5zm0 4v2.5h11V6.5zm0 4v3h11v-3z" clipRule="evenodd"></path></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 16 16" aria-hidden="true" focusable="false" className="text-(--color-accent)"><path fill="currentColor" fillRule="evenodd" d="M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75zm1.5.75v2.5h11V2.5zm0 4v2.5h11V6.5zm0 4v3h11v-3z" clipRule="evenodd"></path></svg>
                   <span>Table View</span>
                 </div>
                 <Check size={12} className="text-(--color-accent)" />

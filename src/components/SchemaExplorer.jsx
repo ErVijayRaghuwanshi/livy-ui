@@ -47,7 +47,7 @@ const mod = isMac ? "⌘" : "Ctrl";
 
 
 
-function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy, onInsert, onDelete, defaultOpen = false }) {
+function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy, onInsert, onDelete, onRefresh, defaultOpen = false }) {
 
   const [open, setOpen] = useState(defaultOpen);
 
@@ -129,81 +129,61 @@ function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy, onIns
 
         )}
 
-        {onDelete && (
+        <div className={`ml-auto flex items-center gap-1 ${copied ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-opacity`}>
+          {onRefresh && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRefresh();
+              }}
+              className="text-(--color-text-muted) hover:text-(--color-accent) p-0.5 rounded hover:bg-(--color-bg-secondary)"
+              title="Refresh"
+            >
+              <RefreshCw size={11} />
+            </button>
+          )}
 
-          <button
+          {onDelete && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              className="text-(--color-text-muted) hover:text-(--color-error) p-0.5 rounded hover:bg-(--color-bg-secondary)"
+              title="Drop table"
+            >
+              <Trash2 size={11} />
+            </button>
+          )}
 
-            onClick={(e) => {
+          {onInsert && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onInsert();
+              }}
+              className="text-(--color-text-muted) hover:text-(--color-accent) p-0.5 rounded hover:bg-(--color-bg-secondary)"
+              title="Insert into editor"
+            >
+              <TextCursorInput size={11} />
+            </button>
+          )}
 
-              e.stopPropagation();
-
-              onDelete();
-
-            }}
-
-            className="ml-auto opacity-0 group-hover:opacity-100 text-(--color-text-muted) hover:text-(--color-error) transition-opacity"
-
-            title="Drop table"
-
-          >
-
-            <Trash2 size={11} />
-
-          </button>
-
-        )}
-
-        {onInsert && (
-
-          <button
-
-            onClick={(e) => {
-
-              e.stopPropagation();
-
-              onInsert();
-
-            }}
-
-            className={`${onDelete ? "" : "ml-auto"} opacity-0 group-hover:opacity-100 text-(--color-text-muted) hover:text-(--color-accent) transition-opacity`}
-
-            title="Insert into editor"
-
-          >
-
-            <TextCursorInput size={11} />
-
-          </button>
-
-        )}
-
-        {onCopy && (
-
-          <button
-
-            onClick={(e) => {
-
-              e.stopPropagation();
-
-              onCopy();
-
-              setCopied(true);
-
-              setTimeout(() => setCopied(false), 1500);
-
-            }}
-
-            className={`ml-1 ${copied ? "opacity-100" : "opacity-0 group-hover:opacity-100"} text-(--color-text-muted) hover:text-(--color-accent) transition-opacity`}
-
-            title="Copy name"
-
-          >
-
-            {copied ? <Check size={11} className="text-(--color-success)" /> : <Copy size={11} />}
-
-          </button>
-
-        )}
+          {onCopy && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onCopy();
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              }}
+              className="text-(--color-text-muted) hover:text-(--color-accent) p-0.5 rounded hover:bg-(--color-bg-secondary)"
+              title="Copy name"
+            >
+              {copied ? <Check size={11} className="text-(--color-success)" /> : <Copy size={11} />}
+            </button>
+          )}
+        </div>
 
       </div>
 
@@ -248,32 +228,20 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, re
   const {
 
     databases,
-
     tables,
-
     columns,
-
     loading,
-
     loadTables,
-
     loadColumns,
-
     refreshSchema,
-
+    refreshDatabase,
+    refreshTable,
+    isReady,
   } = useSchema();
 
-
-
   const [error, setError] = useState(null);
-
   const [searchTerm, setSearchTerm] = useState("");
-
   const searchInputRef = useRef(null);
-
-
-
-  const isReady = isDoris ? true : (sessionState === SESSION_STATES.IDLE && sessionId !== null);
 
 
 
@@ -438,13 +406,9 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, re
       <div className="flex-1 overflow-auto py-1">
 
         {!isReady && (
-
           <div className="px-3 py-4 text-xs text-(--color-text-muted) text-center">
-
-            Start a Spark session to explore schema
-
+            {isDoris ? "Connect to Doris to explore schema" : "Start a Spark session to explore schema"}
           </div>
-
         )}
 
 
@@ -530,21 +494,14 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, re
           return (
 
             <TreeNode
-
               key={db}
-
               icon={Database}
-
               label={db}
-
               onOpen={() => loadTables(db)}
-
+              onRefresh={() => refreshDatabase(db)}
               onCopy={() => copyToClipboard(db)}
-
               onInsert={onInsertAtCursor ? () => onInsertAtCursor(db) : undefined}
-
               defaultOpen={!!forceDbOpen}
-
             >
 
               {loading[db] ? (
@@ -588,27 +545,17 @@ const SchemaExplorer = forwardRef(function SchemaExplorer({ onInsertAtCursor, re
                     return (
 
                       <TreeNode
-
                         key={tbl}
-
                         icon={Table2}
-
                         label={tbl}
-
                         onOpen={() => loadColumns(db, tbl)}
-
+                        onRefresh={() => refreshTable(db, tbl)}
                         onCopy={() =>
-
                           copyToClipboard(`\`${db}\`.\`${tbl}\``)
-
                         }
-
                         onInsert={onInsertAtCursor ? () => onInsertAtCursor(`\`${db}\`.\`${tbl}\``) : undefined}
-
                         onDelete={() => dropTable(db, tbl)}
-
                         defaultOpen={!!forceTblOpen}
-
                       >
 
                         {loading[colKey] ? (

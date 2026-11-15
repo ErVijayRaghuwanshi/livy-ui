@@ -23,6 +23,10 @@ function getParser(dialect = "spark") {
   }
 }
 
+// Fast LRU validation cache to prevent redundant re-parsing of identical queries
+let lastValidationKey = "";
+let lastValidationResult = null;
+
 /**
  * Masks query template placeholders ($var, ${var}, {{var}}, :var, @var) outside strings/comments
  * with equal-length dummy identifiers so the parser does not produce false-positive syntax errors,
@@ -33,6 +37,11 @@ function getParser(dialect = "spark") {
  */
 export function maskPlaceholdersForValidation(sql) {
   if (!sql) return "";
+  // Fast-path guard: if no placeholder characters exist, skip expensive regex pass
+  if (!/[\${}:@]/.test(sql)) {
+    return sql;
+  }
+
   const pattern = /('(?:''|[^'])*'|"(?:""|[^"])*"|`(?:``|[^`])*`|--[^\r\n]*|\/\*[\s\S]*?\*\/)|(\$\{[\w.-]+\}|\{\{[\s\S]*?\}\}|\$[a-zA-Z0-9_]+|:[a-zA-Z0-9_]+|@[a-zA-Z0-9_]+)/g;
 
   return sql.replace(pattern, (match, literal, placeholder) => {
@@ -52,6 +61,10 @@ export function maskPlaceholdersForValidation(sql) {
  */
 export function maskDorisSqlForValidation(sql) {
   if (!sql) return "";
+  // Fast-path guard: if no Doris-specific syntax tokens exist, skip heavy regex transforms
+  if (!/(?:SHOW|RESOURCE|ROUTINE|PROPERTIES|DUPLICATE|AGGREGATE|DISTRIBUTED|DATETIME|LARGEINT|DATEV2|QUANTILE|AGG_STATE|BITMAP|HLL|JSONB|VARIANT|s3|hdfs|http_stream|MATERIALIZED|\*)/i.test(sql)) {
+    return sql;
+  }
 
   // 1. Mask Doris-specific SHOW statements (SHOW RESOURCES, SHOW BACKENDS, SHOW PROC, etc.)
   const dorisShowRegex = /\bSHOW\s+(?:RESOURCES?|BACKENDS?|FRONTENDS?|PROC|WORKLOAD(?:\s+GROUPS?)?|BROKERS?|REPOSITOR(?:Y|IES)|CATALOGS?|LOAD|ROUTINE|STREAM|SYNC|EXPORT|RESTORE|SNAPSHOT|TRASH|TABLE\s+CREATION|PARTITIONS|DATA|ROLLUP|ALTER|CLUSTERS?|WHITE\s*LIST|ENGINES)\b[^;]*(?:;|$)/gi;
@@ -59,6 +72,37 @@ export function maskDorisSqlForValidation(sql) {
     const dummy = match.trimEnd().endsWith(";") ? "SHOW TABLES;" : "SHOW TABLES";
     if (match.length <= dummy.length) return dummy.slice(0, match.length);
     return dummy + " ".repeat(match.length - dummy.length);
+  });
+
+  // 1b. Mask Doris Materialized View statements (CREATE / DROP / REFRESH / PAUSE / RESUME / CANCEL MATERIALIZED VIEW)
+  // Administrative MV statements
+  result = result.replace(/\b(?:REFRESH|PAUSE|RESUME|CANCEL)\s+MATERIALIZED\s+VIEW\b[^;]*(?:;|$)/gi, (match) => {
+    const lines = match.split("\n");
+    return lines.map((line, idx) => {
+      if (idx === 0) {
+        const dummy = "SELECT 1;";
+        return dummy + " ".repeat(Math.max(0, line.length - dummy.length));
+      }
+      return " ".repeat(line.length);
+    }).join("\n");
+  });
+
+  // DROP MATERIALIZED VIEW [IF EXISTS] [db.]mv_name [ON [db.]tbl];
+  result = result.replace(/\bDROP\s+MATERIALIZED\s+VIEW\b([^;]*)(?:;|$)/gi, (match, rest) => {
+    const prefix = "DROP             TABLE";
+    const maskedRest = rest.replace(/\bON\s+[a-zA-Z0-9_.]+/i, (onMatch) => " ".repeat(onMatch.length));
+    const ending = match.trimEnd().endsWith(";") ? ";" : "";
+    const rawLen = match.length;
+    let res = prefix + maskedRest + ending;
+    if (res.length < rawLen) res += " ".repeat(rawLen - res.length);
+    return res;
+  });
+
+  // CREATE MATERIALIZED VIEW [IF NOT EXISTS] [db.]mv_name [build/refresh/schedule/distributed/properties] AS SELECT ...
+  result = result.replace(/\bCREATE\s+MATERIALIZED\s+VIEW\s+((?:(?:IF\s+NOT\s+EXISTS|OR\s+REPLACE)\s+)?(?:`[^`]+`|[a-zA-Z0-9_]+)(?:\.(?:`[^`]+`|[a-zA-Z0-9_]+))?)([\s\S]*?)\bAS\b/gi, (match, nameClause, midClauses) => {
+    const dummyPrefix = "CREATE             TABLE ";
+    const maskedMid = midClauses.replace(/[^\r\n]/g, " ");
+    return dummyPrefix + nameClause + maskedMid + "AS";
   });
 
   // 2. Mask Doris administrative & custom DDL: (CREATE|DROP|ALTER) (RESOURCE|JOB|ROUTINE LOAD|WORKLOAD|STORAGE POLICY|STAGE|CATALOG) ...;
@@ -127,6 +171,12 @@ export function validateSql(sql, dialect = "spark") {
     return { isValid: true, errors: [] };
   }
 
+  // Fast cache hit
+  const cacheKey = `${dialect}:${sql}`;
+  if (cacheKey === lastValidationKey && lastValidationResult) {
+    return lastValidationResult;
+  }
+
   try {
     const isDorisDialect = dialect.toLowerCase() === "mysql";
     const parser = getParser(dialect);
@@ -168,10 +218,15 @@ export function validateSql(sql, dialect = "spark") {
         return !isDorisLine && !isDorisMsg;
       });
 
-    return {
+    const finalResult = {
       isValid: errors.length === 0,
       errors,
     };
+
+    lastValidationKey = cacheKey;
+    lastValidationResult = finalResult;
+
+    return finalResult;
   } catch (err) {
     console.warn("SQL static validation internal error:", err);
     return { isValid: true, errors: [] };

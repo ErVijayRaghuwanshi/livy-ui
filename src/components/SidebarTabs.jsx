@@ -55,7 +55,7 @@ const SidebarTabs = forwardRef(({
     disconnectWorkspace,
   } = useSqlFiles();
 
-  const { refreshSchema, loading } = useSchema();
+  const { refreshSchema, loading, isReady } = useSchema();
   const { sessionId, sessionState } = useLivy();
   const isLivyReady = sessionState === SESSION_STATES.IDLE && sessionId !== null;
 
@@ -165,7 +165,7 @@ const SidebarTabs = forwardRef(({
           <div className="flex items-center gap-1">
             <button
               onClick={() => refreshSchema()}
-              disabled={!isLivyReady || loading._dbs}
+              disabled={!isReady || loading._dbs}
               className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors disabled:opacity-30 cursor-pointer"
               title="Refresh Schema"
             >

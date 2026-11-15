@@ -17,11 +17,15 @@ if (!normalizedInitialHosts.some((h) => h.type === DATA_SOURCE_TYPES.DORIS)) {
   normalizedInitialHosts.push(DEFAULT_DORIS_HOST);
 }
 
+const savedActiveHostId = getItem(STORAGE_KEYS.ACTIVE_HOST, DEFAULT_HOST.id);
+const initialActiveHost = normalizedInitialHosts.find((h) => h.id === savedActiveHostId) || DEFAULT_HOST;
+const isInitialDoris = initialActiveHost.type === DATA_SOURCE_TYPES.DORIS || initialActiveHost.engine === "doris";
+
 const initialState = {
   hosts: normalizedInitialHosts,
-  activeHostId: getItem(STORAGE_KEYS.ACTIVE_HOST, DEFAULT_HOST.id),
-  sessionId: getItem(STORAGE_KEYS.SESSION_ID, null),
-  sessionState: SESSION_STATES.NOT_STARTED,
+  activeHostId: savedActiveHostId,
+  sessionId: isInitialDoris ? null : getItem(STORAGE_KEYS.SESSION_ID, null),
+  sessionState: isInitialDoris ? SESSION_STATES.IDLE : SESSION_STATES.NOT_STARTED,
   sessionConf: getItem(STORAGE_KEYS.SESSION_CONF, {}),
   sessionJars: getItem(STORAGE_KEYS.SESSION_JARS, []),
   sessions: [],
@@ -30,15 +34,26 @@ const initialState = {
   error: null,
   loading: false,
   isOnline: typeof window !== "undefined" ? window.navigator.onLine : true,
-  isServerReachable: null,
+  isServerReachable: isInitialDoris ? true : null,
 };
 
 function reducer(state, action) {
   switch (action.type) {
     case "SET_HOSTS":
       return { ...state, hosts: action.payload };
-    case "SET_ACTIVE_HOST":
-      return { ...state, activeHostId: action.payload, sessionId: null, sessionState: SESSION_STATES.NOT_STARTED, appId: null, error: null };
+    case "SET_ACTIVE_HOST": {
+      const host = state.hosts.find((h) => h.id === action.payload);
+      const isDorisHost = host && (host.type === DATA_SOURCE_TYPES.DORIS || host.engine === "doris");
+      return {
+        ...state,
+        activeHostId: action.payload,
+        sessionId: null,
+        sessionState: isDorisHost ? SESSION_STATES.IDLE : SESSION_STATES.NOT_STARTED,
+        isServerReachable: isDorisHost ? true : state.isServerReachable,
+        appId: null,
+        error: null,
+      };
+    }
     case "SET_SESSION_CONF":
       return { ...state, sessionConf: action.payload };
     case "SET_SESSION_JARS":
@@ -90,14 +105,14 @@ export function LivyProvider({ children }) {
   }, [state.sessionId]);
 
   const activeHost = state.hosts.find((h) => h.id === state.activeHostId) || DEFAULT_HOST;
-  const isDoris = activeHost.type === DATA_SOURCE_TYPES.DORIS;
+  const isDoris = activeHost.type === DATA_SOURCE_TYPES.DORIS || activeHost.engine === "doris";
   const isSpark = !isDoris;
 
   // Add host
   const addHost = useCallback((host) => {
     const normalized = {
       ...host,
-      type: host.type || DATA_SOURCE_TYPES.SPARK,
+      type: host.type || (host.engine === "doris" ? DATA_SOURCE_TYPES.DORIS : DATA_SOURCE_TYPES.SPARK),
     };
     const updated = [...state.hosts, normalized];
     setItem(STORAGE_KEYS.HOSTS, updated);
@@ -123,22 +138,52 @@ export function LivyProvider({ children }) {
     dispatch({ type: "SET_HOSTS", payload: updated });
   }, [state.hosts]);
 
-  // Select host
+  // Select host and automatically attach compute for Doris
   const selectHost = useCallback((hostId) => {
-    setItem(STORAGE_KEYS.ACTIVE_HOST, hostId);
-    removeItem(STORAGE_KEYS.SESSION_ID);
-    dispatch({ type: "SET_ACTIVE_HOST", payload: hostId });
     const targetHost = state.hosts.find((h) => h.id === hostId);
-    if (targetHost && targetHost.type === DATA_SOURCE_TYPES.DORIS) {
+    const isDorisHost = targetHost && (targetHost.type === DATA_SOURCE_TYPES.DORIS || targetHost.engine === "doris");
+
+    setItem(STORAGE_KEYS.ACTIVE_HOST, hostId);
+    if (isDorisHost) {
+      setItem("livy-last-doris-host", hostId);
+      removeItem(STORAGE_KEYS.SESSION_ID);
+    } else {
+      setItem("livy-last-spark-host", hostId);
+    }
+
+    dispatch({ type: "SET_ACTIVE_HOST", payload: hostId });
+    if (isDorisHost) {
       dispatch({ type: "SET_SESSION_STATE", payload: SESSION_STATES.IDLE });
       dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
     }
   }, [state.hosts]);
 
+  // Switch engine restoring the last active host for that engine
+  const switchEngine = useCallback((targetEngine) => {
+    if (targetEngine === "doris") {
+      const savedDorisId = getItem("livy-last-doris-host", null);
+      const targetHost = (savedDorisId && state.hosts.find(h => h.id === savedDorisId))
+        || state.hosts.find(h => h.type === DATA_SOURCE_TYPES.DORIS || h.engine === "doris");
+      if (targetHost) {
+        selectHost(targetHost.id);
+        return targetHost;
+      }
+    } else {
+      const savedSparkId = getItem("livy-last-spark-host", null);
+      const targetHost = (savedSparkId && state.hosts.find(h => h.id === savedSparkId))
+        || state.hosts.find(h => h.type === DATA_SOURCE_TYPES.SPARK || h.engine === "spark");
+      if (targetHost) {
+        selectHost(targetHost.id);
+        return targetHost;
+      }
+    }
+    return null;
+  }, [state.hosts, selectHost]);
+
   // Server Reachability Checker
   const checkServerReachability = useCallback(async () => {
     const currentHost = state.hosts.find((h) => h.id === state.activeHostId) || DEFAULT_HOST;
-    const isDorisHost = currentHost.type === DATA_SOURCE_TYPES.DORIS;
+    const isDorisHost = currentHost.type === DATA_SOURCE_TYPES.DORIS || currentHost.engine === "doris";
     const isLocalhost = currentHost.url.includes("localhost") || currentHost.url.includes("127.0.0.1");
     if (typeof window !== "undefined" && !window.navigator.onLine && !isLocalhost) {
       dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
@@ -148,6 +193,11 @@ export function LivyProvider({ children }) {
       if (isDorisHost) {
         const res = await testDorisConnection(currentHost);
         dispatch({ type: "SET_SERVER_REACHABLE", payload: res.success });
+        if (res.success) {
+          dispatch({ type: "SET_SESSION_STATE", payload: SESSION_STATES.IDLE });
+        } else {
+          dispatch({ type: "SET_SESSION_STATE", payload: SESSION_STATES.ERROR });
+        }
         return res.success;
       } else {
         await livyApi.listSessions();
@@ -378,6 +428,7 @@ export function LivyProvider({ children }) {
     removeHost,
     updateHost,
     selectHost,
+    switchEngine,
     startSession,
     stopSession,
     killSession,
