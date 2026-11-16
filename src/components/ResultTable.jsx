@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { AlertCircle, Loader2, Table, CheckCircle2, Ban, Clock, FileText, Copy, Check, Download, Search, X, FilterX, Hash, Type, Calendar, ToggleLeft, Binary, List, Braces, ChevronDown, Trash2, Plus, History, Workflow } from "lucide-react";
+import { AlertCircle, Loader2, Table, CheckCircle2, Ban, Clock, FileText, Copy, Check, Download, Search, X, FilterX, Hash, Type, Calendar, ToggleLeft, Binary, List, Braces, ChevronDown, Trash2, Plus, History, Workflow, FileSpreadsheet } from "lucide-react";
 import { useSqlFiles } from "../context/SqlFilesContext";
 import ExplainPlanView, { isExplainResult, extractPlanText } from "./ExplainPlanView";
 
@@ -200,6 +200,127 @@ function CopyButton({ getText, className = "", hideText = false }) {
       {copied ? <Check size={12} className="text-(--color-success)" /> : <Copy size={12} />}
       {!hideText && (copied ? "Copied" : "Copy")}
     </button>
+  );
+}
+
+function CopyDropdown({ formats, className = "", hideText = false }) {
+  const [copiedFormat, setCopiedFormat] = useState(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [selectedFormat, setSelectedFormat] = useState(() => {
+    return localStorage.getItem("livy-copy-format") || "csv";
+  });
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const formatList = [
+    { key: "csv", label: "CSV", sub: "Comma-separated values (.csv)", icon: Table },
+    { key: "excel", label: "Excel", sub: "Tab-separated for spreadsheets (.tsv)", icon: FileSpreadsheet },
+    { key: "markdown", label: "Markdown", sub: "GitHub-flavored markdown table", icon: FileText },
+    { key: "json", label: "JSON", sub: "Formatted JSON objects array", icon: Braces },
+  ];
+
+  const handleCopy = (formatKey) => {
+    const key = formatKey || selectedFormat;
+    const getter = formats[key];
+    if (!getter) return;
+    const text = typeof getter === "function" ? getter() : getter;
+    if (!text) return;
+
+    const onSuccess = () => {
+      setCopiedFormat(key);
+      setSelectedFormat(key);
+      localStorage.setItem("livy-copy-format", key);
+      setDropdownOpen(false);
+      setTimeout(() => setCopiedFormat(null), 2000);
+    };
+
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(onSuccess);
+    } else {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      onSuccess();
+    }
+  };
+
+  const currentItem = formatList.find((f) => f.key === selectedFormat) || formatList[0];
+
+  return (
+    <div className={`relative flex items-center ${className}`} ref={menuRef}>
+      {/* Split button: main copy trigger + dropdown toggle */}
+      <div className="flex items-center rounded bg-(--color-bg-primary)/40 border border-(--color-border)/60 hover:border-(--color-border) text-[11px] text-(--color-text-muted) transition-colors shadow-xs">
+        <button
+          onClick={() => handleCopy(selectedFormat)}
+          className="flex items-center gap-1.5 px-2 py-1 hover:bg-(--color-bg-tertiary) hover:text-(--color-text-primary) rounded-l transition-colors cursor-pointer h-7"
+          title={`Copy as ${currentItem.label} (Click ▾ for more formats)`}
+        >
+          {copiedFormat ? (
+            <Check size={12} className="text-(--color-success)" />
+          ) : (
+            <Copy size={12} />
+          )}
+          {!hideText && (
+            <span>
+              {copiedFormat ? `Copied ${formatList.find((f) => f.key === copiedFormat)?.label}` : `Copy ${currentItem.label}`}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setDropdownOpen((prev) => !prev)}
+          className="px-1.5 py-1 hover:bg-(--color-bg-tertiary) hover:text-(--color-text-primary) rounded-r border-l border-(--color-border)/40 transition-colors cursor-pointer h-7"
+          title="Choose copy format (Markdown, CSV, Excel, JSON)"
+        >
+          <ChevronDown
+            size={10}
+            className={`transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""}`}
+          />
+        </button>
+      </div>
+
+      {/* Floating format picker menu */}
+      {dropdownOpen && (
+        <div className="absolute right-0 top-full mt-1.5 z-50 bg-(--color-bg-secondary) border border-(--color-border) rounded-lg shadow-2xl py-1 min-w-[220px] animate-in fade-in zoom-in-95 duration-100">
+          <div className="px-3 py-1 text-[10px] font-semibold text-(--color-text-muted) uppercase tracking-wider">
+            Copy Format
+          </div>
+          {formatList.map((item) => {
+            const IconComponent = item.icon;
+            const isSelected = selectedFormat === item.key;
+            return (
+              <button
+                key={item.key}
+                onClick={() => handleCopy(item.key)}
+                className="flex items-center justify-between w-full px-3 py-1.5 text-xs text-(--color-text-primary) hover:bg-(--color-bg-tertiary) transition-colors cursor-pointer text-left"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <IconComponent size={13} className="text-(--color-accent) shrink-0" />
+                  <div className="min-w-0">
+                    <div className="font-medium text-[11px] leading-tight">Copy as {item.label}</div>
+                    <div className="text-[10px] text-(--color-text-muted) truncate">{item.sub}</div>
+                  </div>
+                </div>
+                {isSelected && <Check size={12} className="text-(--color-accent) shrink-0 ml-2" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1187,7 +1308,7 @@ function JsonTable({ data, sql, elapsed, onClose, onMaximizeToggle, isMaximized,
             const buildCsv = () => {
               const csvEscape = (v) => {
                 const s = String(v ?? "");
-                return s.includes(",") || s.includes('"') || s.includes("\n")
+                return s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")
                   ? '"' + s.replace(/"/g, '""') + '"'
                   : s;
               };
@@ -1201,6 +1322,44 @@ function JsonTable({ data, sql, elapsed, onClose, onMaximizeToggle, isMaximized,
               ).join("\n");
               return header + "\n" + body;
             };
+
+            const buildExcel = () => {
+              const tsvEscape = (v) => {
+                const s = String(v ?? "");
+                if (s.includes("\t") || s.includes("\n") || s.includes("\r") || s.includes('"')) {
+                  return '"' + s.replace(/"/g, '""') + '"';
+                }
+                return s;
+              };
+              const header = fields.map((f) => tsvEscape(f.name || f)).join("\t");
+              const body = filteredRows.map((row) =>
+                fields.map((f, ci) => {
+                  const val = row[f.name || f] !== undefined ? row[f.name || f] : Array.isArray(row) ? (row[ci] ?? "") : "";
+                  const strVal = typeof val === "object" && val !== null ? JSON.stringify(val) : val;
+                  return tsvEscape(strVal);
+                }).join("\t")
+              ).join("\n");
+              return header + "\n" + body;
+            };
+
+            const buildMarkdown = () => {
+              const mdEscape = (v) => {
+                const s = String(v ?? "");
+                return s.replace(/\|/g, "\\|").replace(/\r?\n/g, "<br/>");
+              };
+              const headers = fields.map((f) => mdEscape(f.name || f));
+              const headerLine = "| " + headers.join(" | ") + " |";
+              const separatorLine = "| " + fields.map(() => "---").join(" | ") + " |";
+              const rows = filteredRows.map((row) =>
+                "| " + fields.map((f, ci) => {
+                  const val = row[f.name || f] !== undefined ? row[f.name || f] : Array.isArray(row) ? (row[ci] ?? "") : "";
+                  const strVal = typeof val === "object" && val !== null ? JSON.stringify(val) : val;
+                  return mdEscape(strVal);
+                }).join(" | ") + " |"
+              );
+              return [headerLine, separatorLine, ...rows].join("\n");
+            };
+
             const buildJson = () => {
               return JSON.stringify(filteredRows.map((row) => {
                 const obj = {};
@@ -1211,9 +1370,17 @@ function JsonTable({ data, sql, elapsed, onClose, onMaximizeToggle, isMaximized,
                 return obj;
               }), null, 2);
             };
+
+            const copyFormats = {
+              csv: buildCsv,
+              excel: buildExcel,
+              markdown: buildMarkdown,
+              json: buildJson,
+            };
+
             return (
               <>
-                <CopyButton getText={buildCsv} className="hover:bg-(--color-bg-tertiary) h-7" hideText={activeWidth < 520} />
+                <CopyDropdown formats={copyFormats} className="h-7" hideText={activeWidth < 520} />
                 <DownloadButtons getCsv={buildCsv} getJson={buildJson} className="h-7" hideText={activeWidth < 520} />
               </>
             );

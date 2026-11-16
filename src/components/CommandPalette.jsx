@@ -208,6 +208,17 @@ export default function CommandPalette({
       action: () => editorRef?.current?.triggerEmmet?.(),
     },
     {
+      id: "goto-line",
+      name: "Go to Line/Column...",
+      category: "Navigation",
+      shortcut: isMac ? "⌘G" : "Ctrl+G",
+      action: () => {
+        setTimeout(() => {
+          editorRef?.current?.triggerGotoLine?.();
+        }, 50);
+      },
+    },
+    {
       id: "insert-sql-snippet",
       name: `SQL: Insert Code Snippet / Template... (${isDoris ? "🐬 Doris" : "⚡ Spark"})`,
       category: "Snippets",
@@ -345,6 +356,22 @@ export default function CommandPalette({
 
   // Combined list of filtered items
   const filteredItems = useMemo(() => {
+    if (search.startsWith(":")) {
+      const lineSpec = search.slice(1).trim();
+      return [{
+        id: "goto-line-quick",
+        name: lineSpec ? `Go to Line ${lineSpec}` : "Go to Line/Column... (type a line number)",
+        category: "Navigation",
+        type: "command",
+        action: () => {
+          onClose();
+          setTimeout(() => {
+            editorRef?.current?.triggerGotoLine?.();
+          }, 50);
+        },
+      }];
+    }
+
     const isCmdOnly = search.startsWith(">");
     const cleanSearch = isCmdOnly ? search.slice(1).trim().toLowerCase() : search.trim().toLowerCase();
 

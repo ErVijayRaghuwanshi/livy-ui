@@ -1724,6 +1724,9 @@ const SqlEditor = forwardRef(function SqlEditor({
   const onToggleResultPanelRef = useRef(onToggleResultPanel);
   const onTriggerBounceRef = useRef(onTriggerBounce);
   const onTriggerSnakeRef = useRef(onTriggerSnake);
+  const onCursorPositionChangeRef = useRef(onCursorPositionChange);
+  onCursorPositionChangeRef.current = onCursorPositionChange;
+  const reportCursorAndSelectionRef = useRef(null);
 
   // Monaco model caching for undo history preservation
   const modelsRef = useRef(new Map());
@@ -1805,6 +1808,7 @@ const SqlEditor = forwardRef(function SqlEditor({
     onToggleResultPanelRef.current = onToggleResultPanel;
     onTriggerBounceRef.current = onTriggerBounce;
     onTriggerSnakeRef.current = onTriggerSnake;
+    onCursorPositionChangeRef.current = onCursorPositionChange;
   });
 
   const { sessionId, sessionState, isOnline, isServerReachable, isDoris, isSpark, activeHost } = useLivy();
@@ -2351,11 +2355,40 @@ const SqlEditor = forwardRef(function SqlEditor({
       }
     });
 
-    // Track cursor position
-    editor.onDidChangeCursorPosition((e) => {
-      if (onCursorPositionChange) {
-        onCursorPositionChange({ lineNumber: e.position.lineNumber, column: e.position.column });
+    const reportCursorAndSelection = (selectionEvent) => {
+      const ed = editorRef.current;
+      if (!ed || !onCursorPositionChangeRef.current) return;
+      const pos = ed.getPosition();
+      if (!pos) return;
+      const model = ed.getModel();
+      let selectedCount = 0;
+
+      const selections = selectionEvent?.secondarySelections && selectionEvent?.selection
+        ? [selectionEvent.selection, ...selectionEvent.secondarySelections]
+        : (ed.getSelections() || (ed.getSelection() ? [ed.getSelection()] : []));
+
+      if (selections && selections.length > 0 && model) {
+        for (const sel of selections) {
+          if (sel && !sel.isEmpty()) {
+            if (typeof model.getValueLengthInRange === "function") {
+              selectedCount += model.getValueLengthInRange(sel);
+            } else {
+              selectedCount += model.getValueInRange(sel).length;
+            }
+          }
+        }
       }
+      onCursorPositionChangeRef.current({
+        lineNumber: pos.lineNumber,
+        column: pos.column,
+        selectedCount,
+      });
+    };
+    reportCursorAndSelectionRef.current = reportCursorAndSelection;
+
+    // Track cursor position and selection changes
+    editor.onDidChangeCursorPosition(() => {
+      reportCursorAndSelection();
       const currentId = activeFileRef.current?.id;
       if (currentId && editorRef.current) {
         const state = editorRef.current.saveViewState();
@@ -2364,6 +2397,21 @@ const SqlEditor = forwardRef(function SqlEditor({
         }
       }
     });
+
+    editor.onDidChangeCursorSelection((e) => {
+      reportCursorAndSelection(e);
+    });
+
+    editor.onMouseUp(() => {
+      reportCursorAndSelection();
+    });
+
+    editor.onKeyUp(() => {
+      reportCursorAndSelection();
+    });
+
+    // Initial report on mount
+    reportCursorAndSelection();
 
     // Monaco MouseTargetType.GLYPH_MARGIN = 2
     const GLYPH_MARGIN_TYPE = 2;
@@ -2714,6 +2762,7 @@ const SqlEditor = forwardRef(function SqlEditor({
     }
     updateDecorations(editor);
     editor.focus();
+    reportCursorAndSelectionRef.current?.();
   }, [activeFile?.id, activeFile?.name, updateDecorations]);
 
   // Sync Monaco language mode if active file is renamed or toggled
@@ -3292,6 +3341,17 @@ const SqlEditor = forwardRef(function SqlEditor({
       if (!editor) return;
       editor.focus();
       editor.trigger("keyboard", "editor.action.showSnippets");
+    },
+    triggerGotoLine: () => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      editor.focus();
+      const action = editor.getAction("editor.action.gotoLine");
+      if (action) {
+        action.run();
+      } else {
+        editor.trigger("status-bar", "editor.action.gotoLine");
+      }
     },
     jumpToFirstSyntaxError: () => {
       const editor = editorRef.current;

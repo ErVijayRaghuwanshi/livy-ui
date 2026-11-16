@@ -13,6 +13,7 @@ const SHORTCUTS = [
   { keys: [`${mod}+S`], description: "Save SQL file" },
   { keys: [`${mod}+Shift+A`], description: "Toggle Auto-Save" },
   { keys: [isMac ? "⌥+Z" : "Alt+Z"], description: "Toggle Word Wrap" },
+  { keys: [`${mod}+G`], description: "Go to Line / Column..." },
   { keys: [`${mod}+B`], description: "Toggle sidebar" },
   { keys: [`${mod}+Shift+E`], description: "Focus File Explorer" },
   { keys: [`${mod}+Shift+K`], description: "Focus Schema Explorer" },

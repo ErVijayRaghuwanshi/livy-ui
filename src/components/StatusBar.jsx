@@ -51,6 +51,7 @@ export default function StatusBar({
   onToggleWordWrap,
   isSqlValidationEnabled = true,
   onToggleSqlValidation,
+  onGotoLine,
 }) {
   const { activeHost, sessionId, sessionState, isOnline, isServerReachable, isDoris, isSpark } = useLivy();
   const { activeResult, activeFile, autoSave, toggleAutoSave } = useSqlFiles();
@@ -63,9 +64,9 @@ export default function StatusBar({
     : null;
 
   return (
-    <div className="flex items-center justify-between px-3 py-1 bg-(--color-bg-workbench) border-t border-(--color-border) shrink-0 text-[11px] text-(--color-text-muted) select-none overflow-hidden">
+    <div className="flex items-center justify-between px-3 py-1 bg-(--color-bg-workbench) border-t border-(--color-border) shrink-0 text-[11px] text-(--color-text-muted) select-none overflow-hidden gap-3">
       {/* Left */}
-      <div className="flex items-center gap-3 truncate min-w-0">
+      <div className="flex items-center gap-3 min-w-0 shrink overflow-hidden">
         {/* Session state / Engine readiness */}
         {isDoris ? (
           <div className="flex items-center gap-1.5 shrink-0">
@@ -152,7 +153,7 @@ export default function StatusBar({
       </div>
 
       {/* Right */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 shrink-0 ml-auto">
         {/* Language indicator (read-only, determined strictly by file extension) */}
         {activeFile && !activeFile.isSpecial && activeFile.id !== "settings" && (
           <span className="px-1.5 py-0.5 font-medium text-[11px] text-(--color-text-muted) select-none">
@@ -160,11 +161,20 @@ export default function StatusBar({
           </span>
         )}
 
-        {/* Cursor position */}
+        {/* Cursor position and selection count */}
         {cursorPosition && (
-          <span className="font-mono">
-            Ln {cursorPosition.lineNumber}, Col {cursorPosition.column}
-          </span>
+          <button
+            onClick={onGotoLine}
+            className="font-mono text-[11px] px-1.5 py-0.5 rounded-sm hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary)/40 transition-all cursor-pointer select-none shrink-0"
+            title="Go to Line/Column (Ctrl+G / ⌘G)"
+          >
+            <span>Ln {cursorPosition.lineNumber}, Col {cursorPosition.column}</span>
+            {cursorPosition.selectedCount > 0 && (
+              <span className="text-(--color-accent) font-semibold ml-1">
+                ({cursorPosition.selectedCount} selected)
+              </span>
+            )}
+          </button>
         )}
 
         {/* Auto-Save Toggle */}

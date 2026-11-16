@@ -53,6 +53,8 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
     attachSession,
     isDoris,
     isSpark,
+    isServerReachable,
+    isOnline,
   } = useLivy();
 
   const { settings, updateSetting } = useSettings();
@@ -93,9 +95,15 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
     if (activeHost) {
       testHostPing(activeHost);
     }
-  }, [activeHostId]);
+    hosts.forEach((h) => {
+      if (h.id !== activeHostId) {
+        testHostPing(h);
+      }
+    });
+  }, [activeHostId, hosts.length]);
 
   const testHostPing = async (host) => {
+    if (!host) return;
     setHostPings((prev) => ({
       ...prev,
       [host.id]: { state: "loading" },
@@ -105,7 +113,8 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
 
     if (isDorisHost) {
       try {
-        const res = await testDorisConnection(host);
+        const dbToUse = host.database || settings["doris.defaultDatabase"] || "demo_db";
+        const res = await testDorisConnection({ ...host, database: dbToUse });
         if (res.success) {
           setHostPings((prev) => ({
             ...prev,
@@ -377,7 +386,7 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
 
               {/* Ping Pill */}
               <div className="shrink-0">
-                {activePing?.state === "loading" ? (
+                {activePing?.state === "loading" || (!activePing && isServerReachable !== false) ? (
                   <span className="text-[10px] text-amber-400 font-mono flex items-center gap-1">
                     <Loader2 size={10} className="animate-spin" /> ...
                   </span>
@@ -385,16 +394,25 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
                   <button
                     onClick={() => testHostPing(activeHost)}
                     className="flex items-center gap-1 text-[10px] text-emerald-400 font-mono font-medium hover:underline cursor-pointer"
-                    title="Click to re-ping"
+                    title="Click to re-ping latency"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     {activePing.latency}ms
                   </button>
+                ) : isServerReachable === true ? (
+                  <button
+                    onClick={() => testHostPing(activeHost)}
+                    className="flex items-center gap-1 text-[10px] text-emerald-400 font-mono font-medium hover:underline cursor-pointer"
+                    title="Connected · Click to measure latency"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    Online
+                  </button>
                 ) : (
                   <button
                     onClick={() => testHostPing(activeHost)}
-                    className="text-[10px] text-rose-400 hover:underline cursor-pointer"
-                    title="Click to retry ping"
+                    className="text-[10px] text-rose-400 hover:underline cursor-pointer font-medium"
+                    title={activePing?.error || "Offline · Click to retry ping"}
                   >
                     Offline
                   </button>
@@ -512,6 +530,12 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
 
                       {ping?.state === "online" && (
                         <span className="text-[9px] text-emerald-400/80 font-mono">{ping.latency}ms</span>
+                      )}
+                      {ping?.state === "loading" && (
+                        <span className="text-[9px] text-amber-400/80 font-mono">...</span>
+                      )}
+                      {isActive && !ping && isServerReachable === true && (
+                        <span className="text-[9px] text-emerald-400/80 font-mono">online</span>
                       )}
 
                       {host.id !== "default" && host.id !== "default-doris" && (

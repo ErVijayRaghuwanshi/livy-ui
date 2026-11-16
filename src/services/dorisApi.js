@@ -142,14 +142,27 @@ export async function executeDorisQuery({
  */
 export async function testDorisConnection(config = {}) {
   try {
+    const dbToUse = config.database || "demo_db";
     const res = await executeDorisQuery({
       ...config,
+      database: dbToUse,
       sql: "SELECT 1 AS is_alive",
-      timeoutMs: 5000,
+      timeoutMs: 10000,
     });
     return { success: true, elapsed: res.elapsed };
   } catch (err) {
-    return { success: false, error: err.message };
+    // If querying database failed, try against information_schema as fallback
+    try {
+      const fallbackRes = await executeDorisQuery({
+        ...config,
+        database: "information_schema",
+        sql: "SELECT 1 AS is_alive",
+        timeoutMs: 10000,
+      });
+      return { success: true, elapsed: fallbackRes.elapsed };
+    } catch {
+      return { success: false, error: err.message };
+    }
   }
 }
 

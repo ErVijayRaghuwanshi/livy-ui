@@ -176,6 +176,13 @@ export default function App() {
         return;
       }
 
+      // Ctrl+G / Cmd+G — Go to Line/Column
+      if (ctrl && !e.altKey && !e.shiftKey && (e.key.toLowerCase() === "g" || e.code === "KeyG")) {
+        e.preventDefault();
+        editorRef.current?.triggerGotoLine?.();
+        return;
+      }
+
       // Ctrl+B / Cmd+B — toggle sidebar
       if (ctrl && !e.altKey && !e.shiftKey && (e.key.toLowerCase() === "b" || e.code === "KeyB")) {
         e.preventDefault();
@@ -853,6 +860,7 @@ export default function App() {
         onToggleWordWrap={() => editorRef.current?.toggleWordWrap?.()}
         isSqlValidationEnabled={settings["editor.sqlValidation.enabled"] ?? true}
         onToggleSqlValidation={() => editorRef.current?.toggleSqlValidation?.()}
+        onGotoLine={() => editorRef.current?.triggerGotoLine?.()}
       />
     </div>
   );
