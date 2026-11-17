@@ -116,16 +116,14 @@ export default function ModelSelector() {
             </span>
           </div>
 
-          {provider === "ollama" && (
-            <button
-              onClick={refreshModels}
-              disabled={isCheckingHealth}
-              title="Refresh Ollama models"
-              className="p-1 rounded hover:bg-(--color-bg-hover) text-[#858585] hover:text-white transition-colors cursor-pointer"
-            >
-              <RefreshCw size={11} className={isCheckingHealth ? "animate-spin text-purple-400" : ""} />
-            </button>
-          )}
+          <button
+            onClick={refreshModels}
+            disabled={isCheckingHealth}
+            title={`Refresh available ${provider.toUpperCase()} models`}
+            className="p-1 rounded hover:bg-(--color-bg-hover) text-[#858585] hover:text-white transition-colors cursor-pointer"
+          >
+            <RefreshCw size={11} className={isCheckingHealth ? "animate-spin text-purple-400" : ""} />
+          </button>
 
           {requiresKey && (
             <button
@@ -198,11 +196,15 @@ export default function ModelSelector() {
             className="w-full bg-(--color-bg-secondary) text-[#cccccc] text-xs rounded border border-(--color-border) px-2 py-1.5 pr-6 appearance-none cursor-pointer focus:outline-none focus:border-purple-500 hover:border-[#555555] transition-colors"
           >
             {availableModels.length > 0 ? (
-              availableModels.map((m) => (
-                <option key={m.name} value={m.name}>
-                  {m.name} {m.supportsTools ? " (Tools ✓)" : ""}
-                </option>
-              ))
+              availableModels.map((m) => {
+                const val = m.id || m.model || m.name;
+                const label = m.displayName || m.name || val;
+                return (
+                  <option key={val} value={val}>
+                    {label} {m.supportsTools ? " (Tools ✓)" : ""}
+                  </option>
+                );
+              })
             ) : (
               <option value={activeModel}>
                 {isOnline ? "No models found" : `${activeModel} (Needs Setup)`}

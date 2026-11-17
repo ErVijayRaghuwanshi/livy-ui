@@ -17,7 +17,9 @@ export const AI_PROVIDERS = [
 ];
 
 export const GEMINI_MODELS = [
-  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash (Recommended)", supportsTools: true },
+  { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash (Latest)", supportsTools: true },
+  { id: "gemini-3.8-pro", name: "Gemini 3.8 Pro", supportsTools: true },
+  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", supportsTools: true },
   { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", supportsTools: true },
   { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro", supportsTools: true },
 ];
@@ -25,7 +27,127 @@ export const GEMINI_MODELS = [
 export const OPENAI_MODELS = [
   { id: "gpt-4o-mini", name: "GPT-4o Mini (Fast & Cheap)", supportsTools: true },
   { id: "gpt-4o", name: "GPT-4o (Full Flagship)", supportsTools: true },
+  { id: "o3-mini", name: "o3 Mini (Reasoning)", supportsTools: true },
 ];
+
+/**
+ * Dynamically fetches all available Gemini models using the user's API key
+ */
+export async function fetchGeminiModels(apiKey = "") {
+  const key = (apiKey || "").trim();
+  if (!key) return { ok: false, error: "Missing Gemini API key", models: GEMINI_MODELS };
+
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+    });
+
+    if (!res.ok) {
+      let errBody = "";
+      try {
+        const json = await res.json();
+        errBody = json.error?.message || res.statusText;
+      } catch {
+        errBody = res.statusText;
+      }
+      throw new Error(`HTTP ${res.status}: ${errBody}`);
+    }
+
+    const data = await res.json();
+    const rawList = Array.isArray(data.models) ? data.models : [];
+
+    // Filter models supporting generateContent and prioritize chat/code models
+    const filtered = rawList
+      .filter((m) => {
+        const methods = m.supportedGenerationMethods || [];
+        return (
+          methods.includes("generateContent") &&
+          !m.name?.includes("embedding") &&
+          !m.name?.includes("aqa") &&
+          !m.name?.includes("imagen")
+        );
+      })
+      .map((m) => {
+        const cleanId = (m.name || "").replace(/^models\//, "");
+        const label = m.displayName ? `${m.displayName} (${cleanId})` : cleanId;
+        return {
+          id: cleanId,
+          name: label,
+          model: cleanId,
+          supportsTools: true,
+        };
+      });
+
+    // Sort so modern flash/pro models appear at the top
+    filtered.sort((a, b) => {
+      if (a.id.includes("flash") && !b.id.includes("flash")) return -1;
+      if (!a.id.includes("flash") && b.id.includes("flash")) return 1;
+      return b.id.localeCompare(a.id);
+    });
+
+    return { ok: true, models: filtered.length > 0 ? filtered : GEMINI_MODELS };
+  } catch (err) {
+    console.warn("[Gemini] Failed to fetch dynamic models, using fallbacks:", err);
+    return { ok: false, error: err.message, models: GEMINI_MODELS };
+  }
+}
+
+/**
+ * Dynamically fetches all available OpenAI models using the user's API key
+ */
+export async function fetchOpenAiModels(apiKey = "") {
+  const key = (apiKey || "").trim();
+  if (!key) return { ok: false, error: "Missing OpenAI API key", models: OPENAI_MODELS };
+
+  try {
+    const res = await fetch("https://api.openai.com/v1/models", {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+    });
+
+    if (!res.ok) {
+      let errBody = "";
+      try {
+        const json = await res.json();
+        errBody = json.error?.message || res.statusText;
+      } catch {
+        errBody = res.statusText;
+      }
+      throw new Error(`HTTP ${res.status}: ${errBody}`);
+    }
+
+    const data = await res.json();
+    const rawList = Array.isArray(data.data) ? data.data : [];
+
+    const filtered = rawList
+      .filter((m) => {
+        const id = m.id || "";
+        return (
+          (id.startsWith("gpt-") || id.startsWith("o1") || id.startsWith("o3")) &&
+          !id.includes("realtime") &&
+          !id.includes("audio") &&
+          !id.includes("instruct")
+        );
+      })
+      .map((m) => ({
+        id: m.id,
+        name: m.id,
+        model: m.id,
+        supportsTools: true,
+      }));
+
+    filtered.sort((a, b) => b.id.localeCompare(a.id));
+
+    return { ok: true, models: filtered.length > 0 ? filtered : OPENAI_MODELS };
+  } catch (err) {
+    console.warn("[OpenAI] Failed to fetch dynamic models, using fallbacks:", err);
+    return { ok: false, error: err.message, models: OPENAI_MODELS };
+  }
+}
 
 /**
  * Returns endpoint URL, headers, and model defaults for selected provider
@@ -49,7 +171,7 @@ export function getProviderConfig({
         },
         requiresKey: true,
         hasKey: Boolean(key),
-        defaultModel: "gemini-2.0-flash",
+        defaultModel: "gemini-3.8-flash",
       };
     }
 

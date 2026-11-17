@@ -11,6 +11,8 @@ import {
   AI_PROVIDERS,
   GEMINI_MODELS,
   OPENAI_MODELS,
+  fetchGeminiModels,
+  fetchOpenAiModels,
   getProviderConfig,
 } from "../services/ai/llmProvider";
 import { runAgentConversation } from "../services/ai/agentRunner";
@@ -51,15 +53,18 @@ export function AiProvider({ children, editorRef }) {
   const customUrl = settings["ai.customUrl"] || "http://localhost:8000/v1";
   const customApiKey = settings["ai.customApiKey"] || "";
 
-  // Available models based on active provider
+  // Dynamic model lists per provider
   const [ollamaModels, setOllamaModels] = useState([]);
+  const [geminiModels, setGeminiModels] = useState(GEMINI_MODELS);
+  const [openaiModels, setOpenaiModels] = useState(OPENAI_MODELS);
+
   const [isOllamaOnline, setIsOllamaOnline] = useState(false);
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
 
   // Active model depending on provider
   const activeModel =
     provider === "gemini"
-      ? settings["ai.geminiModel"] || "gemini-2.0-flash"
+      ? settings["ai.geminiModel"] || "gemini-3.8-flash"
       : provider === "openai"
       ? settings["ai.openaiModel"] || "gpt-4o-mini"
       : settings["ai.defaultModel"] || "nemotron-3-nano:4b";
@@ -67,11 +72,11 @@ export function AiProvider({ children, editorRef }) {
   // Resolved list of models
   const availableModels =
     provider === "gemini"
-      ? GEMINI_MODELS.map((m) => ({ name: m.id, model: m.id, supportsTools: m.supportsTools }))
+      ? geminiModels.map((m) => ({ name: m.id || m.name, model: m.id || m.model, displayName: m.name, supportsTools: m.supportsTools ?? true }))
       : provider === "openai"
-      ? OPENAI_MODELS.map((m) => ({ name: m.id, model: m.id, supportsTools: m.supportsTools }))
+      ? openaiModels.map((m) => ({ name: m.id || m.name, model: m.id || m.model, displayName: m.name, supportsTools: m.supportsTools ?? true }))
       : provider === "custom"
-      ? [{ name: "default", model: "default", supportsTools: true }]
+      ? [{ name: "default", model: "default", displayName: "default", supportsTools: true }]
       : ollamaModels;
 
   // Status indicator
@@ -95,13 +100,13 @@ export function AiProvider({ children, editorRef }) {
   // Determine active engine (doris or spark)
   const activeEngine = sqlFiles?.activeFile?.engine || (sqlFiles?.dorisMode ? "doris" : "spark");
 
-  // Fetch installed Ollama models if provider is ollama
+  // Fetch models dynamically depending on selected provider
   const refreshModels = useCallback(async () => {
+    setIsCheckingHealth(true);
+
     if (provider === "ollama") {
-      setIsCheckingHealth(true);
       const health = await checkOllamaHealth(hostUrl);
       setIsOllamaOnline(health.ok);
-
       if (health.ok) {
         const { models } = await fetchOllamaModels(hostUrl);
         setOllamaModels(models);
@@ -115,10 +120,37 @@ export function AiProvider({ children, editorRef }) {
       } else {
         setOllamaModels([]);
       }
-      setIsCheckingHealth(false);
+    } else if (provider === "gemini") {
+      if (geminiApiKey.trim()) {
+        const res = await fetchGeminiModels(geminiApiKey);
+        if (res.ok && res.models.length > 0) {
+          setGeminiModels(res.models);
+          const current = settings["ai.geminiModel"];
+          const exists = res.models.some((m) => m.id === current || m.name === current);
+          if (!exists || current === "gemini-2.0-flash") {
+            const first = res.models[0].id;
+            updateSetting("ai.geminiModel", first);
+          }
+        }
+      }
+    } else if (provider === "openai") {
+      if (openaiApiKey.trim()) {
+        const res = await fetchOpenAiModels(openaiApiKey);
+        if (res.ok && res.models.length > 0) {
+          setOpenaiModels(res.models);
+          const current = settings["ai.openaiModel"];
+          const exists = res.models.some((m) => m.id === current || m.name === current);
+          if (!exists) {
+            updateSetting("ai.openaiModel", res.models[0].id);
+          }
+        }
+      }
     }
-  }, [provider, hostUrl, settings, updateSetting]);
 
+    setIsCheckingHealth(false);
+  }, [provider, hostUrl, geminiApiKey, openaiApiKey, settings, updateSetting]);
+
+  // Refresh when provider or keys change
   useEffect(() => {
     refreshModels();
   }, [refreshModels]);
@@ -187,7 +219,7 @@ export function AiProvider({ children, editorRef }) {
 
       // Check if selected model supports tools
       const currentModelObj = availableModels.find(
-        (m) => m.name === activeModel || m.model === activeModel
+        (m) => m.name === activeModel || m.model === activeModel || m.id === activeModel
       );
       const supportsTools = currentModelObj?.supportsTools ?? true;
 

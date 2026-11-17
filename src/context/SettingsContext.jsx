@@ -42,7 +42,7 @@ export const DEFAULT_SETTINGS = {
   "ai.hostUrl": "http://localhost:11434",
   "ai.defaultModel": "nemotron-3-nano:4b",
   "ai.geminiApiKey": "",
-  "ai.geminiModel": "gemini-2.0-flash",
+  "ai.geminiModel": "gemini-3.8-flash",
   "ai.openaiApiKey": "",
   "ai.openaiModel": "gpt-4o-mini",
   "ai.customUrl": "http://localhost:8000/v1",
