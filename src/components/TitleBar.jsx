@@ -24,13 +24,13 @@ export default function TitleBar({ onOpenCommandPalette, onOpenComputePanel, isA
       <div className="flex items-center gap-2 font-semibold text-(--color-text-primary) z-10">
         <Zap size={14} className="text-(--color-accent) fill-current" />
         <span className="tracking-tight text-[12px] font-medium">Livy UI</span>
-        <span className={`text-[9px] font-semibold uppercase px-1.5 py-0.2 rounded tracking-wider border select-none ${
+        {/* <span className={`text-[9px] font-semibold uppercase px-1.5 py-0.2 rounded tracking-wider border select-none ${
           isDoris
             ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/30"
             : "bg-amber-500/10 text-amber-400 border-amber-500/30"
         }`}>
           {isDoris ? "🐬 Doris" : "⚡ Spark"}
-        </span>
+        </span> */}
       </div>
 
       {/* Center: Command Center Pill (Dead Centered Horizontally) */}
@@ -73,16 +73,16 @@ export default function TitleBar({ onOpenCommandPalette, onOpenComputePanel, isA
         >
           <span className="text-xs select-none">{isDoris ? "🐬" : "⚡"}</span>
           <span className={`w-1.5 h-1.5 rounded-full ${isDoris ? "bg-cyan-400" : (stateColors[sessionState] || "bg-gray-500")}`} />
-          <span className="text-[10px] font-mono text-(--color-text-secondary) group-hover:text-(--color-text-primary) font-medium truncate max-w-28">
+          {/* <span className="text-[10px] font-mono text-(--color-text-secondary) group-hover:text-(--color-text-primary) font-medium truncate max-w-28">
             {activeHost.name}
-          </span>
-          <span className={`text-[8px] font-bold uppercase px-1 py-0.2 rounded ${
+          </span> */}
+          {/* <span className={`text-[8px] font-bold uppercase px-1 py-0.2 rounded ${
             isDoris
               ? "bg-cyan-500/15 text-cyan-400 border border-cyan-500/25"
               : "bg-amber-500/15 text-amber-400 border border-amber-500/25"
           }`}>
             {isDoris ? "Doris" : "Spark"}
-          </span>
+          </span> */}
         </button>
       </div>
     </div>
