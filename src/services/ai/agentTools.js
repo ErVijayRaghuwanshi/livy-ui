@@ -117,24 +117,18 @@ export async function executeTool(toolName, args = {}, context = {}) {
 
   switch (cleanToolName) {
     case "write_sql_file": {
-      const { fileName, sql, mode = "new_tab" } = args;
+      const { fileName, sql, mode = "replace_current" } = args;
       if (!sql) throw new Error("Missing 'sql' argument.");
 
-      const defaultName = fileName || `Query_${new Date().toISOString().slice(11, 19).replace(/:/g, "")}.sql`;
+      const hasActiveSqlFile =
+        Boolean(sqlFiles?.activeFile) &&
+        sqlFiles.activeTabId !== "settings" &&
+        !sqlFiles.activeFile.isSpecial;
 
-      if (mode === "replace_current" && sqlFiles?.activeTabId && sqlFiles.activeTabId !== "settings") {
-        sqlFiles.updateContent(sqlFiles.activeTabId, sql);
-        return {
-          ok: true,
-          message: `Updated content in active tab '${sqlFiles.activeFile?.name || sqlFiles.activeTabId}'.`,
-          fileId: sqlFiles.activeTabId,
-        };
-      }
-
-      if (mode === "append" && sqlFiles?.activeTabId && sqlFiles.activeTabId !== "settings") {
+      if (mode === "append" && hasActiveSqlFile) {
         const existing = sqlFiles.activeFile?.content || "";
         const combined = existing.trim() ? `${existing}\n\n${sql}` : sql;
-        sqlFiles.updateContent(sqlFiles.activeTabId, combined);
+        sqlFiles.updateContent?.(sqlFiles.activeTabId, combined);
         return {
           ok: true,
           message: `Appended SQL to active tab '${sqlFiles.activeFile?.name || sqlFiles.activeTabId}'.`,
@@ -142,7 +136,16 @@ export async function executeTool(toolName, args = {}, context = {}) {
         };
       }
 
-      // Default: create new tab
+      if (mode === "replace_current" && hasActiveSqlFile) {
+        sqlFiles.updateContent?.(sqlFiles.activeTabId, sql);
+        return {
+          ok: true,
+          message: `Updated content in active tab '${sqlFiles.activeFile?.name || sqlFiles.activeTabId}'.`,
+          fileId: sqlFiles.activeTabId,
+        };
+      }
+
+      const defaultName = fileName || `Query_${new Date().toISOString().slice(11, 19).replace(/:/g, "")}.sql`;
       if (sqlFiles?.addFile) {
         sqlFiles.addFile({
           name: defaultName.endsWith(".sql") ? defaultName : `${defaultName}.sql`,

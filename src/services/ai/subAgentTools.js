@@ -14,7 +14,7 @@ export const SUPERVISOR_TOOLS = [
     function: {
       name: "run_query",
       description:
-        "Executes a SQL query immediately in the workbench and displays the live data grid directly on the user's Result Tab. Use this whenever the user asks to 'show', 'display', 'view', or 'run' data, tables, or queries.",
+        "Executes a SQL query immediately in the workbench and displays the live data grid directly on the user's Result Tab. By default, executes against the user's current active tab without creating new tabs.",
       parameters: {
         type: "object",
         properties: {
@@ -22,9 +22,14 @@ export const SUPERVISOR_TOOLS = [
             type: "string",
             description: "The complete SQL statement to execute and display on the Result Tab.",
           },
-          newTabName: {
+          openInNewTab: {
+            type: "boolean",
+            description:
+              "Set to true ONLY if the user explicitly requested to open in a new tab or new file (e.g. 'open in a new tab', 'create a new tab'). Defaults to false.",
+          },
+          tabName: {
             type: "string",
-            description: "Optional tab name (e.g. 'Select_CDR.sql') to open the query into before running.",
+            description: "Suggested tab name ONLY if openInNewTab is true (e.g. 'Select_CDR.sql').",
           },
         },
         required: ["sql"],
@@ -59,22 +64,24 @@ export const SUPERVISOR_TOOLS = [
     type: "function",
     function: {
       name: "write_sql_file",
-      description: "Creates a new SQL tab in the editor or updates the active tab.",
+      description:
+        "Writes or updates SQL code in the editor. By default, updates the user's current active tab (mode: 'replace_current'). Only opens a new tab when explicitly requested.",
       parameters: {
         type: "object",
         properties: {
-          fileName: {
-            type: "string",
-            description: "Suggested file name (e.g. 'DailyRevenue.sql')",
-          },
           sql: {
             type: "string",
             description: "The complete, syntactically valid SQL code.",
           },
           mode: {
             type: "string",
-            enum: ["new_tab", "replace_current"],
-            description: "Whether to open a new tab or replace current active tab.",
+            enum: ["replace_current", "append", "new_tab"],
+            description:
+              "How to write the SQL. Default is 'replace_current' to update the active editor tab. Use 'append' to add to existing code, or 'new_tab' ONLY when the user explicitly asked for a new tab or new file.",
+          },
+          fileName: {
+            type: "string",
+            description: "Suggested file name ONLY if mode is 'new_tab' (e.g. 'DailyRevenue.sql').",
           },
         },
         required: ["sql"],
@@ -183,13 +190,17 @@ export const SQL_SPECIALIST_TOOLS = [
     type: "function",
     function: {
       name: "write_sql_file",
-      description: "Creates a new editor tab or updates current active tab with SQL.",
+      description: "Writes or updates SQL code in the editor. Defaults to updating the current active tab.",
       parameters: {
         type: "object",
         properties: {
-          fileName: { type: "string" },
-          sql: { type: "string" },
-          mode: { type: "string", enum: ["new_tab", "replace_current"] },
+          sql: { type: "string", description: "The complete, syntactically valid SQL code." },
+          mode: {
+            type: "string",
+            enum: ["replace_current", "append", "new_tab"],
+            description: "Default is 'replace_current' to update active tab. Use 'new_tab' ONLY if user explicitly asked.",
+          },
+          fileName: { type: "string", description: "Optional name only if mode is 'new_tab'." },
         },
         required: ["sql"],
       },
@@ -373,17 +384,29 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
     }
 
     case "run_query": {
-      const { sql, newTabName } = args;
+      const { sql, openInNewTab = false, tabName, newTabName } = args;
       if (!sql) throw new Error("Missing 'sql' argument.");
 
-      let tabOpened = null;
-      if (newTabName || !sqlFiles?.activeFile) {
-        const resolvedName = newTabName || `Query_${Date.now().toString().slice(-4)}.sql`;
+      const hasActiveSqlFile =
+        Boolean(sqlFiles?.activeFile) &&
+        sqlFiles.activeTabId !== "settings" &&
+        !sqlFiles.activeFile.isSpecial;
+
+      // Only open a new tab if explicitly requested (openInNewTab === true) OR if no active SQL tab is open
+      const shouldOpenNewTab = openInNewTab === true || !hasActiveSqlFile;
+
+      let targetFileName = sqlFiles?.activeFile?.name;
+
+      if (shouldOpenNewTab) {
+        const resolvedName = tabName || newTabName || `Query_${Date.now().toString().slice(-4)}.sql`;
         if (typeof sqlFiles?.addFile === "function") {
           await sqlFiles.addFile({ name: resolvedName, content: sql });
-          tabOpened = resolvedName;
+          targetFileName = resolvedName;
           await new Promise((r) => setTimeout(r, 120));
         }
+      } else if (hasActiveSqlFile && sqlFiles?.activeTabId) {
+        // Reuse current active tab and sync content so editor displays the query being executed
+        sqlFiles.updateContent?.(sqlFiles.activeTabId, sql);
       }
 
       if (editorRef?.current?.runSql) {
@@ -394,16 +417,16 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
             action: "execution_failed",
             error: runRes.error || "Query execution failed on cluster.",
             sql,
-            fileName: tabOpened || sqlFiles?.activeFile?.name,
+            fileName: targetFileName,
             suggestion: "Analyze the error message. If it indicates an unknown column or table, describe the table to find the correct columns, then rewrite and rerun the query.",
           };
         }
         return {
           ok: true,
           action: "executed_on_result_tab",
-          fileName: tabOpened || sqlFiles?.activeFile?.name,
+          fileName: targetFileName,
           sql,
-          message: "Query executed successfully in workbench. Live results are displayed directly on the Result Tab.",
+          message: `Query executed successfully on '${targetFileName || "active tab"}'. Live results are displayed directly on the Result Tab.`,
         };
       } else {
         return await executeSubAgentTool("execute_sql", { sql }, context);
@@ -411,21 +434,38 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
     }
 
     case "write_sql_file": {
-      const { fileName, sql, mode = "new_tab" } = args;
+      const { fileName, sql, mode = "replace_current" } = args;
       if (!sql) throw new Error("Missing 'sql' argument.");
-      const resolvedName = fileName || `Query_${Date.now().toString().slice(-4)}.sql`;
 
-      if (mode === "replace_current" && sqlFiles?.activeTabId) {
+      const hasActiveSqlFile =
+        Boolean(sqlFiles?.activeFile) &&
+        sqlFiles.activeTabId !== "settings" &&
+        !sqlFiles.activeFile.isSpecial;
+
+      // If mode is explicitly 'new_tab' OR there is no active SQL file open, open a new tab
+      if (mode === "new_tab" || !hasActiveSqlFile) {
+        const resolvedName = fileName || `Query_${Date.now().toString().slice(-4)}.sql`;
+        if (typeof sqlFiles?.addFile === "function") {
+          await sqlFiles.addFile({ name: resolvedName, content: sql });
+          return { ok: true, action: "opened_new_tab", fileName: resolvedName };
+        }
+      }
+
+      // If mode is 'append', append SQL to active tab
+      if (mode === "append" && hasActiveSqlFile) {
+        const existing = sqlFiles.activeFile?.content || "";
+        const combined = existing.trim() ? `${existing}\n\n${sql}` : sql;
+        sqlFiles.updateContent?.(sqlFiles.activeTabId, combined);
+        return { ok: true, action: "appended_to_current_tab", fileName: sqlFiles.activeFile?.name };
+      }
+
+      // Default: replace content in current active tab
+      if (hasActiveSqlFile) {
         sqlFiles.updateContent?.(sqlFiles.activeTabId, sql);
-        return { ok: true, action: "replaced_current_tab", fileName: sqlFiles.activeFile?.name };
+        return { ok: true, action: "updated_active_tab", fileName: sqlFiles.activeFile?.name };
       }
 
-      if (typeof sqlFiles?.addFile === "function") {
-        await sqlFiles.addFile({ name: resolvedName, content: sql });
-        return { ok: true, action: "opened_new_tab", fileName: resolvedName };
-      }
-
-      return { ok: true, fileName: resolvedName, action: "prepared" };
+      return { ok: false, error: "No active editor tab found." };
     }
 
     case "open_file": {

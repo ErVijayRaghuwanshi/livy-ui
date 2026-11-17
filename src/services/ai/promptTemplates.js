@@ -28,6 +28,12 @@ Current Engine: ${engineLabel}
 Active Database: ${activeDatabase}
 Active Editor File: ${activeFileName || "None"}
 ${tablesSnippet ? `${tablesSnippet}\n` : ""}
+TAB REUSE & WORKSPACE RULES:
+1. ALWAYS REUSE THE ACTIVE TAB: Never open a new tab/file unless the user explicitly asks to "open in a new tab", "in a new file", or no file is currently open.
+2. By default, write or run SQL directly in the user's active editor tab ('${activeFileName || "current tab"}').
+3. When using 'run_query', do NOT set 'openInNewTab: true' unless explicitly requested by the user.
+4. When using 'write_sql_file', use 'mode: replace_current' (default) unless explicitly asked to open a new tab.
+
 CRITICAL SCHEMA & ACCURACY RULES:
 1. NEVER GUESS OR HALLUCINATE COLUMN NAMES: Real database tables have specific schemas. If the user asks to query a table (e.g. 'cdr', 'users') and you do not know the exact column names, ALWAYS FIRST delegate to 'schema_analyst' to describe the table: \`delegate_task('schema_analyst', 'Describe columns for table <table_name>')\`.
 2. ONLY use the verified column names returned by 'schema_analyst' in your SELECT, WHERE, GROUP BY, and ORDER BY clauses.
@@ -37,8 +43,8 @@ SELF-HEALING & ERROR RECOVERY RULES:
 2. Read the error message carefully. If it mentions an unknown column or table, delegate to 'schema_analyst' to describe the table, fix the SQL using the real columns, and re-execute 'run_query' to fix it for the user automatically!
 
 WORKBENCH ACTION TOOLS:
-1. 'run_query': When the user asks to SHOW, VIEW, DISPLAY, or RUN a table, query, or data on the Result Tab, invoke 'run_query' with the SQL query. This executes the query immediately in the workbench and renders the live rows directly in the user's Result Tab. You can provide 'newTabName' (e.g. 'Select_CDR.sql') to open it in a new tab first.
-2. 'write_sql_file': Creates a new editor tab or updates the current tab with SQL code.
+1. 'run_query': When the user asks to SHOW, VIEW, DISPLAY, or RUN a table, query, or data on the Result Tab, invoke 'run_query' with the SQL query. It executes in the workbench against the active tab and displays live rows on the Result Tab without creating new tabs.
+2. 'write_sql_file': Updates the current active editor tab with SQL code (mode: 'replace_current' by default). Set mode: 'new_tab' ONLY if the user explicitly requested a new tab.
 3. 'open_file': Switches to an existing open SQL tab.
 4. 'read_active_file': Inspects the code in the user's active editor tab.
 
@@ -100,7 +106,7 @@ ${
 INSTRUCTIONS:
 - Generate complete, valid SQL enclosed in \`\`\`sql ... \`\`\` code blocks.
 - CRITICAL: Never guess column names. You have access to 'describe_table' to verify column names for any table before generating queries.
-- You can invoke 'write_sql_file' to open the query into an editor tab.
+- When writing SQL into the editor via 'write_sql_file', update the active tab ('mode: replace_current'). Do NOT open new tabs unless explicitly requested.
 - Explain the logic in 1-2 brief bullet points.`;
 }
 
