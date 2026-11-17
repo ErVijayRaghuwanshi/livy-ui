@@ -11,7 +11,7 @@ const SHORTCUTS = [
   { keys: [`${mod}+Shift+M`], description: "Minify SQL (statement-by-statement)" },
   { keys: [isMac ? "⌥+Shift+V" : "Alt+Shift+V"], description: "Toggle SQL validation" },
   { keys: [`${mod}+S`], description: "Save SQL file" },
-  { keys: [`${mod}+Shift+A`], description: "Toggle Auto-Save" },
+  { keys: [`${mod}+Shift+A`], description: "AI Copilot & SQL Agent" },
   { keys: [isMac ? "⌥+Z" : "Alt+Z"], description: "Toggle Word Wrap" },
   { keys: [`${mod}+G`], description: "Go to Line / Column..." },
   { keys: [`${mod}+B`], description: "Toggle sidebar" },

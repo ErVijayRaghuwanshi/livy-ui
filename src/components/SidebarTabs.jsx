@@ -20,6 +20,7 @@ import SchemaExplorer from "./SchemaExplorer";
 import SearchPanel from "./SearchPanel";
 import SettingsPanel from "./SettingsPanel";
 import ComputePanel from "./ComputePanel";
+import AiChatPanel from "./AiChat/AiChatPanel";
 import { useSchema } from "../context/SchemaContext";
 import { useSqlFiles } from "../context/SqlFilesContext";
 import { useLivy } from "../context/LivyContext";
@@ -204,6 +205,18 @@ const SidebarTabs = forwardRef(({
           onRunSql={onRunSql}
           setShowConnectionModal={setShowConnectionModal}
         />
+      </div>
+    );
+  }
+
+  // 5. AI COPILOT & AGENT TAB
+  if (activeTab === "ai") {
+    return (
+      <div
+        style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
+        className="flex flex-col bg-(--color-bg-secondary) rounded-xl border border-(--color-border) shadow-xs shrink-0 overflow-hidden h-full"
+      >
+        <AiChatPanel />
       </div>
     );
   }

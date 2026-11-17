@@ -37,6 +37,12 @@ export const DEFAULT_SETTINGS = {
   "doris.defaultAiResource": "ollama_gemma2",
   "doris.enableProfile": false,
 
+  // AI & Copilot Configuration (Zero Backend / Client-Side)
+  "ai.provider": "ollama",
+  "ai.hostUrl": "http://localhost:11434",
+  "ai.defaultModel": "nemotron-3-nano:4b",
+  "ai.autoExecute": false,
+
   // Connection & Host Settings
   "livy.activeHostUrl": "http://localhost:8998",
   "livy.hosts": [

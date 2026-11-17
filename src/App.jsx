@@ -19,6 +19,7 @@ import SettingsTab from "./components/SettingsTab";
 import SettingsModal from "./components/SettingsModal";
 import WorkspaceModal from "./components/WorkspaceModal";
 import { useSettings } from "./context/SettingsContext";
+import { AiProvider } from "./context/AiContext";
 
 const SIDEBAR_CACHE_KEY = "livy-ui-explorer-collapsed";
 const THEME_CACHE_KEY = "livy-ui-theme";
@@ -297,6 +298,14 @@ export default function App() {
         return;
       }
 
+      // Ctrl+Shift+A / Cmd+Shift+A — open/focus AI Copilot & Agent
+      if (ctrl && !e.altKey && e.shiftKey && (e.key.toLowerCase() === "a" || e.code === "KeyA")) {
+        e.preventDefault();
+        setActiveSidebarTab("ai");
+        setSidebarCollapsed(false);
+        return;
+      }
+
       // Ctrl+Shift+V / Cmd+Shift+V — toggle Markdown preview (VS Code standard)
       if (ctrl && !e.altKey && e.shiftKey && (e.key.toLowerCase() === "v" || e.code === "KeyV")) {
         e.preventDefault();
@@ -548,17 +557,18 @@ export default function App() {
   const isResultMaximized = resultHeight >= window.innerHeight - 210 && resultHeight > 0;
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-(--color-bg-workbench)">
-      <ToastContainer />
-      <KeyboardShortcuts isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
-      <QueryHistory
-        isOpen={showHistory}
-        onClose={() => setShowHistory(false)}
-        onRerun={(sql) => {
-          setShowHistory(false);
-          editorRef.current?.runSql(sql);
-        }}
-      />
+    <AiProvider editorRef={editorRef}>
+      <div className="flex flex-col h-screen overflow-hidden bg-(--color-bg-workbench)">
+        <ToastContainer />
+        <KeyboardShortcuts isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+        <QueryHistory
+          isOpen={showHistory}
+          onClose={() => setShowHistory(false)}
+          onRerun={(sql) => {
+            setShowHistory(false);
+            editorRef.current?.runSql(sql);
+          }}
+        />
       <CommandPalette
         isOpen={showCommandPalette}
         onClose={() => setShowCommandPalette(false)}
@@ -863,5 +873,6 @@ export default function App() {
         onGotoLine={() => editorRef.current?.triggerGotoLine?.()}
       />
     </div>
+  </AiProvider>
   );
 }

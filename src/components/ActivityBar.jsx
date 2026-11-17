@@ -1,4 +1,4 @@
-import { Folder, Search, Database, Settings, HardDrive, GitBranch, Cpu } from "lucide-react";
+import { Folder, Search, Database, Settings, HardDrive, GitBranch, Cpu, Sparkles } from "lucide-react";
 import { useSqlFiles } from "../context/SqlFilesContext";
 
 const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
@@ -91,6 +91,22 @@ export default function ActivityBar({
             <span className="absolute left-0 top-0 bottom-0 w-[2px] bg-white" />
           )}
           <Cpu size={20} />
+        </button>
+
+        {/* AI Copilot & SQL Agent Tab */}
+        <button
+          onClick={() => handleTabClick("ai")}
+          className={`relative flex items-center justify-center w-12 h-12 transition-colors cursor-pointer ${
+            !sidebarCollapsed && activeTab === "ai"
+              ? "text-purple-400"
+              : "text-[#858585] hover:text-purple-300"
+          }`}
+          title={isMac ? "AI Copilot & SQL Agent (⌘⇧A)" : "AI Copilot & SQL Agent (Ctrl+Shift+A)"}
+        >
+          {!sidebarCollapsed && activeTab === "ai" && (
+            <span className="absolute left-0 top-0 bottom-0 w-[2px] bg-purple-500" />
+          )}
+          <Sparkles size={20} />
         </button>
 
         {/* Local Workspace / Git Directory Sync */}

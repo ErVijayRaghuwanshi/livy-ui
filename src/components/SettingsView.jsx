@@ -34,6 +34,7 @@ import {
   Database,
   Layers,
   Cpu,
+  Bot,
 } from "lucide-react";
 import { useSettings, DEFAULT_SETTINGS } from "../context/SettingsContext";
 import { useLivy } from "../context/LivyContext";
@@ -174,6 +175,7 @@ export default function SettingsView({
     { id: "workbench", label: "Workbench", icon: Palette },
     { id: "compute", label: "Spark & Compute", icon: Zap },
     { id: "doris", label: "Apache Doris", icon: Database },
+    { id: "ai", label: "AI & Copilot", icon: Bot },
     { id: "connection", label: "Connection & Hosts", icon: Server },
     { id: "history", label: "Execution & History", icon: History },
   ];
@@ -476,6 +478,45 @@ export default function SettingsView({
       categoryLabel: "Apache Doris",
       title: "Enable Execution Profile",
       description: "Collect detailed execution profile and timeline metrics for Doris queries.",
+      type: "boolean",
+    },
+    {
+      key: "ai.provider",
+      category: "ai",
+      categoryLabel: "AI & Copilot",
+      title: "AI Provider",
+      description: "Select the LLM provider for the AI Copilot. Local Ollama runs completely on your machine without third-party cloud backends.",
+      type: "select",
+      options: [
+        { label: "Local Ollama (localhost:11434)", value: "ollama" },
+        { label: "OpenAI Compatible Endpoint", value: "openai" },
+      ],
+      commonlyUsed: true,
+    },
+    {
+      key: "ai.hostUrl",
+      category: "ai",
+      categoryLabel: "AI & Copilot",
+      title: "Ollama / LLM Host URL",
+      description: "Direct client-side endpoint for the LLM daemon (e.g. http://localhost:11434).",
+      type: "text",
+      commonlyUsed: true,
+    },
+    {
+      key: "ai.defaultModel",
+      category: "ai",
+      categoryLabel: "AI & Copilot",
+      title: "Default Model Name",
+      description: "Model to use for chat, SQL generation, and tool calling (e.g. nemotron-3-nano:4b, gemma2:2b, qwen2.5-coder:7b).",
+      type: "text",
+      commonlyUsed: true,
+    },
+    {
+      key: "ai.autoExecute",
+      category: "ai",
+      categoryLabel: "AI & Copilot",
+      title: "Auto-Execute Queries",
+      description: "When enabled, the AI agent will automatically run generated SQL queries on the active engine. When disabled, an interactive [Run Query] action button is presented in chat.",
       type: "boolean",
     },
     {
