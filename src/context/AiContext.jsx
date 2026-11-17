@@ -391,7 +391,7 @@ export function AiProvider({ children, editorRef }) {
 
   // Execute action card from chat UI
   const handleActionCard = useCallback(
-    (actionType, sql) => {
+    (actionType, sql, cardIndex, messageId) => {
       if (!sql) return;
 
       switch (actionType) {
@@ -402,8 +402,35 @@ export function AiProvider({ children, editorRef }) {
           break;
         }
         case "new_tab": {
-          const name = `Query_${new Date().toISOString().slice(11, 19).replace(/:/g, "")}.sql`;
-          sqlFiles?.addFile({ name, content: sql });
+          // Check if an existing open tab already contains this exact query
+          const existingFile = (sqlFiles?.files || []).find(
+            (f) => f.content && f.content.trim() === sql.trim()
+          );
+
+          if (existingFile) {
+            sqlFiles.setActiveTab?.(existingFile.id);
+            sqlFiles.openFile?.(existingFile.id);
+          } else {
+            const name = `Query_${new Date().toISOString().slice(11, 19).replace(/:/g, "")}.sql`;
+            sqlFiles?.addFile({ name, content: sql });
+          }
+
+          // Mark action card as opened in message state for persistence
+          if (messageId != null && cardIndex != null) {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === messageId
+                  ? {
+                      ...m,
+                      openedCards: {
+                        ...(m.openedCards || {}),
+                        [cardIndex]: true,
+                      },
+                    }
+                  : m
+              )
+            );
+          }
           break;
         }
         case "insert": {

@@ -186,6 +186,13 @@ export default function ChatMessage({ message }) {
   const [showReasoning, setShowReasoning] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState(null);
   const [copiedFull, setCopiedFull] = useState(false);
+  const [openedCards, setOpenedCards] = useState(() => message.openedCards || {});
+
+  const handleOpenInTab = (sql, idx) => {
+    if (openedCards[idx] || message.openedCards?.[idx]) return;
+    setOpenedCards((prev) => ({ ...prev, [idx]: true }));
+    handleActionCard("new_tab", sql, idx, message.id);
+  };
 
   const isUser = message.role === "user";
 
@@ -384,7 +391,7 @@ export default function ChatMessage({ message }) {
               {/* Action Buttons */}
               <div className="flex items-center gap-1.5 pt-1 flex-wrap">
                 <button
-                  onClick={() => handleActionCard("run", sql)}
+                  onClick={() => handleActionCard("run", sql, idx, message.id)}
                   className="flex items-center gap-1 px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-[11px] transition-colors cursor-pointer shadow-sm"
                   title="Execute query immediately on active engine"
                 >
@@ -392,17 +399,36 @@ export default function ChatMessage({ message }) {
                   <span>Run Query</span>
                 </button>
 
-                <button
-                  onClick={() => handleActionCard("new_tab", sql)}
-                  className="flex items-center gap-1 px-2 py-1 rounded bg-(--color-bg-hover) hover:bg-[#3d3d3d] text-[#cccccc] hover:text-white border border-(--color-border) text-[11px] transition-colors cursor-pointer"
-                  title="Open this SQL in a new editor tab"
-                >
-                  <FilePlus size={11} />
-                  <span>Open in Tab</span>
-                </button>
+                {(() => {
+                  const isOpened = Boolean(openedCards[idx] || message.openedCards?.[idx]);
+                  return (
+                    <button
+                      onClick={() => handleOpenInTab(sql, idx)}
+                      disabled={isOpened}
+                      className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-all ${
+                        isOpened
+                          ? "bg-emerald-950/40 text-emerald-300 border border-emerald-800/50 cursor-default opacity-85 select-none"
+                          : "bg-(--color-bg-hover) hover:bg-[#3d3d3d] text-[#cccccc] hover:text-white border border-(--color-border) cursor-pointer"
+                      }`}
+                      title={isOpened ? "Query already opened in an editor tab" : "Open this SQL in a new editor tab"}
+                    >
+                      {isOpened ? (
+                        <>
+                          <Check size={11} className="text-emerald-400" />
+                          <span className="text-emerald-400 font-medium">Opened in Tab</span>
+                        </>
+                      ) : (
+                        <>
+                          <FilePlus size={11} />
+                          <span>Open in Tab</span>
+                        </>
+                      )}
+                    </button>
+                  );
+                })()}
 
                 <button
-                  onClick={() => handleActionCard("insert", sql)}
+                  onClick={() => handleActionCard("insert", sql, idx, message.id)}
                   className="flex items-center gap-1 px-2 py-1 rounded bg-(--color-bg-hover) hover:bg-[#3d3d3d] text-[#cccccc] hover:text-white border border-(--color-border) text-[11px] transition-colors cursor-pointer"
                   title="Insert SQL into active editor at cursor"
                 >
