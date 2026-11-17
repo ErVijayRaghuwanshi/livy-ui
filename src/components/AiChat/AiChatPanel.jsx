@@ -41,6 +41,7 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
     provider,
     providerLabel,
     activeModelLabel,
+    activeEngine,
     hostUrl,
     messages,
     isStreaming,
@@ -60,7 +61,10 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
 
   // Focus textarea on panel open
   useEffect(() => {
-    textareaRef.current?.focus();
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.style.height = "46px";
+    }
   }, []);
 
   // Auto-scroll to bottom
@@ -78,7 +82,7 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
     sendMessage(input);
     setInput("");
     if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = "46px";
     }
   };
 
@@ -96,14 +100,14 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
   const handleInputChange = (e) => {
     setInput(e.target.value);
     e.target.style.height = "auto";
-    e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+    e.target.style.height = `${Math.min(Math.max(e.target.scrollHeight, 46), 130)}px`;
   };
 
   const placeholderText = !isOnline
     ? provider === "ollama"
       ? `Ollama offline at ${hostUrl}...`
-      : `API key required for ${providerLabel}...`
-    : `Ask AI to write SQL or run queries (${activeModelLabel})...`;
+      : `API key required in Settings...`
+    : "Ask AI to write SQL, run queries, or inspect tables...";
 
   return (
     <div className="flex flex-col h-full bg-(--color-bg-primary) select-none">
@@ -281,44 +285,54 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
       {/* Input Form */}
       <div className="p-2.5 border-t border-(--color-border) bg-(--color-bg-secondary)">
         <form onSubmit={handleSubmit} className="flex flex-col gap-1.5">
-          <div className="relative flex items-end bg-(--color-bg-primary) border border-(--color-border) rounded-md focus-within:border-purple-500 transition-colors">
+          <div className="flex flex-col bg-(--color-bg-primary) border border-(--color-border) rounded-lg focus-within:border-purple-500/80 focus-within:ring-1 focus-within:ring-purple-500/30 transition-all shadow-sm overflow-hidden">
             <textarea
               ref={textareaRef}
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               disabled={isStreaming}
-              rows={1}
+              rows={2}
               placeholder={placeholderText}
-              className="flex-1 bg-transparent text-[#cccccc] text-xs px-3 py-2 pr-10 resize-none focus:outline-none placeholder-[#555555] max-h-32 min-h-[36px]"
+              className="w-full bg-transparent text-[#e0e0e0] text-xs px-3 pt-2.5 pb-1 resize-none focus:outline-none placeholder-[#555555] min-h-[46px] max-h-32 leading-relaxed"
             />
 
-            <div className="absolute right-1.5 bottom-1.5 flex items-center">
-              {isStreaming ? (
-                <button
-                  type="button"
-                  onClick={stopGeneration}
-                  title="Stop generation (Esc)"
-                  className="p-1 rounded bg-red-600 hover:bg-red-500 text-white transition-colors cursor-pointer"
-                >
-                  <Square size={13} />
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={!input.trim() || !isOnline}
-                  title="Send message (Enter)"
-                  className="p-1.5 rounded bg-purple-600 hover:bg-purple-500 disabled:bg-[#333333] disabled:text-[#666666] text-white transition-colors cursor-pointer"
-                >
-                  <Send size={13} />
-                </button>
-              )}
+            <div className="flex items-center justify-between px-2.5 pb-2 pt-0.5 select-none">
+              <span className="text-[10px] text-[#666666] flex items-center gap-1">
+                <span>Enter ↵ to send</span>
+                <span className="text-[#444444]">•</span>
+                <span>Shift+Enter for newline</span>
+              </span>
+
+              <div className="flex items-center gap-1 shrink-0">
+                {isStreaming ? (
+                  <button
+                    type="button"
+                    onClick={stopGeneration}
+                    title="Stop generation (Esc)"
+                    className="flex items-center justify-center w-7 h-7 rounded-md bg-red-600 hover:bg-red-500 text-white transition-colors cursor-pointer shadow-sm"
+                  >
+                    <Square size={12} />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!input.trim() || !isOnline}
+                    title="Send message (Enter)"
+                    className="flex items-center justify-center w-7 h-7 rounded-md bg-purple-600 hover:bg-purple-500 disabled:bg-[#282828] disabled:text-[#555555] text-white transition-all cursor-pointer disabled:cursor-not-allowed shadow-sm"
+                  >
+                    <Send size={12} />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-[10px] text-[#666666] px-1">
-            <span>Enter to send • Shift+Enter for newline</span>
-            <span className="truncate max-w-[160px] font-mono text-[#888888]">{providerLabel}</span>
+          <div className="flex items-center justify-between text-[10px] text-[#666666] px-1 select-none">
+            <span className="truncate max-w-[140px] text-[#777777]">
+              {activeEngine === "doris" ? "⚡ Doris SQL" : "✨ Spark SQL"}
+            </span>
+            <span className="truncate max-w-[160px] font-mono text-[#777777]">{providerLabel}</span>
           </div>
         </form>
       </div>

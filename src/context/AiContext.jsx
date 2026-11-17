@@ -484,6 +484,7 @@ export function AiProvider({ children, editorRef }) {
     isCheckingHealth,
     refreshModels,
     messages,
+    activeEngine,
     isStreaming,
     isWarmingUp,
     streamingContent,
