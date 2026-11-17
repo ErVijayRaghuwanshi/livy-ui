@@ -8,32 +8,97 @@ export function cleanHostUrl(rawUrl = "") {
 }
 
 /**
- * Fetch available models installed in Ollama via /api/tags
+ * Automatically fetch all available chat/completion models installed in Ollama.
+ * Queries native /api/tags and falls back to /v1/models if needed.
  */
 export async function fetchOllamaModels(hostUrl = "http://localhost:11434") {
   const base = cleanHostUrl(hostUrl);
+
+  // 1. Primary: Native Ollama /api/tags
   try {
     const res = await fetch(`${base}/api/tags`, {
       method: "GET",
       headers: { Accept: "application/json" },
     });
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+    if (res.ok) {
+      const data = await res.json();
+      const rawList = Array.isArray(data.models) ? data.models : [];
+
+      const models = rawList
+        .filter((m) => {
+          // Exclude pure embedding models that cannot do chat completions
+          const caps = Array.isArray(m.capabilities) ? m.capabilities : [];
+          if (caps.length > 0 && caps.includes("embedding") && !caps.includes("completion")) {
+            return false;
+          }
+          const name = (m.name || m.model || "").toLowerCase();
+          if (name.includes("embed") || name.includes("bert")) {
+            return false;
+          }
+          return true;
+        })
+        .map((m) => {
+          const rawName = m.name || m.model;
+          const paramSize = m.details?.parameter_size ? ` (${m.details.parameter_size})` : "";
+          const caps = Array.isArray(m.capabilities) ? m.capabilities : [];
+          const supportsTools =
+            caps.includes("tools") ||
+            rawName.includes("nemotron") ||
+            rawName.includes("qwen2.5") ||
+            rawName.includes("llama3.1") ||
+            rawName.includes("mistral");
+
+          return {
+            id: rawName,
+            name: `${rawName}${paramSize}`,
+            model: rawName,
+            displayName: `${rawName}${paramSize}`,
+            size: m.size,
+            details: m.details || {},
+            capabilities: caps,
+            supportsTools,
+          };
+        });
+
+      return { ok: true, models };
     }
-    const data = await res.json();
-    const models = (data.models || []).map((m) => ({
-      name: m.name || m.model,
-      model: m.model || m.name,
-      size: m.size,
-      details: m.details || {},
-      capabilities: m.capabilities || [],
-      supportsTools: Array.isArray(m.capabilities) && m.capabilities.includes("tools"),
-    }));
-    return { ok: true, models };
   } catch (err) {
-    console.warn(`[OllamaClient] Failed to fetch models from ${base}:`, err);
-    return { ok: false, error: err.message, models: [] };
+    console.warn(`[OllamaClient] /api/tags failed on ${base}, attempting /v1/models fallback:`, err);
   }
+
+  // 2. Fallback: OpenAI-compatible /v1/models
+  try {
+    const res = await fetch(`${base}/v1/models`, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const rawList = Array.isArray(data.data) ? data.data : [];
+
+      const models = rawList
+        .filter((m) => !m.id?.toLowerCase().includes("embed"))
+        .map((m) => ({
+          id: m.id,
+          name: m.id,
+          model: m.id,
+          displayName: m.id,
+          supportsTools:
+            m.id.includes("nemotron") ||
+            m.id.includes("qwen2.5") ||
+            m.id.includes("llama3.1") ||
+            m.id.includes("mistral"),
+        }));
+
+      return { ok: true, models };
+    }
+  } catch (err2) {
+    console.warn(`[OllamaClient] Both endpoints failed on ${base}:`, err2);
+  }
+
+  return { ok: false, error: "Unable to connect to Ollama", models: [] };
 }
 
 /**

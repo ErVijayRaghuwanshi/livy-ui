@@ -112,9 +112,9 @@ export function AiProvider({ children, editorRef }) {
         setOllamaModels(models);
         if (models.length > 0) {
           const current = settings["ai.defaultModel"];
-          const exists = models.some((m) => m.name === current || m.model === current);
+          const exists = models.some((m) => m.model === current || m.name === current || m.id === current);
           if (!exists) {
-            updateSetting("ai.defaultModel", models[0].name);
+            updateSetting("ai.defaultModel", models[0].model || models[0].id || models[0].name);
           }
         }
       } else {
@@ -153,6 +153,15 @@ export function AiProvider({ children, editorRef }) {
   // Refresh when provider or keys change
   useEffect(() => {
     refreshModels();
+  }, [refreshModels]);
+
+  // Auto-refresh models whenever user focuses the browser window (e.g. after pulling a model in terminal)
+  useEffect(() => {
+    const handleFocus = () => {
+      refreshModels();
+    };
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
   }, [refreshModels]);
 
   // Set provider helper
@@ -369,6 +378,7 @@ export function AiProvider({ children, editorRef }) {
     provider,
     setProvider,
     hostUrl,
+    setHostUrl: (url) => updateSetting("ai.hostUrl", url),
     geminiApiKey,
     openaiApiKey,
     setGeminiApiKey: (key) => updateSetting("ai.geminiApiKey", key),

@@ -6,6 +6,7 @@ import {
   AlertCircle,
   Wrench,
   Key,
+  Server,
   ExternalLink,
   ChevronDown,
   ChevronUp,
@@ -18,6 +19,7 @@ export default function ModelSelector() {
     provider,
     setProvider,
     hostUrl,
+    setHostUrl,
     activeModel,
     setActiveModel,
     availableModels,
@@ -32,9 +34,11 @@ export default function ModelSelector() {
 
   const [showKeyConfig, setShowKeyConfig] = useState(false);
   const [tempKey, setTempKey] = useState("");
+  const [showHostConfig, setShowHostConfig] = useState(false);
+  const [tempHost, setTempHost] = useState(hostUrl || "http://localhost:11434");
 
   const currentModelObj = availableModels.find(
-    (m) => m.name === activeModel || m.model === activeModel
+    (m) => m.name === activeModel || m.model === activeModel || m.id === activeModel
   );
 
   const activeKey = provider === "gemini" ? geminiApiKey : openaiApiKey;
@@ -48,6 +52,15 @@ export default function ModelSelector() {
     }
     setShowKeyConfig(false);
     setTempKey("");
+    refreshModels();
+  };
+
+  const handleSaveHost = () => {
+    if (tempHost.trim() && setHostUrl) {
+      setHostUrl(tempHost.trim());
+    }
+    setShowHostConfig(false);
+    refreshModels();
   };
 
   return (
@@ -125,6 +138,23 @@ export default function ModelSelector() {
             <RefreshCw size={11} className={isCheckingHealth ? "animate-spin text-purple-400" : ""} />
           </button>
 
+          {provider === "ollama" && (
+            <button
+              onClick={() => {
+                setShowHostConfig((prev) => !prev);
+                setTempHost(hostUrl);
+              }}
+              title="Configure Ollama Host URL"
+              className={`p-1 rounded transition-colors cursor-pointer ${
+                showHostConfig
+                  ? "bg-purple-600 text-white"
+                  : "hover:bg-(--color-bg-hover) text-[#858585] hover:text-white"
+              }`}
+            >
+              <Server size={12} className={isOnline ? "text-purple-400" : "text-amber-400"} />
+            </button>
+          )}
+
           {requiresKey && (
             <button
               onClick={() => {
@@ -143,6 +173,36 @@ export default function ModelSelector() {
           )}
         </div>
       </div>
+
+      {/* Inline Ollama Host URL Configuration Drawer */}
+      {provider === "ollama" && showHostConfig && (
+        <div className="flex flex-col gap-1.5 p-2 rounded bg-(--color-bg-secondary) border border-purple-900/40 text-[11px] animate-fadeIn">
+          <div className="flex items-center justify-between text-[#858585]">
+            <span className="font-semibold text-purple-300">Ollama Host URL</span>
+            <span className="text-[10px] text-[#888888]">{availableModels.length} models detected</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <input
+              type="text"
+              placeholder="http://localhost:11434"
+              value={tempHost}
+              onChange={(e) => setTempHost(e.target.value)}
+              className="flex-1 bg-(--color-bg-primary) text-[#cccccc] px-2 py-1 rounded border border-(--color-border) focus:outline-none focus:border-purple-500 font-mono text-[10px]"
+            />
+            <button
+              onClick={handleSaveHost}
+              disabled={!tempHost.trim()}
+              className="px-2 py-1 rounded bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-medium text-[10px] transition-colors cursor-pointer"
+            >
+              Save
+            </button>
+          </div>
+          <span className="text-[9px] text-[#666666]">
+            Direct browser connection to local Ollama. Default: http://localhost:11434
+          </span>
+        </div>
+      )}
 
       {/* Inline API Key Configuration Drawer */}
       {requiresKey && (showKeyConfig || !activeKey) && (
@@ -192,6 +252,7 @@ export default function ModelSelector() {
           <select
             value={activeModel}
             onChange={(e) => setActiveModel(e.target.value)}
+            onFocus={refreshModels}
             disabled={availableModels.length === 0}
             className="w-full bg-(--color-bg-secondary) text-[#cccccc] text-xs rounded border border-(--color-border) px-2 py-1.5 pr-6 appearance-none cursor-pointer focus:outline-none focus:border-purple-500 hover:border-[#555555] transition-colors"
           >
