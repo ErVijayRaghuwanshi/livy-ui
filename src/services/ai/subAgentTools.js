@@ -531,42 +531,134 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
 
       // If editorRef is available, trigger workbench run so user's Result Tab updates live
       if (editorRef?.current?.runSql) {
-        editorRef.current.runSql(querySql);
+        return await editorRef.current.runSql(querySql);
       }
 
-      if (isDoris) {
-        const start = performance.now();
-        const res = await dorisApi.executeDorisQuery({
-          url: activeHost.url,
-          cluster: activeHost.cluster || "default_cluster",
-          database: activeHost.database || "demo_db",
-          username: activeHost.username || "root",
-          password: activeHost.password || "",
+      const targetFileId = sqlFiles?.activeTabId || "__global__";
+      const executionId = `exec_${Date.now()}`;
+      const startTime = performance.now();
+
+      sqlFiles?.setResult?.(
+        targetFileId,
+        {
+          status: "running",
+          data: null,
+          error: null,
+          elapsed: null,
+          startTime,
           sql: querySql,
-        });
-        const elapsed = (performance.now() - start).toFixed(0);
-        const rows = res.data?.["application/json"]?.data || [];
-        return {
-          ok: true,
-          engine: "Apache Doris",
-          elapsedMs: elapsed,
-          rowCount: rows.length,
-          sample: rows.slice(0, 3),
-        };
+        },
+        executionId
+      );
+
+      if (isDoris) {
+        try {
+          const res = await dorisApi.executeDorisQuery({
+            url: activeHost.url,
+            cluster: activeHost.cluster || "default_cluster",
+            database: activeHost.database || "demo_db",
+            username: activeHost.username || "root",
+            password: activeHost.password || "",
+            sql: querySql,
+          });
+          const elapsed = (performance.now() - startTime).toFixed(0);
+          const rows = res.data?.["application/json"]?.data || [];
+
+          sqlFiles?.setResult?.(
+            targetFileId,
+            {
+              status: "ok",
+              data: res.data,
+              error: null,
+              elapsed: Number(elapsed),
+              sql: querySql,
+            },
+            executionId
+          );
+
+          if (schemaContext?.refreshSchema) {
+            schemaContext.refreshSchema();
+          }
+
+          return {
+            ok: true,
+            engine: "Apache Doris",
+            elapsedMs: elapsed,
+            rowCount: rows.length,
+            sample: rows.slice(0, 3),
+            message: `Executed successfully (${rows.length} rows, ${elapsed}ms). Live results are displayed on the Result Tab.`,
+          };
+        } catch (err) {
+          const elapsed = (performance.now() - startTime).toFixed(0);
+          sqlFiles?.setResult?.(
+            targetFileId,
+            {
+              status: "error",
+              data: null,
+              error: err.message,
+              elapsed: Number(elapsed),
+              sql: querySql,
+            },
+            executionId
+          );
+          return { ok: false, error: err.message };
+        }
       } else {
         if (sessionId == null) {
-          throw new Error("No active Livy Spark session. Please start or attach a session first.");
+          const err = new Error("No active Livy Spark session. Please start or attach a session first.");
+          sqlFiles?.setResult?.(
+            targetFileId,
+            {
+              status: "error",
+              data: null,
+              error: err.message,
+              elapsed: 0,
+              sql: querySql,
+            },
+            executionId
+          );
+          throw err;
         }
-        const start = performance.now();
-        const rows = await livyApi.runSql(sessionId, querySql);
-        const elapsed = (performance.now() - start).toFixed(0);
-        return {
-          ok: true,
-          engine: "Apache Spark",
-          elapsedMs: elapsed,
-          rowCount: rows.length,
-          sample: rows.slice(0, 3),
-        };
+
+        try {
+          const rows = await livyApi.runSql(sessionId, querySql);
+          const elapsed = (performance.now() - startTime).toFixed(0);
+
+          sqlFiles?.setResult?.(
+            targetFileId,
+            {
+              status: "ok",
+              data: { "application/json": { data: rows } },
+              error: null,
+              elapsed: Number(elapsed),
+              sql: querySql,
+            },
+            executionId
+          );
+
+          return {
+            ok: true,
+            engine: "Apache Spark",
+            elapsedMs: elapsed,
+            rowCount: rows.length,
+            sample: rows.slice(0, 3),
+            message: `Executed successfully (${rows.length} rows, ${elapsed}ms). Live results are displayed on the Result Tab.`,
+          };
+        } catch (err) {
+          const elapsed = (performance.now() - startTime).toFixed(0);
+          sqlFiles?.setResult?.(
+            targetFileId,
+            {
+              status: "error",
+              data: null,
+              error: err.message,
+              elapsed: Number(elapsed),
+              sql: querySql,
+            },
+            executionId
+          );
+          return { ok: false, error: err.message };
+        }
       }
     }
 

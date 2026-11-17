@@ -16,6 +16,7 @@ import {
   getProviderConfig,
 } from "../services/ai/llmProvider";
 import { runAgentConversation } from "../services/ai/agentRunner";
+import { executeSubAgentTool } from "../services/ai/subAgentTools";
 import { useSqlFiles } from "./SqlFilesContext";
 import { useLivy } from "./LivyContext";
 import { useSchema } from "./SchemaContext";
@@ -398,6 +399,19 @@ export function AiProvider({ children, editorRef }) {
         case "run": {
           if (editorRef?.current?.runSql) {
             editorRef.current.runSql(sql);
+          } else {
+            // Direct execution fallback when no editor is mounted (e.g. Welcome Screen active)
+            executeSubAgentTool(
+              "run_query",
+              { sql },
+              {
+                sqlFiles,
+                livyContext,
+                schemaContext,
+                editorRef,
+                activeEngine,
+              }
+            );
           }
           break;
         }

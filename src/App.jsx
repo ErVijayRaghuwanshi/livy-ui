@@ -259,6 +259,13 @@ export default function App() {
         return;
       }
 
+  // When a query result arrives or starts running (e.g. from AI Copilot), ensure results panel is open
+  useEffect(() => {
+    if (activeResult && resultHeight === 0) {
+      setResultHeight(prevResultHeight.current || DEFAULT_RESULT_HEIGHT);
+    }
+  }, [activeResult?.id, activeResult?.status]);
+
       // Ctrl+Enter / Cmd+Enter — run SQL
       if (ctrl && !e.altKey && !e.shiftKey && e.key === "Enter") {
         e.preventDefault();
@@ -841,82 +848,99 @@ export default function App() {
               )}
             </div>
 
-            {/* Horizontal Resize Handle between Editor Island and Terminal Island */}
-            {activeFile && !activeGames[activeFile.id] && activeFile.id !== "settings" && resultHeight > 0 && (
-              <div
-                onMouseDown={handleMouseDown}
-                onDoubleClick={() => setResultHeight(DEFAULT_RESULT_HEIGHT)}
-                className={`relative h-[2px] shrink-0 cursor-row-resize z-30 flex items-center justify-center select-none group ${
-                  isDragging || isCornerHovered ? "is-dragging" : ""
-                }`}
-                title="Drag to resize results panel height, double-click to reset"
-              >
-                {/* Hit area */}
-                <div className="absolute -inset-y-2 inset-x-0 z-10" />
+            {/* Determine if Results Panel should be rendered:
+                1. If a file is active, show unless it's settings or a game.
+                2. If no file is open (Welcome Screen), show if there is an active query result (e.g. from AI Copilot). */}
+            {(() => {
+              const isSettingsActive = activeFile?.id === "settings";
+              const isGameActive = Boolean(activeFile && activeGames[activeFile.id]);
+              const shouldShowResults =
+                resultHeight > 0 &&
+                !isSettingsActive &&
+                !isGameActive &&
+                (activeFile ? true : Boolean(activeResult));
 
-                {/* Thin blue line - visible only on hover or dragging */}
-                <div
-                  className={`w-full h-[2px] rounded-full transition-opacity duration-150 ${
-                    isDragging || isCornerHovered
-                      ? "bg-(--color-accent) opacity-100"
-                      : "bg-(--color-accent) opacity-0 group-hover:opacity-100"
-                  }`}
-                />
-
-                {/* VS Code authentic 3-dot sash hint (pure visual grip, exactly matching VS Code) */}
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex items-center gap-[3px] pointer-events-none">
-                  <div
-                    className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
-                      isDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
-                    }`}
-                  />
-                  <div
-                    className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
-                      isDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
-                    }`}
-                  />
-                  <div
-                    className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
-                      isDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
-                    }`}
-                  />
-                </div>
-
-                {/* 2D Cross-Section Corner Resizer (Intersection of Sidebar and Results handles) - only visible on hover */}
-                {!sidebarCollapsed && (
-                  <div
-                    onMouseDown={handleCornerMouseDown}
-                    onMouseEnter={() => setIsCornerHovered(true)}
-                    onMouseLeave={() => setIsCornerHovered(false)}
-                    className="absolute -left-[9px] top-1/2 -translate-y-1/2 w-4 h-4 cursor-all-scroll z-50 flex items-center justify-center group/corner"
-                    title="Drag to resize sidebar width and results height simultaneously"
-                  >
+              return (
+                <>
+                  {/* Horizontal Resize Handle between Editor Island and Terminal Island */}
+                  {shouldShowResults && (
                     <div
-                      className={`w-2.5 h-2.5 rounded-full transition-all duration-150 border border-(--color-bg-workbench) ${
-                        isCornerHovered || (isDragging && isSidebarDragging)
-                          ? "bg-(--color-accent) scale-125 ring-2 ring-(--color-accent)/50 shadow-md opacity-100"
-                          : "bg-(--color-accent) opacity-0 group-hover/corner:opacity-100 group-hover:opacity-75 scale-110"
+                      onMouseDown={handleMouseDown}
+                      onDoubleClick={() => setResultHeight(DEFAULT_RESULT_HEIGHT)}
+                      className={`relative h-[2px] shrink-0 cursor-row-resize z-30 flex items-center justify-center select-none group ${
+                        isDragging || isCornerHovered ? "is-dragging" : ""
                       }`}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
+                      title="Drag to resize results panel height, double-click to reset"
+                    >
+                      {/* Hit area */}
+                      <div className="absolute -inset-y-2 inset-x-0 z-10" />
 
-            {/* Bottom Island: Detached Terminal / Results Panel */}
-            {activeFile && !activeGames[activeFile.id] && activeFile.id !== "settings" && resultHeight > 0 && (
-              <div
-                className="flex flex-col shrink-0 rounded-xl border border-(--color-border) bg-(--color-bg-secondary) shadow-xs overflow-hidden"
-                style={{ height: resultHeight }}
-              >
-                <ResultTable 
-                  result={activeResult} 
-                  onClose={handleCloseResultPanel}
-                  onMaximizeToggle={handleToggleMaximizeResultPanel}
-                  isMaximized={isResultMaximized}
-                />
-              </div>
-            )}
+                      {/* Thin blue line - visible only on hover or dragging */}
+                      <div
+                        className={`w-full h-[2px] rounded-full transition-opacity duration-150 ${
+                          isDragging || isCornerHovered
+                            ? "bg-(--color-accent) opacity-100"
+                            : "bg-(--color-accent) opacity-0 group-hover:opacity-100"
+                        }`}
+                      />
+
+                      {/* VS Code authentic 3-dot sash hint */}
+                      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex items-center gap-[3px] pointer-events-none">
+                        <div
+                          className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
+                            isDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
+                          }`}
+                        />
+                        <div
+                          className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
+                            isDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
+                          }`}
+                        />
+                        <div
+                          className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
+                            isDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
+                          }`}
+                        />
+                      </div>
+
+                      {/* 2D Cross-Section Corner Resizer */}
+                      {!sidebarCollapsed && (
+                        <div
+                          onMouseDown={handleCornerMouseDown}
+                          onMouseEnter={() => setIsCornerHovered(true)}
+                          onMouseLeave={() => setIsCornerHovered(false)}
+                          className="absolute -left-[9px] top-1/2 -translate-y-1/2 w-4 h-4 cursor-all-scroll z-50 flex items-center justify-center group/corner"
+                          title="Drag to resize sidebar width and results height simultaneously"
+                        >
+                          <div
+                            className={`w-2.5 h-2.5 rounded-full transition-all duration-150 border border-(--color-bg-workbench) ${
+                              isCornerHovered || (isDragging && isSidebarDragging)
+                                ? "bg-(--color-accent) scale-125 ring-2 ring-(--color-accent)/50 shadow-md opacity-100"
+                                : "bg-(--color-accent) opacity-0 group-hover/corner:opacity-100 group-hover:opacity-75 scale-110"
+                            }`}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Bottom Island: Detached Terminal / Results Panel */}
+                  {shouldShowResults && (
+                    <div
+                      className="flex flex-col shrink-0 rounded-xl border border-(--color-border) bg-(--color-bg-secondary) shadow-xs overflow-hidden"
+                      style={{ height: resultHeight }}
+                    >
+                      <ResultTable 
+                        result={activeResult} 
+                        onClose={handleCloseResultPanel}
+                        onMaximizeToggle={handleToggleMaximizeResultPanel}
+                        isMaximized={isResultMaximized}
+                      />
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {/* Right-Side AI Copilot Panel */}

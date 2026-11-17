@@ -1892,12 +1892,30 @@ export function SqlFilesProvider({ children }) {
   }, [state.files, state.workspace.handle, refreshWorkspace]);
 
   const setActiveTab = useCallback((id) => dispatch({ type: "SET_ACTIVE_TAB", payload: id }), []);
-  const setResult = useCallback((id, result, executionId) => dispatch({ type: "SET_RESULT", payload: { id, result, executionId } }), []);
-  const selectResult = useCallback((fileId, executionId) => dispatch({ type: "SELECT_RESULT", payload: { fileId, executionId } }), []);
-  const deleteResult = useCallback((fileId, executionId) => dispatch({ type: "DELETE_RESULT", payload: { fileId, executionId } }), []);
-  const renameResult = useCallback((fileId, executionId, name) => dispatch({ type: "RENAME_RESULT", payload: { fileId, executionId, name } }), []);
-  const clearFileResults = useCallback((fileId) => dispatch({ type: "CLEAR_FILE_RESULTS", payload: fileId }), []);
-  const createResultSession = useCallback((fileId) => dispatch({ type: "CREATE_RESULT_SESSION", payload: fileId }), []);
+  const setResult = useCallback((id, result, executionId) => {
+    const targetId = id || state.activeTabId || "__global__";
+    dispatch({ type: "SET_RESULT", payload: { id: targetId, result, executionId } });
+  }, [state.activeTabId]);
+  const selectResult = useCallback((fileId, executionId) => {
+    const targetId = fileId || state.activeTabId || "__global__";
+    dispatch({ type: "SELECT_RESULT", payload: { fileId: targetId, executionId } });
+  }, [state.activeTabId]);
+  const deleteResult = useCallback((fileId, executionId) => {
+    const targetId = fileId || state.activeTabId || "__global__";
+    dispatch({ type: "DELETE_RESULT", payload: { fileId: targetId, executionId } });
+  }, [state.activeTabId]);
+  const renameResult = useCallback((fileId, executionId, name) => {
+    const targetId = fileId || state.activeTabId || "__global__";
+    dispatch({ type: "RENAME_RESULT", payload: { fileId: targetId, executionId, name } });
+  }, [state.activeTabId]);
+  const clearFileResults = useCallback((fileId) => {
+    const targetId = fileId || state.activeTabId || "__global__";
+    dispatch({ type: "CLEAR_FILE_RESULTS", payload: targetId });
+  }, [state.activeTabId]);
+  const createResultSession = useCallback((fileId) => {
+    const targetId = fileId || state.activeTabId || "__global__";
+    dispatch({ type: "CREATE_RESULT_SESSION", payload: targetId });
+  }, [state.activeTabId]);
   const openFile = useCallback((id) => dispatch({ type: "OPEN_FILE", payload: id }), []);
   const openSettingsTab = useCallback(() => dispatch({ type: "OPEN_SETTINGS_TAB" }), []);
   const previewFile = useCallback((id) => dispatch({ type: "PREVIEW_FILE", payload: id }), []);
@@ -1936,10 +1954,27 @@ export function SqlFilesProvider({ children }) {
     }
   }, [state.openFiles, state.dirtyFiles]);
 
-  const fileResults = (state.activeTabId && state.results[state.activeTabId]) || { list: [], activeResultId: null };
-  const activeResult = fileResults.list.find(r => r.id === fileResults.activeResultId) || null;
+  let fileResults = (state.activeTabId && state.results[state.activeTabId]) || null;
+  let activeResultFileId = state.activeTabId;
+
+  if (!fileResults || !fileResults.list || fileResults.list.length === 0) {
+    if (state.results["__global__"] && state.results["__global__"].list?.length > 0) {
+      fileResults = state.results["__global__"];
+      activeResultFileId = "__global__";
+    } else {
+      const entries = Object.entries(state.results || {}).filter(([k, r]) => r?.list?.length > 0);
+      if (entries.length > 0) {
+        const [lastId, lastRes] = entries[entries.length - 1];
+        fileResults = lastRes;
+        activeResultFileId = lastId;
+      }
+    }
+  }
+
+  fileResults = fileResults || { list: [], activeResultId: null };
+  const activeResult = fileResults.list.find(r => r.id === fileResults.activeResultId) || (fileResults.list.length > 0 ? fileResults.list[fileResults.list.length - 1] : null);
   const activeFileResultsList = fileResults.list;
-  const activeResultId = fileResults.activeResultId;
+  const activeResultId = fileResults.activeResultId || (activeResult?.id ?? null);
 
   const value = {
     files: state.files,
