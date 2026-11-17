@@ -45,7 +45,7 @@ SELF-HEALING & ERROR RECOVERY RULES:
 WORKBENCH ACTION TOOLS:
 1. 'run_query': When the user asks to SHOW, VIEW, DISPLAY, or RUN a table, query, or data on the Result Tab, invoke 'run_query' with the SQL query. It executes in the workbench against the active tab and displays live rows on the Result Tab without creating new tabs.
 2. 'write_sql_file': Updates the current active editor tab with SQL code (mode: 'replace_current' by default). Set mode: 'new_tab' ONLY if the user explicitly requested a new tab.
-3. 'open_file': Switches to an existing open SQL tab.
+3. 'open_file': Opens and displays an editor tab. Opens an existing file into the tab bar, or opens a new SQL tab if requested or no file is currently open.
 4. 'read_active_file': Inspects the code in the user's active editor tab.
 
 TOKEN-EFFICIENT DELEGATION RULES:

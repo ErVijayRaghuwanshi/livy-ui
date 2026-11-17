@@ -92,13 +92,14 @@ export const SUPERVISOR_TOOLS = [
     type: "function",
     function: {
       name: "open_file",
-      description: "Finds and switches to an existing open SQL tab in the editor.",
+      description:
+        "Opens an existing SQL file by name into the editor tab bar, or opens a new SQL tab if requested.",
       parameters: {
         type: "object",
         properties: {
           fileName: {
             type: "string",
-            description: "Name of the file to switch to.",
+            description: "Name of the file to open (e.g. 'Useful_CDR_Analytics.sql', 'Untitled-1.sql').",
           },
         },
         required: ["fileName"],
@@ -472,15 +473,40 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
       const { fileName } = args;
       const files = sqlFiles?.files || [];
       const query = (fileName || "").toLowerCase().trim();
-      const match = files.find(
-        (f) => f.name.toLowerCase() === query || f.name.toLowerCase().includes(query)
-      );
+
+      // 1. Try to match an existing file by name
+      let match = null;
+      if (query && !["sql file", "sql", "file", "new file", "new sql file"].includes(query)) {
+        match = files.find(
+          (f) => f.name.toLowerCase() === query || f.name.toLowerCase().includes(query)
+        );
+      }
+
+      // If user generically asked to open a file and we have existing files, open the last one
+      if (!match && files.length > 0 && (!query || ["sql file", "sql", "file"].includes(query))) {
+        match = files[files.length - 1];
+      }
 
       if (match) {
+        sqlFiles.openFile?.(match.id);
         sqlFiles.setActiveTab?.(match.id);
-        return { ok: true, opened: match.name };
+        return { ok: true, action: "opened_existing_tab", fileName: match.name };
       }
-      return { ok: false, error: `File '${fileName}' not found in open tabs.` };
+
+      // 2. If no existing file found or user requested a new/generic SQL file, create and open it
+      const resolvedName = fileName && !["sql file", "sql", "file"].includes(query)
+        ? (fileName.endsWith(".sql") ? fileName : `${fileName}.sql`)
+        : `Untitled-1.sql`;
+
+      if (typeof sqlFiles?.addFile === "function") {
+        await sqlFiles.addFile({
+          name: resolvedName,
+          content: "-- Write your SQL here\nSELECT 1;\n",
+        });
+        return { ok: true, action: "opened_new_tab", fileName: resolvedName };
+      }
+
+      return { ok: false, error: `Could not open or create file '${fileName}'.` };
     }
 
     case "read_active_file": {

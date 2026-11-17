@@ -163,25 +163,44 @@ export async function executeTool(toolName, args = {}, context = {}) {
 
     case "open_file": {
       const { fileName } = args;
-      if (!fileName) throw new Error("Missing 'fileName' argument.");
+      const files = sqlFiles?.files || [];
+      const query = (fileName || "").toLowerCase().trim();
 
-      const target = (sqlFiles?.files || []).find(
-        (f) =>
-          f.name.toLowerCase() === fileName.toLowerCase() ||
-          f.id === fileName
-      );
+      let target = null;
+      if (query && !["sql file", "sql", "file", "new file"].includes(query)) {
+        target = files.find(
+          (f) =>
+            f.name.toLowerCase() === query ||
+            f.name.toLowerCase().includes(query) ||
+            f.id === fileName
+        );
+      }
+
+      if (!target && files.length > 0 && (!query || ["sql file", "sql", "file"].includes(query))) {
+        target = files[files.length - 1];
+      }
 
       if (target) {
-        sqlFiles.openFile(target.id);
-        sqlFiles.setActiveTab(target.id);
+        sqlFiles.openFile?.(target.id);
+        sqlFiles.setActiveTab?.(target.id);
         return { ok: true, message: `Opened file '${target.name}'.`, fileId: target.id };
+      }
+
+      const resolvedName = fileName && !["sql file", "sql", "file"].includes(query)
+        ? (fileName.endsWith(".sql") ? fileName : `${fileName}.sql`)
+        : "Untitled-1.sql";
+
+      if (sqlFiles?.addFile) {
+        sqlFiles.addFile({
+          name: resolvedName,
+          content: "-- Write your SQL here\nSELECT 1;\n",
+        });
+        return { ok: true, message: `Created and opened '${resolvedName}'.`, fileName: resolvedName };
       }
 
       return {
         ok: false,
-        message: `File '${fileName}' not found in current workspace. Available files: ${
-          (sqlFiles?.files || []).map((f) => f.name).join(", ") || "none"
-        }`,
+        message: `File '${fileName}' not found in current workspace.`,
       };
     }
 
