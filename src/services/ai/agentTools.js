@@ -3,6 +3,7 @@
  */
 
 import { listSessions, getSession } from "../livyApi";
+import { getDorisDatabases, getDorisTables } from "../dorisApi";
 
 /**
  * OpenAI-compatible tool specifications provided to the model.
@@ -112,7 +113,9 @@ export async function executeTool(toolName, args = {}, context = {}) {
     livyContext, // from useLivy()
   } = context;
 
-  switch (toolName) {
+  const cleanToolName = (toolName || "").replace(/^[^:]+:/, "").trim();
+
+  switch (cleanToolName) {
     case "write_sql_file": {
       const { fileName, sql, mode = "new_tab" } = args;
       if (!sql) throw new Error("Missing 'sql' argument.");
@@ -220,36 +223,83 @@ export async function executeTool(toolName, args = {}, context = {}) {
     }
 
     case "get_schema_info": {
-      const dbs = schemaContext?.databases || [];
       const { database } = args;
+      const isDoris = livyContext?.isDoris || context.activeEngine === "doris";
 
-      if (database) {
-        const found = dbs.find(
-          (d) => (d.name || "").toLowerCase() === database.toLowerCase()
-        );
-        if (found) {
+      // 1. Try querying active Doris FE directly if in Doris mode
+      if (isDoris) {
+        try {
+          const hostConfig = livyContext?.activeHost || {};
+          let dbs = await getDorisDatabases(hostConfig);
+          if (!Array.isArray(dbs) || dbs.length === 0) {
+            dbs = Array.isArray(schemaContext?.databases) ? schemaContext.databases : [];
+          }
+
+          if (database) {
+            const tbls = await getDorisTables(database, hostConfig);
+            return {
+              ok: true,
+              engine: "Apache Doris",
+              database,
+              tables: (tbls || []).map((t) => (typeof t === "string" ? t : t.name || String(t))),
+            };
+          }
+
+          // If no specific database requested, fetch tables for all available databases
+          const tablesByDatabase = {};
+          await Promise.all(
+            dbs.slice(0, 10).map(async (db) => {
+              try {
+                const tbls = await getDorisTables(db, hostConfig);
+                tablesByDatabase[db] = (tbls || []).map((t) =>
+                  typeof t === "string" ? t : t.name || String(t)
+                );
+              } catch {
+                tablesByDatabase[db] = [];
+              }
+            })
+          );
+
           return {
             ok: true,
-            database: found.name,
-            tables: (found.tables || []).map((t) => ({
-              name: t.name || t,
-              type: t.type,
-              columns: t.columns || [],
-            })),
+            engine: "Apache Doris",
+            availableDatabases: dbs,
+            tablesByDatabase,
           };
+        } catch (err) {
+          console.warn("[AgentTools] Direct Doris schema fetch error:", err);
         }
+      }
+
+      // 2. Fetch from SchemaContext
+      const dbs = Array.isArray(schemaContext?.databases) ? schemaContext.databases : [];
+      const tablesMap = schemaContext?.tables || {};
+
+      if (database) {
+        const dbTables = tablesMap[database] || [];
+        return {
+          ok: true,
+          database,
+          tables: dbTables.map((t) => (typeof t === "string" ? t : t.name || String(t))),
+        };
+      }
+
+      // Return overview of all loaded databases and their tables
+      const summary = {};
+      for (const db of dbs) {
+        const dbName = typeof db === "string" ? db : db.name || String(db);
+        summary[dbName] = (tablesMap[dbName] || []).map((t) => (typeof t === "string" ? t : t.name || String(t)));
       }
 
       return {
         ok: true,
-        databases: dbs.map((d) => ({
-          name: d.name,
-          tableCount: (d.tables || []).length,
-        })),
+        engine: isDoris ? "Apache Doris" : "Apache Spark",
+        databases: dbs.map((d) => (typeof d === "string" ? d : d.name || String(d))),
+        tablesByDatabase: summary,
       };
     }
 
     default:
-      return { ok: false, error: `Unknown tool: ${toolName}` };
+      return { ok: false, error: `Unknown tool: ${cleanToolName}` };
   }
 }

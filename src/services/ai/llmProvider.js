@@ -220,6 +220,24 @@ export function getProviderConfig({
 }
 
 /**
+ * Helper to extract thought signature across various provider conventions (Gemini OpenAI wrapper)
+ */
+function extractThoughtSignature(obj) {
+  if (!obj || typeof obj !== "object") return null;
+  return (
+    obj.thought_signature ||
+    obj.thoughtSignature ||
+    obj.extra_content?.google?.thought_signature ||
+    obj.extra_content?.google?.thoughtSignature ||
+    obj.extra_content?.thought_signature ||
+    obj.extra_content?.thoughtSignature ||
+    obj.google?.thought_signature ||
+    obj.google?.thoughtSignature ||
+    null
+  );
+}
+
+/**
  * Streams chat completions across any supported LLM provider using OpenAI-compatible SSE format.
  */
 export async function streamUnifiedChat({
@@ -294,6 +312,8 @@ export async function streamUnifiedChat({
   let fullContent = "";
   let fullReasoning = "";
   let accumulatedToolCalls = [];
+  let capturedThoughtSig = null;
+  let accumulatedExtraContent = null;
   let buffer = "";
 
   while (true) {
@@ -313,10 +333,23 @@ export async function streamUnifiedChat({
         const jsonStr = trimmed.slice(6);
         try {
           const parsed = JSON.parse(jsonStr);
+
+          // Extract thought signature at top payload level
+          const topSig = extractThoughtSignature(parsed);
+          if (topSig) capturedThoughtSig = topSig;
+
           const choice = parsed.choices?.[0];
           if (!choice) continue;
 
-          const delta = choice.delta || {};
+          // Extract thought signature at choice level
+          const choiceSig = extractThoughtSignature(choice);
+          if (choiceSig) capturedThoughtSig = choiceSig;
+
+          const delta = choice.delta || choice.message || {};
+
+          // Extract thought signature at delta level
+          const deltaSig = extractThoughtSignature(delta);
+          if (deltaSig) capturedThoughtSig = deltaSig;
 
           // Thinking / reasoning tokens
           if (delta.reasoning_content || delta.reasoning) {
@@ -331,9 +364,23 @@ export async function streamUnifiedChat({
             onChunk?.(delta.content);
           }
 
+          // Capture Gemini extra_content at delta or choice level
+          const chunkExtra = delta.extra_content || choice.extra_content || parsed.extra_content;
+          if (chunkExtra) {
+            accumulatedExtraContent = {
+              ...(accumulatedExtraContent || {}),
+              ...chunkExtra,
+              google: {
+                ...(accumulatedExtraContent?.google || {}),
+                ...(chunkExtra.google || {}),
+              },
+            };
+          }
+
           // Streaming tool calls
-          if (Array.isArray(delta.tool_calls)) {
-            for (const tc of delta.tool_calls) {
+          const rawToolCalls = delta.tool_calls || choice.message?.tool_calls;
+          if (Array.isArray(rawToolCalls)) {
+            for (const tc of rawToolCalls) {
               const idx = tc.index ?? accumulatedToolCalls.length;
               if (!accumulatedToolCalls[idx]) {
                 accumulatedToolCalls[idx] = {
@@ -345,12 +392,28 @@ export async function streamUnifiedChat({
                   },
                 };
               } else {
+                if (tc.id) accumulatedToolCalls[idx].id = tc.id;
                 if (tc.function?.name) {
                   accumulatedToolCalls[idx].function.name += tc.function.name;
                 }
                 if (tc.function?.arguments) {
                   accumulatedToolCalls[idx].function.arguments += tc.function.arguments;
                 }
+              }
+
+              // Extract thought signature on tool call
+              const tcSig = extractThoughtSignature(tc) || extractThoughtSignature(tc.function);
+              if (tcSig) {
+                capturedThoughtSig = tcSig;
+                accumulatedToolCalls[idx].thought_signature = tcSig;
+              }
+
+              // Capture extra_content on tool call
+              if (tc.extra_content) {
+                accumulatedToolCalls[idx].extra_content = {
+                  ...(accumulatedToolCalls[idx].extra_content || {}),
+                  ...tc.extra_content,
+                };
               }
             }
           }
@@ -365,9 +428,49 @@ export async function streamUnifiedChat({
     (tc) => tc && tc.function && tc.function.name
   );
 
+  // For Google GenAI / Gemini thinking models:
+  // Strict validation requires thought_signature on function call parts.
+  // Use captured signature or official Google fallback bypass sentinel "skip_thought_signature_validator".
+  if (provider === "gemini" && validToolCalls.length > 0) {
+    const fallbackSig =
+      capturedThoughtSig ||
+      accumulatedExtraContent?.google?.thought_signature ||
+      "skip_thought_signature_validator";
+
+    for (const tc of validToolCalls) {
+      const sig = tc.thought_signature || fallbackSig;
+      tc.thought_signature = sig;
+      tc.thoughtSignature = sig;
+      tc.extra_content = {
+        ...(tc.extra_content || {}),
+        google: {
+          ...((tc.extra_content && tc.extra_content.google) || {}),
+          thought_signature: sig,
+        },
+      };
+      if (tc.function) {
+        tc.function.thought_signature = sig;
+      }
+    }
+
+    if (!accumulatedExtraContent) {
+      accumulatedExtraContent = {
+        google: {
+          thought_signature: fallbackSig,
+        },
+      };
+    } else {
+      accumulatedExtraContent.google = {
+        ...(accumulatedExtraContent.google || {}),
+        thought_signature: accumulatedExtraContent.google?.thought_signature || fallbackSig,
+      };
+    }
+  }
+
   return {
     content: fullContent,
     reasoning: fullReasoning,
     toolCalls: validToolCalls,
+    extraContent: accumulatedExtraContent,
   };
 }

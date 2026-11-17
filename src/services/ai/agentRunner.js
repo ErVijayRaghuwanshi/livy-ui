@@ -90,6 +90,15 @@ export async function runAgentConversation({
     ...history,
   ];
 
+  // Append user prompt if not already present as the final message
+  if (
+    prompt &&
+    (!conversationMessages.length ||
+      conversationMessages[conversationMessages.length - 1]?.content !== prompt)
+  ) {
+    conversationMessages.push({ role: "user", content: prompt });
+  }
+
   let iteration = 0;
   const maxIterations = 4;
   let finalContent = "";
@@ -105,7 +114,7 @@ export async function runAgentConversation({
     let turnContent = "";
     let turnReasoning = "";
 
-    const { content, reasoning, toolCalls } = await streamUnifiedChat({
+    const { content, reasoning, toolCalls, extraContent } = await streamUnifiedChat({
       provider,
       hostUrl,
       geminiApiKey,
@@ -137,9 +146,23 @@ export async function runAgentConversation({
     // Process tool calls
     const assistantMessageWithTools = {
       role: "assistant",
-      content: content || "",
+      content: content || null,
       tool_calls: toolCalls,
     };
+    if (provider === "gemini") {
+      const fallbackSig =
+        toolCalls[0]?.thought_signature ||
+        extraContent?.google?.thought_signature ||
+        "skip_thought_signature_validator";
+      assistantMessageWithTools.thought_signature = fallbackSig;
+      assistantMessageWithTools.extra_content = {
+        google: {
+          thought_signature: fallbackSig,
+        },
+      };
+    } else if (extraContent && Object.keys(extraContent).length > 0) {
+      assistantMessageWithTools.extra_content = extraContent;
+    }
     conversationMessages.push(assistantMessageWithTools);
 
     for (const tc of toolCalls) {

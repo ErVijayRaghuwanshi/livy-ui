@@ -241,10 +241,9 @@ export function AiProvider({ children, editorRef }) {
         activeEngine,
       };
 
-      // History formatted for OpenAI-compatible endpoint
+      // History formatted for OpenAI-compatible endpoint (excluding errors and welcome)
       const historyPayload = messages
-        .filter((m) => m.id !== "welcome")
-        .concat(userMessage)
+        .filter((m) => m.id !== "welcome" && !m.isError)
         .map((m) => ({
           role: m.role,
           content: m.content,
