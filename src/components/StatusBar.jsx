@@ -193,7 +193,7 @@ export default function StatusBar({
           title={`Word Wrap: ${wordWrap ? "ON" : "OFF"} (Alt+Z / ⌥Z)`}
         >
           <WrapText size={11} className={wordWrap ? "text-blue-400" : "text-(--color-text-muted)"} />
-          <span>Wrap: <span className={wordWrap ? "text-blue-400 font-medium" : "text-(--color-text-muted)"}>{wordWrap ? "ON" : "OFF"}</span></span>
+          {/* <span>Wrap: <span className={wordWrap ? "text-blue-400 font-medium" : "text-(--color-text-muted)"}>{wordWrap ? "ON" : "OFF"}</span></span> */}
         </button>
 
         {/* Query history */}

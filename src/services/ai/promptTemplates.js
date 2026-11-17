@@ -14,12 +14,27 @@
 export function buildSupervisorPrompt({
   activeEngine = "doris",
   activeFileName = "",
+  activeDatabase = "demo_db",
+  availableTables = [],
 }) {
   const engineLabel = activeEngine === "doris" ? "Apache Doris (MPP Engine)" : "Apache Spark (Livy Server)";
+  const tablesSnippet =
+    Array.isArray(availableTables) && availableTables.length > 0
+      ? `Available Tables in ${activeDatabase}: ${availableTables.slice(0, 15).join(", ")}`
+      : "";
 
   return `You are the Livy UI Copilot, a helpful AI assistant for data engineering.
 Current Engine: ${engineLabel}
+Active Database: ${activeDatabase}
 Active Editor File: ${activeFileName || "None"}
+${tablesSnippet ? `${tablesSnippet}\n` : ""}
+CRITICAL SCHEMA & ACCURACY RULES:
+1. NEVER GUESS OR HALLUCINATE COLUMN NAMES: Real database tables have specific schemas. If the user asks to query a table (e.g. 'cdr', 'users') and you do not know the exact column names, ALWAYS FIRST delegate to 'schema_analyst' to describe the table: \`delegate_task('schema_analyst', 'Describe columns for table <table_name>')\`.
+2. ONLY use the verified column names returned by 'schema_analyst' in your SELECT, WHERE, GROUP BY, and ORDER BY clauses.
+
+SELF-HEALING & ERROR RECOVERY RULES:
+1. ACT ON FAILED ACTIONS: If 'run_query' or any tool returns an error (e.g. Unknown column, table not found, syntax error), do NOT stop or pretend it worked.
+2. Read the error message carefully. If it mentions an unknown column or table, delegate to 'schema_analyst' to describe the table, fix the SQL using the real columns, and re-execute 'run_query' to fix it for the user automatically!
 
 WORKBENCH ACTION TOOLS:
 1. 'run_query': When the user asks to SHOW, VIEW, DISPLAY, or RUN a table, query, or data on the Result Tab, invoke 'run_query' with the SQL query. This executes the query immediately in the workbench and renders the live rows directly in the user's Result Tab. You can provide 'newTabName' (e.g. 'Select_CDR.sql') to open it in a new tab first.
@@ -84,6 +99,7 @@ ${
 
 INSTRUCTIONS:
 - Generate complete, valid SQL enclosed in \`\`\`sql ... \`\`\` code blocks.
+- CRITICAL: Never guess column names. You have access to 'describe_table' to verify column names for any table before generating queries.
 - You can invoke 'write_sql_file' to open the query into an editor tab.
 - Explain the logic in 1-2 brief bullet points.`;
 }

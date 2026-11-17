@@ -3007,13 +3007,13 @@ const SqlEditor = forwardRef(function SqlEditor({
   }, []);
 
   const handleRunSql = async (sqlOverride, startLine, endLine) => {
-    if (!canRun) return;
+    if (!canRun) return { ok: false, status: "blocked", error: "Compute engine is not ready or currently busy." };
 
     const fileName = activeFileRef.current?.name || "";
     const isSqlFile = isSqlFileName(fileName);
     if (!isSqlFile) {
       addToast("info", "Cannot execute non-SQL file as a SQL query", null, "SQL Execution");
-      return;
+      return { ok: false, status: "error", error: "Cannot execute non-SQL file as a SQL query." };
     }
 
     let sql = "";
@@ -3269,6 +3269,14 @@ const SqlEditor = forwardRef(function SqlEditor({
         }
       }
     }
+
+    return {
+      ok: finalStatus === "ok",
+      status: finalStatus,
+      error: finalError,
+      elapsed: performance.now() - startTime,
+      sql,
+    };
   };
 
   handleRunSqlRef.current = handleRunSql;

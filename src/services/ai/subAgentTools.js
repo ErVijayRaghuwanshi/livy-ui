@@ -167,6 +167,21 @@ export const SQL_SPECIALIST_TOOLS = [
   {
     type: "function",
     function: {
+      name: "describe_table",
+      description: "Returns column definitions and data types for a specific table to ensure accurate column references.",
+      parameters: {
+        type: "object",
+        properties: {
+          database: { type: "string", description: "Database name containing the table." },
+          table: { type: "string", description: "Table name to inspect." },
+        },
+        required: ["table"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "write_sql_file",
       description: "Creates a new editor tab or updates current active tab with SQL.",
       parameters: {
@@ -291,27 +306,52 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
     }
 
     case "describe_table": {
-      const targetDb = (args.database || "").trim() || (isDoris ? "demo_db" : "default");
-      const targetTable = (args.table || "").trim();
+      let targetDb = (args.database || "").trim() || activeHost?.database || (isDoris ? "demo_db" : "default");
+      let targetTable = (args.table || "").replace(/[`"']/g, "").trim();
+      if (targetTable.includes(".")) {
+        const parts = targetTable.split(".");
+        targetDb = parts[0].trim();
+        targetTable = parts[1].trim();
+      }
       if (!targetTable) throw new Error("Missing 'table' argument.");
 
       if (isDoris) {
         try {
           const cols = await dorisApi.getDorisColumns(targetDb, targetTable, activeHost);
+          if (Array.isArray(cols) && cols.length > 0) {
+            return {
+              ok: true,
+              engine: "Apache Doris",
+              database: targetDb,
+              table: targetTable,
+              columns: cols.map((c) => ({
+                name: c.name,
+                type: c.type,
+                key: c.key || "",
+              })),
+            };
+          }
+        } catch (err) {
+          console.warn(`[describe_table] dorisApi.getDorisColumns error for ${targetDb}.${targetTable}:`, err);
+        }
+
+        // Fallback to schemaContext cache if available
+        const colKey = `${targetDb}.${targetTable}`;
+        const cachedCols = schemaContext?.columns?.[colKey] || schemaContext?.columns?.[targetTable];
+        if (Array.isArray(cachedCols) && cachedCols.length > 0) {
           return {
             ok: true,
             engine: "Apache Doris",
             database: targetDb,
             table: targetTable,
-            columns: (cols || []).map((c) => ({
-              name: c.name,
-              type: c.type,
-              key: c.key || "",
+            columns: cachedCols.map((c) => ({
+              name: c.name || c.col_name || String(c),
+              type: c.type || c.data_type || "varchar",
             })),
           };
-        } catch (err) {
-          return { ok: false, error: err.message };
         }
+
+        return { ok: false, error: `Could not inspect column schema for table ${targetDb}.${targetTable}. Verify that the table exists.` };
       } else {
         try {
           if (sessionId != null) {
@@ -344,13 +384,23 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
       }
 
       if (editorRef?.current?.runSql) {
-        editorRef.current.runSql(sql);
+        const runRes = await editorRef.current.runSql(sql);
+        if (runRes && !runRes.ok) {
+          return {
+            ok: false,
+            action: "execution_failed",
+            error: runRes.error || "Query execution failed on cluster.",
+            sql,
+            fileName: tabOpened || sqlFiles?.activeFile?.name,
+            suggestion: "Analyze the error message. If it indicates an unknown column or table, describe the table to find the correct columns, then rewrite and rerun the query.",
+          };
+        }
         return {
           ok: true,
           action: "executed_on_result_tab",
           fileName: tabOpened || sqlFiles?.activeFile?.name,
           sql,
-          message: "Query executed in workbench. Live results are displayed directly on the Result Tab.",
+          message: "Query executed successfully in workbench. Live results are displayed directly on the Result Tab.",
         };
       } else {
         return await executeSubAgentTool("execute_sql", { sql }, context);

@@ -119,7 +119,7 @@ function ToolResultItem({ tr }) {
     label = "Write to Editor";
   }
 
-  const hasSummary = Boolean(tr.result?.summary);
+  const hasDetails = Boolean(tr.result?.summary || tr.result?.error);
   const isSuccess = tr.result?.ok !== false;
 
   return (
@@ -158,11 +158,11 @@ function ToolResultItem({ tr }) {
             </span>
           )}
 
-          {hasSummary && (
+          {hasDetails && (
             <button
               onClick={() => setIsExpanded((prev) => !prev)}
               className="flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-(--color-bg-hover) text-[#888888] hover:text-white transition-colors cursor-pointer font-sans"
-              title={isExpanded ? "Collapse details" : "Expand subagent summary"}
+              title={isExpanded ? "Collapse details" : "Expand details / error"}
             >
               <span>{isExpanded ? "Hide" : "Details"}</span>
               {isExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
@@ -171,10 +171,10 @@ function ToolResultItem({ tr }) {
         </div>
       </div>
 
-      {/* Accordion Body with Subagent Summary */}
-      {isExpanded && hasSummary && (
+      {/* Accordion Body with Subagent Summary or Error Message */}
+      {isExpanded && hasDetails && (
         <div className="px-2.5 py-2 border-t border-(--color-border) bg-(--color-bg-primary)/60 text-[#bbbbbb] font-mono text-[10px] whitespace-pre-wrap max-h-48 overflow-y-auto select-text leading-relaxed">
-          {tr.result.summary}
+          {tr.result?.summary || tr.result?.error}
         </div>
       )}
     </div>

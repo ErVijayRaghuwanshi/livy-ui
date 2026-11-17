@@ -68,10 +68,16 @@ export async function runAgentConversation({
     model,
   };
 
-  // Lean supervisor prompt (~250 tokens!)
+  const activeDatabase = livyContext?.activeHost?.database || "demo_db";
+  const tablesMap = schemaContext?.tables || {};
+  const currentDbTables = tablesMap[activeDatabase] || Object.values(tablesMap)[0] || [];
+
+  // Lean supervisor prompt with active database & discovered tables awareness (~250 tokens)
   const systemPrompt = buildSupervisorPrompt({
     activeEngine,
     activeFileName: sqlFiles?.activeFile?.name,
+    activeDatabase,
+    availableTables: currentDbTables,
   });
 
   const conversationMessages = [
@@ -259,7 +265,7 @@ export async function runAgentConversation({
           id: tc.id,
           name: toolName,
           args,
-          status: "completed",
+          status: toolResult?.ok !== false ? "completed" : "failed",
           result: toolResult,
         });
       }
