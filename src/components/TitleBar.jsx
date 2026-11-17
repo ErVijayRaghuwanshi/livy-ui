@@ -1,9 +1,9 @@
-import { Zap, Search } from "lucide-react";
+import { Zap, Search, Sparkles } from "lucide-react";
 import { useLivy } from "../context/LivyContext";
 
 const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 
-export default function TitleBar({ onOpenCommandPalette, onOpenComputePanel }) {
+export default function TitleBar({ onOpenCommandPalette, onOpenComputePanel, isAiPanelOpen, onToggleAiPanel }) {
   const { activeHost, sessionState, isDoris } = useLivy();
 
   const stateColors = {
@@ -51,8 +51,21 @@ export default function TitleBar({ onOpenCommandPalette, onOpenComputePanel }) {
         </button>
       </div>
 
-      {/* Right: Quick compute switcher & status pill */}
-      <div className="flex items-center gap-3 z-10">
+      {/* Right: Quick compute switcher & AI Copilot toggle */}
+      <div className="flex items-center gap-2 z-10">
+        <button
+          onClick={onToggleAiPanel}
+          className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] transition-all cursor-pointer ${
+            isAiPanelOpen
+              ? "bg-purple-950/60 text-purple-300 border-purple-500/50 shadow-[0_0_8px_rgba(168,85,247,0.3)]"
+              : "bg-(--color-bg-primary) hover:bg-(--color-bg-tertiary)/60 text-(--color-text-secondary) hover:text-white border-(--color-border)"
+          }`}
+          title={isMac ? "Toggle AI Copilot (⌘⇧A)" : "Toggle AI Copilot (Ctrl+Shift+A)"}
+        >
+          <Sparkles size={12} className={isAiPanelOpen ? "text-purple-400" : "text-[#858585]"} />
+          <span className="font-medium text-[11px]">AI Copilot</span>
+        </button>
+
         <button
           onClick={onOpenComputePanel}
           className="flex items-center gap-2 px-2.5 py-1 bg-(--color-bg-primary) hover:bg-(--color-bg-tertiary)/60 border border-(--color-border) hover:border-(--color-accent)/40 rounded-md transition-all cursor-pointer shadow-2xs group"

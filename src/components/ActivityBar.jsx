@@ -11,6 +11,8 @@ export default function ActivityBar({
   isSettingsOpen,
   onOpenSettings,
   onOpenWorkspaceModal,
+  isAiPanelOpen,
+  onToggleAiPanel,
 }) {
   const { openSettingsTab, activeTabId, workspace } = useSqlFiles();
 
@@ -93,18 +95,18 @@ export default function ActivityBar({
           <Cpu size={20} />
         </button>
 
-        {/* AI Copilot & SQL Agent Tab */}
+        {/* AI Copilot & SQL Agent Tab (Toggles Right Panel) */}
         <button
-          onClick={() => handleTabClick("ai")}
+          onClick={onToggleAiPanel}
           className={`relative flex items-center justify-center w-12 h-12 transition-colors cursor-pointer ${
-            !sidebarCollapsed && activeTab === "ai"
+            isAiPanelOpen
               ? "text-purple-400"
               : "text-[#858585] hover:text-purple-300"
           }`}
-          title={isMac ? "AI Copilot & SQL Agent (⌘⇧A)" : "AI Copilot & SQL Agent (Ctrl+Shift+A)"}
+          title={isMac ? "Toggle AI Copilot & SQL Agent (⌘⇧A)" : "Toggle AI Copilot & SQL Agent (Ctrl+Shift+A)"}
         >
-          {!sidebarCollapsed && activeTab === "ai" && (
-            <span className="absolute left-0 top-0 bottom-0 w-[2px] bg-purple-500" />
+          {isAiPanelOpen && (
+            <span className="absolute left-0 top-0 bottom-0 w-[2px] bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)]" />
           )}
           <Sparkles size={20} />
         </button>

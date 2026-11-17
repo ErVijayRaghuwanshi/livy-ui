@@ -3,7 +3,7 @@
  * Handles streaming response, multi-step tool execution, and action card extraction.
  */
 
-import { streamOllamaChat } from "./ollamaClient";
+import { streamUnifiedChat } from "./llmProvider";
 import { TOOL_DEFINITIONS, executeTool } from "./agentTools";
 import { buildSystemPrompt } from "./promptTemplates";
 
@@ -40,7 +40,12 @@ export function extractSqlBlocks(text = "") {
  * @returns {Promise<{ content: string, reasoning: string, toolResults: Array, actionCards: Array }>}
  */
 export async function runAgentConversation({
+  provider = "ollama",
   hostUrl,
+  geminiApiKey,
+  openaiApiKey,
+  customUrl,
+  customApiKey,
   model,
   supportsTools = true,
   history = [],
@@ -100,8 +105,13 @@ export async function runAgentConversation({
     let turnContent = "";
     let turnReasoning = "";
 
-    const { content, reasoning, toolCalls } = await streamOllamaChat({
+    const { content, reasoning, toolCalls } = await streamUnifiedChat({
+      provider,
       hostUrl,
+      geminiApiKey,
+      openaiApiKey,
+      customUrl,
+      customApiKey,
       model,
       messages: conversationMessages,
       tools: toolsToPass,

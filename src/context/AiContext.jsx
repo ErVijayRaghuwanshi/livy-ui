@@ -7,6 +7,12 @@ import {
   useRef,
 } from "react";
 import { fetchOllamaModels, checkOllamaHealth } from "../services/ai/ollamaClient";
+import {
+  AI_PROVIDERS,
+  GEMINI_MODELS,
+  OPENAI_MODELS,
+  getProviderConfig,
+} from "../services/ai/llmProvider";
 import { runAgentConversation } from "../services/ai/agentRunner";
 import { useSqlFiles } from "./SqlFilesContext";
 import { useLivy } from "./LivyContext";
@@ -27,10 +33,7 @@ I can help you:
 - ▶️ **Execute Queries** and view live results
 - ⚡ **Inspect Livy Sessions** and cluster health
 
-Try asking:
-- *"Write a Doris aggregation query to find top 5 customers from orders"*
-- *"Create a file called 'SparkMetrics.sql' with a sample query and run it"*
-- *"List all running Livy sessions"*`,
+Select **Local Ollama** or **Google GenAI (Gemini)** in the header above to begin!`,
   timestamp: new Date().toISOString(),
 };
 
@@ -40,13 +43,46 @@ export function AiProvider({ children, editorRef }) {
   const livyContext = useLivy();
   const schemaContext = useSchema();
 
+  // Active provider
+  const provider = settings["ai.provider"] || "ollama";
   const hostUrl = settings["ai.hostUrl"] || "http://localhost:11434";
-  const [activeModel, setActiveModel] = useState(
-    () => settings["ai.defaultModel"] || "nemotron-3-nano:4b"
-  );
-  const [availableModels, setAvailableModels] = useState([]);
-  const [isOnline, setIsOnline] = useState(false);
+  const geminiApiKey = settings["ai.geminiApiKey"] || "";
+  const openaiApiKey = settings["ai.openaiApiKey"] || "";
+  const customUrl = settings["ai.customUrl"] || "http://localhost:8000/v1";
+  const customApiKey = settings["ai.customApiKey"] || "";
+
+  // Available models based on active provider
+  const [ollamaModels, setOllamaModels] = useState([]);
+  const [isOllamaOnline, setIsOllamaOnline] = useState(false);
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
+
+  // Active model depending on provider
+  const activeModel =
+    provider === "gemini"
+      ? settings["ai.geminiModel"] || "gemini-2.0-flash"
+      : provider === "openai"
+      ? settings["ai.openaiModel"] || "gpt-4o-mini"
+      : settings["ai.defaultModel"] || "nemotron-3-nano:4b";
+
+  // Resolved list of models
+  const availableModels =
+    provider === "gemini"
+      ? GEMINI_MODELS.map((m) => ({ name: m.id, model: m.id, supportsTools: m.supportsTools }))
+      : provider === "openai"
+      ? OPENAI_MODELS.map((m) => ({ name: m.id, model: m.id, supportsTools: m.supportsTools }))
+      : provider === "custom"
+      ? [{ name: "default", model: "default", supportsTools: true }]
+      : ollamaModels;
+
+  // Status indicator
+  const isOnline =
+    provider === "gemini"
+      ? Boolean(geminiApiKey.trim())
+      : provider === "openai"
+      ? Boolean(openaiApiKey.trim())
+      : provider === "custom"
+      ? true
+      : isOllamaOnline;
 
   const [messages, setMessages] = useState(() => [DEFAULT_WELCOME_MESSAGE]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -59,36 +95,55 @@ export function AiProvider({ children, editorRef }) {
   // Determine active engine (doris or spark)
   const activeEngine = sqlFiles?.activeFile?.engine || (sqlFiles?.dorisMode ? "doris" : "spark");
 
-  // Fetch installed Ollama models
+  // Fetch installed Ollama models if provider is ollama
   const refreshModels = useCallback(async () => {
-    setIsCheckingHealth(true);
-    const health = await checkOllamaHealth(hostUrl);
-    setIsOnline(health.ok);
+    if (provider === "ollama") {
+      setIsCheckingHealth(true);
+      const health = await checkOllamaHealth(hostUrl);
+      setIsOllamaOnline(health.ok);
 
-    if (health.ok) {
-      const { models } = await fetchOllamaModels(hostUrl);
-      setAvailableModels(models);
-      if (models.length > 0) {
-        // If current model isn't in the list, default to first available
-        setActiveModel((current) => {
+      if (health.ok) {
+        const { models } = await fetchOllamaModels(hostUrl);
+        setOllamaModels(models);
+        if (models.length > 0) {
+          const current = settings["ai.defaultModel"];
           const exists = models.some((m) => m.name === current || m.model === current);
           if (!exists) {
-            const first = models[0].name;
-            updateSetting("ai.defaultModel", first);
-            return first;
+            updateSetting("ai.defaultModel", models[0].name);
           }
-          return current;
-        });
+        }
+      } else {
+        setOllamaModels([]);
       }
-    } else {
-      setAvailableModels([]);
+      setIsCheckingHealth(false);
     }
-    setIsCheckingHealth(false);
-  }, [hostUrl, updateSetting]);
+  }, [provider, hostUrl, settings, updateSetting]);
 
   useEffect(() => {
     refreshModels();
   }, [refreshModels]);
+
+  // Set provider helper
+  const setProvider = useCallback(
+    (newProvider) => {
+      updateSetting("ai.provider", newProvider);
+    },
+    [updateSetting]
+  );
+
+  // Set model helper
+  const setModel = useCallback(
+    (modelName) => {
+      if (provider === "gemini") {
+        updateSetting("ai.geminiModel", modelName);
+      } else if (provider === "openai") {
+        updateSetting("ai.openaiModel", modelName);
+      } else {
+        updateSetting("ai.defaultModel", modelName);
+      }
+    },
+    [provider, updateSetting]
+  );
 
   // Stop active streaming generation
   const stopGeneration = useCallback(() => {
@@ -159,7 +214,12 @@ export function AiProvider({ children, editorRef }) {
 
       try {
         const result = await runAgentConversation({
+          provider,
           hostUrl,
+          geminiApiKey,
+          openaiApiKey,
+          customUrl,
+          customApiKey,
           model: activeModel,
           supportsTools,
           history: historyPayload,
@@ -194,10 +254,17 @@ export function AiProvider({ children, editorRef }) {
           console.log("[AiContext] User aborted generation");
         } else {
           console.error("[AiContext] Agent error:", err);
+          let helpHint = "";
+          if (provider === "gemini") {
+            helpHint = "Please make sure your Google GenAI API key is valid in Copilot settings.";
+          } else if (provider === "ollama") {
+            helpHint = `Please verify Ollama is running at ${hostUrl} and model '${activeModel}' is installed.`;
+          }
+
           const errorMessage = {
             id: uuidv4(),
             role: "assistant",
-            content: `⚠️ **Agent Error**: ${err.message}\n\nPlease verify that Ollama is running at \`${hostUrl}\` and model \`${activeModel}\` is available.`,
+            content: `⚠️ **Agent Error (${provider.toUpperCase()})**: ${err.message}\n\n${helpHint}`,
             isError: true,
             timestamp: new Date().toISOString(),
           };
@@ -221,7 +288,12 @@ export function AiProvider({ children, editorRef }) {
       schemaContext,
       editorRef,
       activeEngine,
+      provider,
       hostUrl,
+      geminiApiKey,
+      openaiApiKey,
+      customUrl,
+      customApiKey,
     ]
   );
 
@@ -262,12 +334,15 @@ export function AiProvider({ children, editorRef }) {
   );
 
   const value = {
+    provider,
+    setProvider,
     hostUrl,
+    geminiApiKey,
+    openaiApiKey,
+    setGeminiApiKey: (key) => updateSetting("ai.geminiApiKey", key),
+    setOpenaiApiKey: (key) => updateSetting("ai.openaiApiKey", key),
     activeModel,
-    setActiveModel: (m) => {
-      setActiveModel(m);
-      updateSetting("ai.defaultModel", m);
-    },
+    setActiveModel: setModel,
     availableModels,
     isOnline,
     isCheckingHealth,

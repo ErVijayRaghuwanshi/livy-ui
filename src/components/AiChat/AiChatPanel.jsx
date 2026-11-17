@@ -11,6 +11,8 @@ import {
   Database,
   Cpu,
   FileCode,
+  PanelRightClose,
+  X,
 } from "lucide-react";
 import { useAi } from "../../context/AiContext";
 import ModelSelector from "./ModelSelector";
@@ -34,7 +36,7 @@ const SUGGESTIONS = [
   },
 ];
 
-export default function AiChatPanel() {
+export default function AiChatPanel({ onClose }) {
   const {
     messages,
     isStreaming,
@@ -102,6 +104,15 @@ export default function AiChatPanel() {
           >
             <Trash2 size={13} />
           </button>
+          {onClose && (
+            <button
+              onClick={onClose}
+              title="Close AI Copilot Panel (⌘⇧A)"
+              className="p-1 rounded text-[#858585] hover:text-white hover:bg-(--color-bg-hover) transition-colors cursor-pointer ml-0.5"
+            >
+              <PanelRightClose size={14} />
+            </button>
+          )}
         </div>
       </div>
 

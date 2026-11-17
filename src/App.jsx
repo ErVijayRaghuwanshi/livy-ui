@@ -20,6 +20,7 @@ import SettingsModal from "./components/SettingsModal";
 import WorkspaceModal from "./components/WorkspaceModal";
 import { useSettings } from "./context/SettingsContext";
 import { AiProvider } from "./context/AiContext";
+import AiChatPanel from "./components/AiChat/AiChatPanel";
 
 const SIDEBAR_CACHE_KEY = "livy-ui-explorer-collapsed";
 const THEME_CACHE_KEY = "livy-ui-theme";
@@ -107,6 +108,54 @@ export default function App() {
   });
   const [isSidebarDragging, setIsSidebarDragging] = useState(false);
   const [isCornerHovered, setIsCornerHovered] = useState(false);
+
+  // Right-side AI Copilot panel state & width
+  const [isAiPanelOpen, setIsAiPanelOpen] = useState(() => {
+    const saved = localStorage.getItem("livy-ai-panel-open");
+    return saved !== null ? saved === "true" : true;
+  });
+  const [aiPanelWidth, setAiPanelWidth] = useState(() => {
+    const saved = localStorage.getItem("livy-ai-panel-width");
+    if (saved !== null) {
+      const val = parseInt(saved, 10);
+      if (!isNaN(val) && val >= 280 && val <= 750) return val;
+    }
+    return 380;
+  });
+  const [isAiDragging, setIsAiDragging] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem("livy-ai-panel-open", String(isAiPanelOpen));
+  }, [isAiPanelOpen]);
+
+  useEffect(() => {
+    localStorage.setItem("livy-ai-panel-width", String(aiPanelWidth));
+  }, [aiPanelWidth]);
+
+  const handleAiResizeMouseDown = useCallback(
+    (e) => {
+      e.preventDefault();
+      setIsAiDragging(true);
+      const startX = e.clientX;
+      const startWidth = aiPanelWidth;
+
+      const handleMouseMove = (moveEvent) => {
+        const delta = startX - moveEvent.clientX;
+        const newWidth = Math.min(Math.max(startWidth + delta, 280), 750);
+        setAiPanelWidth(newWidth);
+      };
+
+      const handleMouseUp = () => {
+        setIsAiDragging(false);
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    },
+    [aiPanelWidth]
+  );
 
   const editorRef = useRef(null);
   const sidebarTabsRef = useRef(null);
@@ -298,11 +347,10 @@ export default function App() {
         return;
       }
 
-      // Ctrl+Shift+A / Cmd+Shift+A — open/focus AI Copilot & Agent
+      // Ctrl+Shift+A / Cmd+Shift+A — toggle right-side AI Copilot panel
       if (ctrl && !e.altKey && e.shiftKey && (e.key.toLowerCase() === "a" || e.code === "KeyA")) {
         e.preventDefault();
-        setActiveSidebarTab("ai");
-        setSidebarCollapsed(false);
+        setIsAiPanelOpen((p) => !p);
         return;
       }
 
@@ -609,9 +657,11 @@ export default function App() {
           setActiveSidebarTab("compute");
           setSidebarCollapsed(false);
         }}
+        isAiPanelOpen={isAiPanelOpen}
+        onToggleAiPanel={() => setIsAiPanelOpen((p) => !p)}
       />
 
-      <div className={`flex flex-1 min-h-0 bg-(--color-bg-workbench) ${isSidebarDragging ? "select-none" : ""}`}>
+      <div className={`flex flex-1 min-h-0 bg-(--color-bg-workbench) ${isSidebarDragging || isAiDragging ? "select-none" : ""}`}>
         {/* Activity Bar on the far left */}
         <ActivityBar
           activeTab={activeSidebarTab}
@@ -621,6 +671,8 @@ export default function App() {
           isSettingsOpen={isSettingsOpen}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenWorkspaceModal={() => setShowWorkspaceModal(true)}
+          isAiPanelOpen={isAiPanelOpen}
+          onToggleAiPanel={() => setIsAiPanelOpen((p) => !p)}
         />
 
         {/* Floating Workspace Islands Container */}
@@ -858,6 +910,32 @@ export default function App() {
               </div>
             )}
           </div>
+
+          {/* Right-Side AI Copilot Panel */}
+          {isAiPanelOpen && (
+            <>
+              <div
+                onMouseDown={handleAiResizeMouseDown}
+                className={`dg-sidebar-resize-handle group ${isAiDragging ? "is-dragging" : ""}`}
+                title="Drag to resize AI Copilot width"
+              >
+                <div className="absolute -inset-x-2 inset-y-0 z-10" />
+                <div
+                  className={`h-full w-[2px] rounded-full transition-opacity duration-150 ${
+                    isAiDragging
+                      ? "bg-purple-500 opacity-100"
+                      : "bg-purple-500 opacity-0 group-hover:opacity-100"
+                  }`}
+                />
+              </div>
+              <div
+                style={{ width: `${aiPanelWidth}px`, minWidth: "280px", maxWidth: "750px" }}
+                className="flex flex-col bg-(--color-bg-secondary) rounded-xl border border-(--color-border) shadow-xs shrink-0 overflow-hidden h-full z-20"
+              >
+                <AiChatPanel onClose={() => setIsAiPanelOpen(false)} />
+              </div>
+            </>
+          )}
         </div>
       </div>
       <StatusBar

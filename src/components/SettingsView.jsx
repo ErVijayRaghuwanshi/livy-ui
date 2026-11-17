@@ -485,11 +485,36 @@ export default function SettingsView({
       category: "ai",
       categoryLabel: "AI & Copilot",
       title: "AI Provider",
-      description: "Select the LLM provider for the AI Copilot. Local Ollama runs completely on your machine without third-party cloud backends.",
+      description: "Select the primary LLM provider for AI Copilot. Local Ollama runs on-device; Google GenAI and OpenAI connect directly from browser with your API key.",
       type: "select",
       options: [
         { label: "Local Ollama (localhost:11434)", value: "ollama" },
-        { label: "OpenAI Compatible Endpoint", value: "openai" },
+        { label: "Google GenAI (Gemini 2.0 / 1.5)", value: "gemini" },
+        { label: "OpenAI (GPT-4o / GPT-4o Mini)", value: "openai" },
+        { label: "Custom OpenAI-Compatible Endpoint", value: "custom" },
+      ],
+      commonlyUsed: true,
+    },
+    {
+      key: "ai.geminiApiKey",
+      category: "ai",
+      categoryLabel: "AI & Copilot",
+      title: "Google GenAI (Gemini) API Key",
+      description: "API Key from Google AI Studio (https://aistudio.google.com/app/apikey). Stored locally in browser only.",
+      type: "password",
+      commonlyUsed: true,
+    },
+    {
+      key: "ai.geminiModel",
+      category: "ai",
+      categoryLabel: "AI & Copilot",
+      title: "Gemini Model",
+      description: "Google Gemini model to use for SQL generation and workbench automation.",
+      type: "select",
+      options: [
+        { label: "Gemini 2.0 Flash (Fast, Top Reasoning & Tools)", value: "gemini-2.0-flash" },
+        { label: "Gemini 1.5 Flash (Lightweight & Fast)", value: "gemini-1.5-flash" },
+        { label: "Gemini 1.5 Pro (Deep Multimodal Reasoning)", value: "gemini-1.5-pro" },
       ],
       commonlyUsed: true,
     },
@@ -497,19 +522,25 @@ export default function SettingsView({
       key: "ai.hostUrl",
       category: "ai",
       categoryLabel: "AI & Copilot",
-      title: "Ollama / LLM Host URL",
-      description: "Direct client-side endpoint for the LLM daemon (e.g. http://localhost:11434).",
+      title: "Ollama Host URL",
+      description: "Direct client-side endpoint for local Ollama daemon (e.g. http://localhost:11434).",
       type: "text",
-      commonlyUsed: true,
     },
     {
       key: "ai.defaultModel",
       category: "ai",
       categoryLabel: "AI & Copilot",
-      title: "Default Model Name",
-      description: "Model to use for chat, SQL generation, and tool calling (e.g. nemotron-3-nano:4b, gemma2:2b, qwen2.5-coder:7b).",
+      title: "Ollama Model Name",
+      description: "Ollama model for chat and tool calling (e.g. nemotron-3-nano:4b, gemma2:2b).",
       type: "text",
-      commonlyUsed: true,
+    },
+    {
+      key: "ai.openaiApiKey",
+      category: "ai",
+      categoryLabel: "AI & Copilot",
+      title: "OpenAI API Key",
+      description: "OpenAI API key (sk-...). Stored locally in browser only.",
+      type: "password",
     },
     {
       key: "ai.autoExecute",
@@ -1011,9 +1042,9 @@ export default function SettingsView({
                         />
                       )}
 
-                      {def.type === "text" && (
+                      {(def.type === "text" || def.type === "password") && (
                         <input
-                          type="text"
+                          type={def.type === "password" ? "password" : "text"}
                           value={currentValue}
                           onChange={(e) => handleSettingChange(def.key, e.target.value)}
                           className="w-full max-w-md px-3 py-1.5 text-xs rounded bg-[#2b2b2b] border border-[#3c3c3c] text-white focus:outline-none focus:border-[#0078d4] font-mono"
