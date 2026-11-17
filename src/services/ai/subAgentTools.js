@@ -351,7 +351,10 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
           };
         }
 
-        return { ok: false, error: `Could not inspect column schema for table ${targetDb}.${targetTable}. Verify that the table exists.` };
+        const tablesMap = schemaContext?.tables || {};
+        const availableInDb = tablesMap[targetDb] || Object.values(tablesMap)[0] || [];
+        const tablesHint = availableInDb.length > 0 ? ` Available tables in '${targetDb}': ${availableInDb.join(", ")}.` : "";
+        return { ok: false, error: `Table '${targetTable}' not found in database '${targetDb}'.${tablesHint}` };
       } else {
         try {
           if (sessionId != null) {

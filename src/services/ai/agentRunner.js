@@ -55,6 +55,8 @@ export async function runAgentConversation({
 }) {
   const {
     sqlFiles,
+    livyContext,
+    schemaContext,
     activeEngine = "doris",
   } = context;
 
