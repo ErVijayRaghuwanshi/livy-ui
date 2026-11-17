@@ -101,10 +101,17 @@ function ToolResultItem({ tr }) {
     Icon = Brain;
     label = "Sub-Agent";
     themeClass = "text-blue-300 border-blue-800/40 bg-blue-950/20";
+  } else if (tr.name === "run_query") {
+    Icon = Play;
+    label = "Run Query & Show Result";
+    themeClass = "text-emerald-300 border-emerald-800/40 bg-emerald-950/20";
+  } else if (tr.name === "write_sql_file") {
+    Icon = FilePlus;
+    label = "Open SQL Tab";
   } else if (tr.name === "read_active_file") {
     Icon = FileSearch;
     label = "Read Active Tab";
-  } else if (tr.name === "open_new_tab") {
+  } else if (tr.name === "open_new_tab" || tr.name === "open_file") {
     Icon = FilePlus;
     label = "Open Editor Tab";
   } else if (tr.name === "write_active_editor") {
@@ -129,6 +136,11 @@ function ToolResultItem({ tr }) {
           {tr.args?.fileName && (
             <span className="text-[#888888] truncate text-[10px]">
               ({tr.args.fileName})
+            </span>
+          )}
+          {tr.args?.newTabName && (
+            <span className="text-[#888888] truncate text-[10px]">
+              ({tr.args.newTabName})
             </span>
           )}
         </div>

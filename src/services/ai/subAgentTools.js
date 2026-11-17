@@ -12,6 +12,28 @@ export const SUPERVISOR_TOOLS = [
   {
     type: "function",
     function: {
+      name: "run_query",
+      description:
+        "Executes a SQL query immediately in the workbench and displays the live data grid directly on the user's Result Tab. Use this whenever the user asks to 'show', 'display', 'view', or 'run' data, tables, or queries.",
+      parameters: {
+        type: "object",
+        properties: {
+          sql: {
+            type: "string",
+            description: "The complete SQL statement to execute and display on the Result Tab.",
+          },
+          newTabName: {
+            type: "string",
+            description: "Optional tab name (e.g. 'Select_CDR.sql') to open the query into before running.",
+          },
+        },
+        required: ["sql"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "delegate_task",
       description:
         "Delegates a specialized subtask to an isolated subagent with Context Quarantine. The subagent executes in its own isolated context and returns ONLY a concise summary, keeping the main chat lean.",
@@ -204,6 +226,7 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
     sqlFiles,
     livyContext,
     schemaContext,
+    editorRef,
     activeEngine = "doris",
   } = context;
 
@@ -306,19 +329,46 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
       }
     }
 
+    case "run_query": {
+      const { sql, newTabName } = args;
+      if (!sql) throw new Error("Missing 'sql' argument.");
+
+      let tabOpened = null;
+      if (newTabName || !sqlFiles?.activeFile) {
+        const resolvedName = newTabName || `Query_${Date.now().toString().slice(-4)}.sql`;
+        if (typeof sqlFiles?.addFile === "function") {
+          await sqlFiles.addFile({ name: resolvedName, content: sql });
+          tabOpened = resolvedName;
+          await new Promise((r) => setTimeout(r, 120));
+        }
+      }
+
+      if (editorRef?.current?.runSql) {
+        editorRef.current.runSql(sql);
+        return {
+          ok: true,
+          action: "executed_on_result_tab",
+          fileName: tabOpened || sqlFiles?.activeFile?.name,
+          sql,
+          message: "Query executed in workbench. Live results are displayed directly on the Result Tab.",
+        };
+      } else {
+        return await executeSubAgentTool("execute_sql", { sql }, context);
+      }
+    }
+
     case "write_sql_file": {
       const { fileName, sql, mode = "new_tab" } = args;
       if (!sql) throw new Error("Missing 'sql' argument.");
       const resolvedName = fileName || `Query_${Date.now().toString().slice(-4)}.sql`;
 
-      if (mode === "replace_current" && sqlFiles?.activeFileId) {
-        sqlFiles.updateFileContent?.(sqlFiles.activeFileId, sql);
+      if (mode === "replace_current" && sqlFiles?.activeTabId) {
+        sqlFiles.updateContent?.(sqlFiles.activeTabId, sql);
         return { ok: true, action: "replaced_current_tab", fileName: sqlFiles.activeFile?.name };
       }
 
-      if (typeof sqlFiles?.createFile === "function") {
-        const newFile = sqlFiles.createFile(resolvedName, sql);
-        if (newFile?.id) sqlFiles.setActiveFileId(newFile.id);
+      if (typeof sqlFiles?.addFile === "function") {
+        await sqlFiles.addFile({ name: resolvedName, content: sql });
         return { ok: true, action: "opened_new_tab", fileName: resolvedName };
       }
 
@@ -334,7 +384,7 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
       );
 
       if (match) {
-        sqlFiles.setActiveFileId(match.id);
+        sqlFiles.setActiveTab?.(match.id);
         return { ok: true, opened: match.name };
       }
       return { ok: false, error: `File '${fileName}' not found in open tabs.` };
@@ -359,6 +409,11 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
     case "execute_sql": {
       const querySql = (args.sql || sqlFiles?.activeFile?.content || "").trim();
       if (!querySql) throw new Error("No SQL statement provided to execute.");
+
+      // If editorRef is available, trigger workbench run so user's Result Tab updates live
+      if (editorRef?.current?.runSql) {
+        editorRef.current.runSql(querySql);
+      }
 
       if (isDoris) {
         const start = performance.now();

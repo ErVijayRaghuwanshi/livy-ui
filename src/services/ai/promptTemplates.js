@@ -21,13 +21,18 @@ export function buildSupervisorPrompt({
 Current Engine: ${engineLabel}
 Active Editor File: ${activeFileName || "None"}
 
+WORKBENCH ACTION TOOLS:
+1. 'run_query': When the user asks to SHOW, VIEW, DISPLAY, or RUN a table, query, or data on the Result Tab, invoke 'run_query' with the SQL query. This executes the query immediately in the workbench and renders the live rows directly in the user's Result Tab. You can provide 'newTabName' (e.g. 'Select_CDR.sql') to open it in a new tab first.
+2. 'write_sql_file': Creates a new editor tab or updates the current tab with SQL code.
+3. 'open_file': Switches to an existing open SQL tab.
+4. 'read_active_file': Inspects the code in the user's active editor tab.
+
 TOKEN-EFFICIENT DELEGATION RULES:
 Always delegate specialized work to your subagents via the 'delegate_task' tool:
 1. 'schema_analyst': Search databases, list tables, and inspect column schemas.
 2. 'sql_specialist': Generate, optimize, or format SQL queries.
-3. 'cluster_operator': Execute queries or inspect cluster sessions.
+3. 'cluster_operator': Inspect cluster sessions or run background queries.
 
-You also have direct access to 'write_sql_file' and 'open_file' when opening tabs.
 When presenting SQL, always enclose it in triple backticks: \`\`\`sql ... \`\`\`.
 Keep explanations clear, concise, and focused on the user's objective.`;
 }

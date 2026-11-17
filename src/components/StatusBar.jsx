@@ -97,18 +97,17 @@ export default function StatusBar({
           !isOnline
             ? "Browser Offline: running on cached PWA app shell"
             : isServerReachable === false
-            ? `${isDoris ? "Apache Doris FE" : "Livy Server"} down/unreachable`
-            : `${isDoris ? "Apache Doris FE" : "Livy Server"} connected`
+              ? `${isDoris ? "Apache Doris FE" : "Livy Server"} down/unreachable`
+              : `${isDoris ? "Apache Doris FE" : "Livy Server"} connected`
         }>
-          <span className={`w-1.5 h-1.5 rounded-full ${
-            !isOnline
+          <span className={`w-1.5 h-1.5 rounded-full ${!isOnline
               ? "bg-gray-500"
               : isServerReachable === false
-              ? "bg-rose-500 animate-pulse"
-              : isServerReachable === null
-              ? "bg-amber-500 animate-pulse"
-              : "bg-green-500"
-          }`} />
+                ? "bg-rose-500 animate-pulse"
+                : isServerReachable === null
+                  ? "bg-amber-500 animate-pulse"
+                  : "bg-green-500"
+            }`} />
           <span className="text-[10px] text-(--color-text-muted)/70">
             {!isOnline ? "Offline" : isServerReachable === false ? (isDoris ? "Doris Unreachable" : "Server Down") : "Connected"}
           </span>
@@ -198,22 +197,23 @@ export default function StatusBar({
         </button>
 
         {/* Query history */}
-        <button
+        {/* <button
           onClick={onShowHistory}
           className="flex items-center gap-1 hover:text-(--color-text-primary) transition-colors"
           title="Query History (Ctrl+Shift+H)"
         >
           <History size={11} />
-        </button>
+        </button> */}
 
         {/* Keyboard shortcuts hint */}
-        <button
+        {/* <button
           onClick={onShowShortcuts}
           className="flex items-center gap-1 hover:text-(--color-text-primary) transition-colors"
           title="Keyboard Shortcuts (?)"
         >
           <Keyboard size={11} />
-        </button>
+        </button> */}
+
       </div>
     </div>
   );
