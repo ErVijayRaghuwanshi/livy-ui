@@ -5,6 +5,7 @@ export default function SettingsTab({
   toggleTheme,
   setShowConnectionModal,
   onOpenAsModal,
+  initialCategory = "commonlyUsed",
 }) {
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-[#181818]">
@@ -14,6 +15,7 @@ export default function SettingsTab({
         theme={theme}
         toggleTheme={toggleTheme}
         setShowConnectionModal={setShowConnectionModal}
+        initialCategory={initialCategory}
       />
     </div>
   );

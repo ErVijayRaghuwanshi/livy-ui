@@ -8,6 +8,7 @@ export default function SettingsModal({
   theme,
   toggleTheme,
   setShowConnectionModal,
+  initialCategory = "commonlyUsed",
 }) {
   const [isMaximized, setIsMaximized] = useState(false);
   const modalContainerRef = useRef(null);
@@ -55,6 +56,7 @@ export default function SettingsModal({
           theme={theme}
           toggleTheme={toggleTheme}
           setShowConnectionModal={setShowConnectionModal}
+          initialCategory={initialCategory}
         />
       </div>
     </div>

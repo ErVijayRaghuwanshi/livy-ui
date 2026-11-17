@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Editor from "@monaco-editor/react";
+import AiSettingsManager from "./AiChat/AiSettingsManager";
 import {
   Search,
   Code,
@@ -52,6 +53,7 @@ export default function SettingsView({
   onClose,
   isMaximized = false,
   onToggleMaximize,
+  initialCategory = "commonlyUsed",
 }) {
   const { settings, updateSetting, updateAllSettings, resetToDefaults, resetSetting } = useSettings();
   const {
@@ -78,7 +80,13 @@ export default function SettingsView({
 
   const [mode, setMode] = useState("ui"); // 'ui' | 'json'
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState("commonlyUsed");
+  const [activeCategory, setActiveCategory] = useState(initialCategory || "commonlyUsed");
+
+  useEffect(() => {
+    if (initialCategory) {
+      setActiveCategory(initialCategory);
+    }
+  }, [initialCategory]);
   const [jsonText, setJsonText] = useState(() => JSON.stringify(settings, null, 2));
   const [jsonError, setJsonError] = useState(null);
   const [isResetSuccess, setIsResetSuccess] = useState(false);
@@ -481,66 +489,13 @@ export default function SettingsView({
       type: "boolean",
     },
     {
-      key: "ai.provider",
+      key: "ai.manager",
       category: "ai",
       categoryLabel: "AI & Copilot",
-      title: "AI Provider",
-      description: "Select the primary LLM provider for AI Copilot. Local Ollama runs on-device; Google GenAI and OpenAI connect directly from browser with your API key.",
-      type: "select",
-      options: [
-        { label: "Local Ollama (localhost:11434)", value: "ollama" },
-        { label: "Google GenAI (Gemini 2.0 / 1.5)", value: "gemini" },
-        { label: "OpenAI (GPT-4o / GPT-4o Mini)", value: "openai" },
-        { label: "Custom OpenAI-Compatible Endpoint", value: "custom" },
-      ],
+      title: "Model & Provider Configuration",
+      description: "Manage LLM providers (Local Ollama, Google GenAI Gemini, OpenAI, Custom), host endpoints, API keys, and model parameters for AI Copilot.",
+      type: "aiManager",
       commonlyUsed: true,
-    },
-    {
-      key: "ai.geminiApiKey",
-      category: "ai",
-      categoryLabel: "AI & Copilot",
-      title: "Google GenAI (Gemini) API Key",
-      description: "API Key from Google AI Studio (https://aistudio.google.com/app/apikey). Stored locally in browser only.",
-      type: "password",
-      commonlyUsed: true,
-    },
-    {
-      key: "ai.geminiModel",
-      category: "ai",
-      categoryLabel: "AI & Copilot",
-      title: "Gemini Model",
-      description: "Google Gemini model to use for SQL generation and workbench automation.",
-      type: "select",
-      options: [
-        { label: "Gemini 2.0 Flash (Fast, Top Reasoning & Tools)", value: "gemini-2.0-flash" },
-        { label: "Gemini 1.5 Flash (Lightweight & Fast)", value: "gemini-1.5-flash" },
-        { label: "Gemini 1.5 Pro (Deep Multimodal Reasoning)", value: "gemini-1.5-pro" },
-      ],
-      commonlyUsed: true,
-    },
-    {
-      key: "ai.hostUrl",
-      category: "ai",
-      categoryLabel: "AI & Copilot",
-      title: "Ollama Host URL",
-      description: "Direct client-side endpoint for local Ollama daemon (e.g. http://localhost:11434).",
-      type: "text",
-    },
-    {
-      key: "ai.defaultModel",
-      category: "ai",
-      categoryLabel: "AI & Copilot",
-      title: "Ollama Model Name",
-      description: "Ollama model for chat and tool calling (e.g. nemotron-3-nano:4b, gemma2:2b).",
-      type: "text",
-    },
-    {
-      key: "ai.openaiApiKey",
-      category: "ai",
-      categoryLabel: "AI & Copilot",
-      title: "OpenAI API Key",
-      description: "OpenAI API key (sk-...). Stored locally in browser only.",
-      type: "password",
     },
     {
       key: "ai.autoExecute",
@@ -759,7 +714,8 @@ export default function SettingsView({
       def.type === "sparkConfManager" ||
       def.type === "sessionManager" ||
       def.type === "hostManager" ||
-      def.type === "dorisManager"
+      def.type === "dorisManager" ||
+      def.type === "aiManager"
     ) {
       return false;
     }
@@ -1651,6 +1607,9 @@ export default function SettingsView({
                           </div>
                         );
                       })()}
+
+                      {/* AI & Copilot Manager Section */}
+                      {def.type === "aiManager" && <AiSettingsManager />}
 
                       {/* Full Host Manager Section */}
                       {def.type === "hostManager" && (

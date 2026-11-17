@@ -94,6 +94,12 @@ export default function App() {
   const [showConnectionModal, setShowConnectionModal] = useState(false);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsCategory, setSettingsCategory] = useState("commonlyUsed");
+
+  const handleOpenSettings = useCallback((category = "commonlyUsed") => {
+    setSettingsCategory(category);
+    setIsSettingsOpen(true);
+  }, []);
   const [cursorPosition, setCursorPosition] = useState(null);
   const [syntaxErrors, setSyntaxErrors] = useState([]);
 
@@ -627,7 +633,7 @@ export default function App() {
         setShowShortcuts={setShowShortcuts}
         setShowHistory={setShowHistory}
         setShowConnectionModal={setShowConnectionModal}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenSettings={() => handleOpenSettings("commonlyUsed")}
         editorRef={editorRef}
         onTriggerBounce={handleTriggerBounce}
         onTriggerSnake={handleTriggerSnake}
@@ -636,6 +642,7 @@ export default function App() {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+        initialCategory={settingsCategory}
         onOpenAsTab={() => {
           setIsSettingsOpen(false);
           openSettingsTab();
@@ -669,7 +676,7 @@ export default function App() {
           sidebarCollapsed={sidebarCollapsed}
           setSidebarCollapsed={setSidebarCollapsed}
           isSettingsOpen={isSettingsOpen}
-          onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenSettings={() => handleOpenSettings("commonlyUsed")}
           onOpenWorkspaceModal={() => setShowWorkspaceModal(true)}
           isAiPanelOpen={isAiPanelOpen}
           onToggleAiPanel={() => setIsAiPanelOpen((p) => !p)}
@@ -743,6 +750,7 @@ export default function App() {
                     theme={theme}
                     toggleTheme={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
                     setShowConnectionModal={setShowConnectionModal}
+                    initialCategory={settingsCategory}
                     onOpenAsModal={() => setIsSettingsOpen(true)}
                   />
                 ) : activeGames[activeFile.id] === 'bounce' ? (
@@ -932,7 +940,10 @@ export default function App() {
                 style={{ width: `${aiPanelWidth}px`, minWidth: "280px", maxWidth: "750px" }}
                 className="flex flex-col bg-(--color-bg-secondary) rounded-xl border border-(--color-border) shadow-xs shrink-0 overflow-hidden h-full z-20"
               >
-                <AiChatPanel onClose={() => setIsAiPanelOpen(false)} />
+                <AiChatPanel
+                  onClose={() => setIsAiPanelOpen(false)}
+                  onOpenSettings={() => handleOpenSettings("ai")}
+                />
               </div>
             </>
           )}

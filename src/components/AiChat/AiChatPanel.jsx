@@ -12,10 +12,10 @@ import {
   Cpu,
   FileCode,
   PanelRightClose,
-  X,
+  Sliders,
+  AlertCircle,
 } from "lucide-react";
 import { useAi } from "../../context/AiContext";
-import ModelSelector from "./ModelSelector";
 import ChatMessage from "./ChatMessage";
 
 const SUGGESTIONS = [
@@ -36,7 +36,7 @@ const SUGGESTIONS = [
   },
 ];
 
-export default function AiChatPanel({ onClose }) {
+export default function AiChatPanel({ onClose, onOpenSettings }) {
   const {
     provider,
     providerLabel,
@@ -95,7 +95,6 @@ export default function AiChatPanel({ onClose }) {
 
   const handleInputChange = (e) => {
     setInput(e.target.value);
-    // Auto-adjust height
     e.target.style.height = "auto";
     e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
   };
@@ -108,24 +107,59 @@ export default function AiChatPanel({ onClose }) {
 
   return (
     <div className="flex flex-col h-full bg-(--color-bg-primary) select-none">
-      {/* Top Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border) bg-(--color-bg-secondary)">
-        <div className="flex items-center gap-2">
-          <Sparkles size={16} className="text-purple-400" />
-          <span className="font-semibold text-xs text-white uppercase tracking-wider">
+      {/* Top Header: Ultra-compact single line (~36px) */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border) bg-(--color-bg-secondary) shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <Sparkles size={15} className="text-purple-400 shrink-0" />
+          <span className="font-semibold text-xs text-white uppercase tracking-wider shrink-0">
             AI Copilot
           </span>
-        </div>
-        <div className="flex items-center gap-1">
+
+          {/* Model Status Pill: Clicking opens AI Settings */}
           <button
+            type="button"
+            onClick={onOpenSettings}
+            title={`Active Model: ${activeModelLabel} (${providerLabel})\nStatus: ${isOnline ? "Online" : "Needs Setup"}\nClick to configure in Settings`}
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-(--color-bg-primary) border border-(--color-border) hover:border-purple-500/50 text-[10px] text-[#aaaaaa] hover:text-white cursor-pointer transition-colors truncate max-w-[170px]"
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                isOnline
+                  ? "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.8)]"
+                  : "bg-amber-500 shadow-[0_0_5px_rgba(245,158,11,0.8)]"
+              }`}
+            />
+            <span className="truncate font-mono">{activeModelLabel}</span>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0">
+          {/* Quick Settings Gear Button */}
+          {onOpenSettings && (
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              title="Configure AI Providers & Models in Settings"
+              className="p-1 rounded text-[#858585] hover:text-white hover:bg-(--color-bg-hover) transition-colors cursor-pointer"
+            >
+              <Sliders size={13} />
+            </button>
+          )}
+
+          {/* Clear Chat History */}
+          <button
+            type="button"
             onClick={clearChat}
             title="Clear Chat History"
             className="p-1 rounded text-[#858585] hover:text-white hover:bg-(--color-bg-hover) transition-colors cursor-pointer"
           >
             <Trash2 size={13} />
           </button>
+
+          {/* Close Panel */}
           {onClose && (
             <button
+              type="button"
               onClick={onClose}
               title="Close AI Copilot Panel (⌘⇧A)"
               className="p-1 rounded text-[#858585] hover:text-white hover:bg-(--color-bg-hover) transition-colors cursor-pointer ml-0.5"
@@ -136,11 +170,33 @@ export default function AiChatPanel({ onClose }) {
         </div>
       </div>
 
-      {/* Model & Connection Selector */}
-      <ModelSelector />
-
       {/* Chat Messages Scroll Container */}
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 select-text">
+        {/* Offline / Setup Needed Callout */}
+        {!isOnline && messages.length <= 1 && (
+          <div className="p-3 rounded-lg bg-amber-950/20 border border-amber-600/40 text-amber-200 text-xs flex flex-col gap-2 mr-2 animate-fadeIn">
+            <div className="flex items-center gap-2 font-medium">
+              <AlertCircle size={14} className="text-amber-400 shrink-0" />
+              <span>{provider === "ollama" ? "Ollama is Offline" : "API Key Required"}</span>
+            </div>
+            <p className="text-[11px] text-amber-300/80 leading-relaxed">
+              {provider === "ollama"
+                ? `Cannot connect to Ollama at ${hostUrl}. Ensure your local Ollama daemon is running or update your endpoint in Settings.`
+                : `A valid API key is required to generate responses with ${providerLabel}.`}
+            </p>
+            {onOpenSettings && (
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/50 text-amber-100 text-[11px] font-medium transition-colors cursor-pointer w-fit"
+              >
+                <Sliders size={12} />
+                <span>Configure in Settings</span>
+              </button>
+            )}
+          </div>
+        )}
+
         {messages.map((msg) => (
           <ChatMessage key={msg.id} message={msg} />
         ))}
@@ -208,6 +264,7 @@ export default function AiChatPanel({ onClose }) {
               return (
                 <button
                   key={i}
+                  type="button"
                   onClick={() => sendMessage(item.prompt)}
                   disabled={!isOnline || isStreaming}
                   className="flex items-center gap-2 px-2.5 py-1.5 rounded bg-(--color-bg-secondary) hover:bg-(--color-bg-hover) text-[#aaaaaa] hover:text-white border border-(--color-border) text-[11px] text-left transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
