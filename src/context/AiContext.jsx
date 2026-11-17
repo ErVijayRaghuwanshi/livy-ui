@@ -261,6 +261,7 @@ export function AiProvider({ children, editorRef }) {
           customUrl,
           customApiKey,
           model: activeModel,
+          prompt: userText,
           supportsTools,
           history: historyPayload,
           context: runnerContext,
