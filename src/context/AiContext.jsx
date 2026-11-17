@@ -23,6 +23,7 @@ import { useSettings } from "./SettingsContext";
 import { v4 as uuidv4 } from "uuid";
 
 const AiContext = createContext(null);
+const STORAGE_KEY_CHAT_HISTORY = "livy_ai_chat_history";
 
 const DEFAULT_WELCOME_MESSAGE = {
   id: "welcome",
@@ -33,9 +34,9 @@ I can help you:
 - 📝 **Write SQL** for Apache Spark or Apache Doris
 - 📂 **Create & Open Files** in your editor
 - ▶️ **Execute Queries** and view live results
-- ⚡ **Inspect Livy Sessions** and cluster health
+- 🔍 **Inspect Schemas** & table catalogs automatically via specialized subagents
 
-Select **Local Ollama** or **Google GenAI (Gemini)** in the header above to begin!`,
+Select your provider in the header above to begin!`,
   timestamp: new Date().toISOString(),
 };
 
@@ -89,13 +90,32 @@ export function AiProvider({ children, editorRef }) {
       ? true
       : isOllamaOnline;
 
-  const [messages, setMessages] = useState(() => [DEFAULT_WELCOME_MESSAGE]);
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_CHAT_HISTORY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [DEFAULT_WELCOME_MESSAGE];
+  });
+
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isWarmingUp, setIsWarmingUp] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
   const [streamingReasoning, setStreamingReasoning] = useState("");
   const [activeTool, setActiveTool] = useState(null);
 
   const abortControllerRef = useRef(null);
+
+  // Persist chat messages to localStorage (last 30 turns)
+  useEffect(() => {
+    try {
+      const toSave = messages.slice(-30);
+      localStorage.setItem(STORAGE_KEY_CHAT_HISTORY, JSON.stringify(toSave));
+    } catch {}
+  }, [messages]);
 
   // Determine active engine (doris or spark)
   const activeEngine = sqlFiles?.activeFile?.engine || (sqlFiles?.dorisMode ? "doris" : "spark");
@@ -200,8 +220,13 @@ export function AiProvider({ children, editorRef }) {
   const clearChat = useCallback(() => {
     stopGeneration();
     setMessages([DEFAULT_WELCOME_MESSAGE]);
+    try {
+      localStorage.removeItem(STORAGE_KEY_CHAT_HISTORY);
+    } catch {}
     setStreamingContent("");
     setStreamingReasoning("");
+    setActiveTool(null);
+    setIsWarmingUp(false);
   }, [stopGeneration]);
 
   // Send a message and trigger the agent loop
@@ -219,6 +244,7 @@ export function AiProvider({ children, editorRef }) {
 
       setMessages((prev) => [...prev, userMessage]);
       setIsStreaming(true);
+      setIsWarmingUp(false);
       setStreamingContent("");
       setStreamingReasoning("");
       setActiveTool(null);
@@ -241,9 +267,10 @@ export function AiProvider({ children, editorRef }) {
         activeEngine,
       };
 
-      // History formatted for OpenAI-compatible endpoint (excluding errors and welcome)
+      // Sliding Context Window: retain only the last 8 messages (4 user + 4 assistant)
       const historyPayload = messages
         .filter((m) => m.id !== "welcome" && !m.isError)
+        .slice(-8)
         .map((m) => ({
           role: m.role,
           content: m.content,
@@ -275,6 +302,9 @@ export function AiProvider({ children, editorRef }) {
           },
           onToolCall: (toolCallInfo) => {
             setActiveTool(toolCallInfo);
+          },
+          onWarmingUp: (status) => {
+            setIsWarmingUp(status);
           },
           signal: controller.signal,
         });
@@ -313,8 +343,7 @@ export function AiProvider({ children, editorRef }) {
         }
       } finally {
         setIsStreaming(false);
-        setStreamingContent("");
-        setStreamingReasoning("");
+        setIsWarmingUp(false);
         setActiveTool(null);
         abortControllerRef.current = null;
       }
@@ -336,6 +365,28 @@ export function AiProvider({ children, editorRef }) {
       customUrl,
       customApiKey,
     ]
+  );
+
+  // 1-Click retry for failed messages
+  const retryLastMessage = useCallback(
+    (failedMessageId) => {
+      let promptToRetry = "";
+      if (failedMessageId) {
+        const idx = messages.findIndex((m) => m.id === failedMessageId);
+        if (idx > 0 && messages[idx - 1]?.role === "user") {
+          promptToRetry = messages[idx - 1].content;
+          setMessages((prev) => prev.filter((m) => m.id !== failedMessageId));
+        }
+      }
+      if (!promptToRetry) {
+        const lastUser = [...messages].reverse().find((m) => m.role === "user");
+        promptToRetry = lastUser?.content || "";
+      }
+      if (promptToRetry) {
+        sendMessage(promptToRetry);
+      }
+    },
+    [messages, sendMessage]
   );
 
   // Execute action card from chat UI
@@ -374,8 +425,23 @@ export function AiProvider({ children, editorRef }) {
     [editorRef, sqlFiles]
   );
 
+  const providerLabel =
+    provider === "gemini"
+      ? "Google GenAI (Gemini)"
+      : provider === "openai"
+      ? "OpenAI"
+      : provider === "custom"
+      ? "Custom API"
+      : "Local Ollama";
+
+  const activeModelObj = availableModels.find(
+    (m) => m.name === activeModel || m.model === activeModel || m.id === activeModel
+  );
+  const activeModelLabel = activeModelObj?.displayName || activeModelObj?.name || activeModel || "Default Model";
+
   const value = {
     provider,
+    providerLabel,
     setProvider,
     hostUrl,
     setHostUrl: (url) => updateSetting("ai.hostUrl", url),
@@ -384,6 +450,7 @@ export function AiProvider({ children, editorRef }) {
     setGeminiApiKey: (key) => updateSetting("ai.geminiApiKey", key),
     setOpenaiApiKey: (key) => updateSetting("ai.openaiApiKey", key),
     activeModel,
+    activeModelLabel,
     setActiveModel: setModel,
     availableModels,
     isOnline,
@@ -391,10 +458,12 @@ export function AiProvider({ children, editorRef }) {
     refreshModels,
     messages,
     isStreaming,
+    isWarmingUp,
     streamingContent,
     streamingReasoning,
     activeTool,
     sendMessage,
+    retryLastMessage,
     stopGeneration,
     clearChat,
     handleActionCard,

@@ -74,6 +74,7 @@ export async function executeSubAgent({
   let iteration = 0;
   const maxIterations = 3;
   let finalSubagentResponse = "";
+  const executedCalls = new Set();
 
   while (iteration < maxIterations) {
     iteration++;
@@ -125,27 +126,35 @@ export async function executeSubAgent({
         args = JSON.parse(tc.function?.arguments || "{}");
       } catch {}
 
-      onToolCall?.({
-        id: tc.id,
-        name: `[${subagent}] ${toolName}`,
-        args,
-        status: "executing",
-      });
-
+      const callFingerprint = `${toolName}:${tc.function?.arguments || ""}`;
       let toolResult;
-      try {
-        toolResult = await executeSubAgentTool(toolName, args, context);
-      } catch (err) {
-        toolResult = { ok: false, error: err.message };
-      }
 
-      onToolCall?.({
-        id: tc.id,
-        name: `[${subagent}] ${toolName}`,
-        args,
-        status: "completed",
-        result: toolResult,
-      });
+      if (executedCalls.has(callFingerprint)) {
+        toolResult = { ok: true, note: "Tool output already retrieved in this turn." };
+      } else {
+        executedCalls.add(callFingerprint);
+
+        onToolCall?.({
+          id: tc.id,
+          name: `[${subagent}] ${toolName}`,
+          args,
+          status: "executing",
+        });
+
+        try {
+          toolResult = await executeSubAgentTool(toolName, args, context);
+        } catch (err) {
+          toolResult = { ok: false, error: err.message };
+        }
+
+        onToolCall?.({
+          id: tc.id,
+          name: `[${subagent}] ${toolName}`,
+          args,
+          status: "completed",
+          result: toolResult,
+        });
+      }
 
       subagentMessages.push({
         role: "tool",

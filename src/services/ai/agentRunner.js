@@ -50,6 +50,7 @@ export async function runAgentConversation({
   onChunk,
   onReasoningChunk,
   onToolCall,
+  onWarmingUp,
   signal,
 }) {
   const {
@@ -92,6 +93,7 @@ export async function runAgentConversation({
   let finalContent = "";
   let finalReasoning = "";
   const allToolResults = [];
+  const executedDelegations = new Set();
 
   while (iteration < maxIterations) {
     iteration++;
@@ -103,20 +105,45 @@ export async function runAgentConversation({
     let turnContent = "";
     let turnReasoning = "";
 
-    const { content, reasoning, toolCalls, extraContent } = await streamUnifiedChat({
-      ...modelConfig,
-      messages: conversationMessages,
-      tools: toolsToPass,
-      onChunk: (chunk) => {
-        turnContent += chunk;
-        onChunk?.(chunk);
-      },
-      onReasoningChunk: (rChunk) => {
-        turnReasoning += rChunk;
-        onReasoningChunk?.(rChunk);
-      },
-      signal,
-    });
+    let hasReceivedFirstToken = false;
+    const warmupTimer = setTimeout(() => {
+      if (!hasReceivedFirstToken) {
+        onWarmingUp?.(true);
+      }
+    }, 3500);
+
+    let streamResult;
+    try {
+      streamResult = await streamUnifiedChat({
+        ...modelConfig,
+        messages: conversationMessages,
+        tools: toolsToPass,
+        onChunk: (chunk) => {
+          if (!hasReceivedFirstToken) {
+            hasReceivedFirstToken = true;
+            clearTimeout(warmupTimer);
+            onWarmingUp?.(false);
+          }
+          turnContent += chunk;
+          onChunk?.(chunk);
+        },
+        onReasoningChunk: (rChunk) => {
+          if (!hasReceivedFirstToken) {
+            hasReceivedFirstToken = true;
+            clearTimeout(warmupTimer);
+            onWarmingUp?.(false);
+          }
+          turnReasoning += rChunk;
+          onReasoningChunk?.(rChunk);
+        },
+        signal,
+      });
+    } finally {
+      clearTimeout(warmupTimer);
+      onWarmingUp?.(false);
+    }
+
+    const { content, reasoning, toolCalls, extraContent } = streamResult;
 
     finalContent += (finalContent ? "\n" : "") + (content || "");
     finalReasoning += (finalReasoning ? "\n" : "") + (reasoning || "");
@@ -164,42 +191,53 @@ export async function runAgentConversation({
       if (toolName === "delegate_task") {
         const subagentType = args.subagent || "subagent";
         const taskDescription = args.task || "";
+        const delegationKey = `${subagentType}:${taskDescription.slice(0, 100)}`;
 
-        onToolCall?.({
-          id: tc.id,
-          name: `Subagent [${subagentType}]`,
-          args: { task: taskDescription },
-          status: "executing",
-        });
-
-        try {
-          const subResult = await executeSubAgent({
-            subagent: subagentType,
-            task: taskDescription,
-            context,
-            modelConfig,
-            onToolCall,
-            signal,
-          });
-
+        if (executedDelegations.has(delegationKey)) {
           toolResult = {
             ok: true,
             subagent: subagentType,
-            summary: subResult.summary,
+            summary: "Subagent has already gathered this information in the current turn.",
           };
-        } catch (err) {
-          toolResult = { ok: false, error: err.message };
+        } else {
+          executedDelegations.add(delegationKey);
+
+          onToolCall?.({
+            id: tc.id,
+            name: `Subagent [${subagentType}]`,
+            args: { task: taskDescription },
+            status: "executing",
+          });
+
+          try {
+            const subResult = await executeSubAgent({
+              subagent: subagentType,
+              task: taskDescription,
+              context,
+              modelConfig,
+              onToolCall,
+              signal,
+            });
+
+            toolResult = {
+              ok: true,
+              subagent: subagentType,
+              summary: subResult.summary,
+            };
+          } catch (err) {
+            toolResult = { ok: false, error: err.message };
+          }
+
+          allToolResults.push({ id: tc.id, name: `Subagent [${subagentType}]`, args, result: toolResult });
+
+          onToolCall?.({
+            id: tc.id,
+            name: `Subagent [${subagentType}]`,
+            args,
+            status: toolResult.ok ? "completed" : "failed",
+            result: toolResult,
+          });
         }
-
-        allToolResults.push({ id: tc.id, name: `Subagent [${subagentType}]`, args, result: toolResult });
-
-        onToolCall?.({
-          id: tc.id,
-          name: `Subagent [${subagentType}]`,
-          args,
-          status: toolResult.ok ? "completed" : "failed",
-          result: toolResult,
-        });
       } else {
         // 2. WORKBENCH TOOLS: write_sql_file, open_file, etc.
         onToolCall?.({

@@ -76,6 +76,14 @@ export const SUPERVISOR_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "read_active_file",
+      description: "Reads the SQL code in the user's active editor tab when asked to explain, debug, format, or optimize their current query.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
 ];
 
 /**
@@ -148,6 +156,14 @@ export const SQL_SPECIALIST_TOOLS = [
         },
         required: ["sql"],
       },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "read_active_file",
+      description: "Reads the SQL code in the user's active editor tab when asked to explain, debug, format, or optimize their current query.",
+      parameters: { type: "object", properties: {} },
     },
   },
 ];
@@ -322,6 +338,22 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
         return { ok: true, opened: match.name };
       }
       return { ok: false, error: `File '${fileName}' not found in open tabs.` };
+    }
+
+    case "read_active_file": {
+      const active = sqlFiles?.activeFile;
+      if (!active) {
+        return { ok: false, message: "No active file opened in the editor." };
+      }
+      const rawContent = active.content || "";
+      const isTruncated = rawContent.length > 4000;
+      return {
+        ok: true,
+        fileName: active.name,
+        content: isTruncated ? rawContent.slice(0, 4000) : rawContent,
+        isTruncated,
+        characterCount: rawContent.length,
+      };
     }
 
     case "execute_sql": {

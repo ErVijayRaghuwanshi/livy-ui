@@ -2,17 +2,21 @@ import { useState } from "react";
 import {
   Sparkles,
   RefreshCw,
-  CheckCircle2,
-  AlertCircle,
-  Wrench,
   Key,
   Server,
   ExternalLink,
-  ChevronDown,
-  ChevronUp,
+  Wrench,
+  Cpu,
+  Layers,
+  HardDrive,
 } from "lucide-react";
 import { useAi } from "../../context/AiContext";
-import { AI_PROVIDERS } from "../../services/ai/llmProvider";
+
+function formatBytes(bytes) {
+  if (!bytes || typeof bytes !== "number") return "";
+  const gb = bytes / (1024 * 1024 * 1024);
+  return `${gb.toFixed(1)} GB`;
+}
 
 export default function ModelSelector() {
   const {
@@ -125,7 +129,7 @@ export default function ModelSelector() {
               }`}
             />
             <span className={isOnline ? "text-emerald-400" : "text-red-400"}>
-              {isOnline ? "Online" : "Needs Key"}
+              {isOnline ? "Online" : "Needs Setup"}
             </span>
           </div>
 
@@ -211,14 +215,24 @@ export default function ModelSelector() {
             <span className="font-semibold text-blue-300">
               {provider === "gemini" ? "Google GenAI API Key" : "OpenAI API Key"}
             </span>
-            {provider === "gemini" && (
+            {provider === "gemini" ? (
               <a
                 href="https://aistudio.google.com/app/apikey"
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-0.5 text-blue-400 hover:text-blue-300 underline"
               >
-                <span>Get free key</span>
+                <span>Get free Gemini key</span>
+                <ExternalLink size={10} />
+              </a>
+            ) : (
+              <a
+                href="https://platform.openai.com/api-keys"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-0.5 text-emerald-400 hover:text-emerald-300 underline"
+              >
+                <span>Get OpenAI key</span>
                 <ExternalLink size={10} />
               </a>
             )}
@@ -247,43 +261,88 @@ export default function ModelSelector() {
       )}
 
       {/* Model Selection Dropdown */}
-      <div className="flex items-center gap-1.5">
-        <div className="relative flex-1">
-          <select
-            value={activeModel}
-            onChange={(e) => setActiveModel(e.target.value)}
-            onFocus={refreshModels}
-            disabled={availableModels.length === 0}
-            className="w-full bg-(--color-bg-secondary) text-[#cccccc] text-xs rounded border border-(--color-border) px-2 py-1.5 pr-6 appearance-none cursor-pointer focus:outline-none focus:border-purple-500 hover:border-[#555555] transition-colors"
-          >
-            {availableModels.length > 0 ? (
-              availableModels.map((m) => {
-                const val = m.id || m.model || m.name;
-                const label = m.displayName || m.name || val;
-                return (
-                  <option key={val} value={val}>
-                    {label} {m.supportsTools ? " (Tools ✓)" : ""}
-                  </option>
-                );
-              })
-            ) : (
-              <option value={activeModel}>
-                {isOnline ? "No models found" : `${activeModel} (Needs Setup)`}
-              </option>
-            )}
-          </select>
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[#858585]">
-            ▼
-          </div>
+      <div className="relative">
+        <select
+          value={activeModel}
+          onChange={(e) => setActiveModel(e.target.value)}
+          onFocus={refreshModels}
+          disabled={availableModels.length === 0}
+          className="w-full bg-(--color-bg-secondary) text-[#cccccc] text-xs rounded border border-(--color-border) px-2 py-1.5 pr-6 appearance-none cursor-pointer focus:outline-none focus:border-purple-500 hover:border-[#555555] transition-colors font-mono"
+        >
+          {availableModels.length > 0 ? (
+            availableModels.map((m) => {
+              const val = m.id || m.model || m.name;
+              const label = m.displayName || m.name || val;
+              const sizeBadge = m.size ? ` • ${formatBytes(m.size)}` : "";
+              const toolsBadge = m.supportsTools ? " [Tools ✓]" : "";
+              return (
+                <option key={val} value={val}>
+                  {label}
+                  {sizeBadge}
+                  {toolsBadge}
+                </option>
+              );
+            })
+          ) : (
+            <option value={activeModel}>
+              {isOnline ? "No models found" : `${activeModel} (Needs Setup)`}
+            </option>
+          )}
+        </select>
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[#858585]">
+          ▼
         </div>
+      </div>
 
+      {/* Active Model Capabilities / Metadata Badges */}
+      <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
         {currentModelObj?.supportsTools && (
           <span
-            className="flex items-center gap-0.5 px-1.5 py-1 rounded bg-purple-900/40 text-purple-300 border border-purple-700/50 text-[10px]"
-            title="Supports native function calling (open file, write SQL, execute queries)"
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-900/30 text-purple-300 border border-purple-700/40"
+            title="Supports native function calling & subagent task delegation"
           >
             <Wrench size={10} />
-            <span>Tools</span>
+            <span>Tools Enabled</span>
+          </span>
+        )}
+
+        {currentModelObj?.details?.parameter_size && (
+          <span
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-900/30 text-blue-300 border border-blue-700/40 font-mono"
+            title="Model parameter count"
+          >
+            <Cpu size={10} />
+            <span>{currentModelObj.details.parameter_size}</span>
+          </span>
+        )}
+
+        {currentModelObj?.size && (
+          <span
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700 font-mono"
+            title="Disk/VRAM footprint"
+          >
+            <HardDrive size={10} />
+            <span>{formatBytes(currentModelObj.size)}</span>
+          </span>
+        )}
+
+        {currentModelObj?.details?.quantization_level && (
+          <span
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700 font-mono"
+            title="Quantization format"
+          >
+            <Layers size={10} />
+            <span>{currentModelObj.details.quantization_level}</span>
+          </span>
+        )}
+
+        {provider !== "ollama" && (
+          <span
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-900/30 text-emerald-300 border border-emerald-700/40"
+            title="Cloud-hosted API with subagents support"
+          >
+            <Sparkles size={10} />
+            <span>Cloud API</span>
           </span>
         )}
       </div>

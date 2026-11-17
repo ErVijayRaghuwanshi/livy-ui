@@ -38,8 +38,13 @@ const SUGGESTIONS = [
 
 export default function AiChatPanel({ onClose }) {
   const {
+    provider,
+    providerLabel,
+    activeModelLabel,
+    hostUrl,
     messages,
     isStreaming,
+    isWarmingUp,
     streamingContent,
     streamingReasoning,
     activeTool,
@@ -53,6 +58,11 @@ export default function AiChatPanel({ onClose }) {
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
+  // Focus textarea on panel open
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
+
   // Auto-scroll to bottom
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -60,7 +70,7 @@ export default function AiChatPanel({ onClose }) {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, streamingContent, streamingReasoning, activeTool]);
+  }, [messages, streamingContent, streamingReasoning, activeTool, isWarmingUp]);
 
   const handleSubmit = (e) => {
     e?.preventDefault();
@@ -76,6 +86,10 @@ export default function AiChatPanel({ onClose }) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
+    } else if (e.key === "Escape") {
+      if (isStreaming) {
+        stopGeneration();
+      }
     }
   };
 
@@ -85,6 +99,12 @@ export default function AiChatPanel({ onClose }) {
     e.target.style.height = "auto";
     e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
   };
+
+  const placeholderText = !isOnline
+    ? provider === "ollama"
+      ? `Ollama offline at ${hostUrl}...`
+      : `API key required for ${providerLabel}...`
+    : `Ask AI to write SQL or run queries (${activeModelLabel})...`;
 
   return (
     <div className="flex flex-col h-full bg-(--color-bg-primary) select-none">
@@ -141,6 +161,14 @@ export default function AiChatPanel({ onClose }) {
                   <span>Reasoning:</span>
                 </div>
                 {streamingReasoning}
+              </div>
+            )}
+
+            {/* Warming Up / VRAM Model Load State */}
+            {isWarmingUp && !streamingContent && (
+              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded bg-amber-950/30 border border-amber-600/40 text-[11px] text-amber-300 animate-pulse">
+                <Loader2 size={12} className="animate-spin text-amber-400 shrink-0" />
+                <span>Loading model weights into memory... Response will start shortly.</span>
               </div>
             )}
 
@@ -204,11 +232,7 @@ export default function AiChatPanel({ onClose }) {
               onKeyDown={handleKeyDown}
               disabled={isStreaming}
               rows={1}
-              placeholder={
-                isOnline
-                  ? "Ask AI to write SQL, open files, or run queries..."
-                  : "Ollama is offline. Start Ollama to chat..."
-              }
+              placeholder={placeholderText}
               className="flex-1 bg-transparent text-[#cccccc] text-xs px-3 py-2 pr-10 resize-none focus:outline-none placeholder-[#555555] max-h-32 min-h-[36px]"
             />
 
@@ -217,7 +241,7 @@ export default function AiChatPanel({ onClose }) {
                 <button
                   type="button"
                   onClick={stopGeneration}
-                  title="Stop generation"
+                  title="Stop generation (Esc)"
                   className="p-1 rounded bg-red-600 hover:bg-red-500 text-white transition-colors cursor-pointer"
                 >
                   <Square size={13} />
@@ -237,7 +261,7 @@ export default function AiChatPanel({ onClose }) {
 
           <div className="flex items-center justify-between text-[10px] text-[#666666] px-1">
             <span>Enter to send • Shift+Enter for newline</span>
-            <span>Local Ollama</span>
+            <span className="truncate max-w-[160px] font-mono text-[#888888]">{providerLabel}</span>
           </div>
         </form>
       </div>

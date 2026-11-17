@@ -66,24 +66,24 @@ export default function TitleBar({ onOpenCommandPalette, onOpenComputePanel, isA
           <span className="font-medium text-[11px]">AI Copilot</span>
         </button>
 
-        <button
+        {/* <button
           onClick={onOpenComputePanel}
           className="flex items-center gap-2 px-2.5 py-1 bg-(--color-bg-primary) hover:bg-(--color-bg-tertiary)/60 border border-(--color-border) hover:border-(--color-accent)/40 rounded-md transition-all cursor-pointer shadow-2xs group"
           title={`Compute Manager: ${activeHost.name} (${isDoris ? "Apache Doris" : "Spark Livy"}). Click to open.`}
         >
           <span className="text-xs select-none">{isDoris ? "🐬" : "⚡"}</span>
           <span className={`w-1.5 h-1.5 rounded-full ${isDoris ? "bg-cyan-400" : (stateColors[sessionState] || "bg-gray-500")}`} />
-          {/* <span className="text-[10px] font-mono text-(--color-text-secondary) group-hover:text-(--color-text-primary) font-medium truncate max-w-28">
+          <span className="text-[10px] font-mono text-(--color-text-secondary) group-hover:text-(--color-text-primary) font-medium truncate max-w-28">
             {activeHost.name}
-          </span> */}
-          {/* <span className={`text-[8px] font-bold uppercase px-1 py-0.2 rounded ${
+          </span>
+          <span className={`text-[8px] font-bold uppercase px-1 py-0.2 rounded ${
             isDoris
               ? "bg-cyan-500/15 text-cyan-400 border border-cyan-500/25"
               : "bg-amber-500/15 text-amber-400 border border-amber-500/25"
           }`}>
             {isDoris ? "Doris" : "Spark"}
-          </span> */}
-        </button>
+          </span>
+        </button> */}
       </div>
     </div>
   );
