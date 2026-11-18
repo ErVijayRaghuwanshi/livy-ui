@@ -2,14 +2,21 @@
 
 A modern, high-performance web-based SQL workbench for **Apache Spark SQL** (via [Apache Livy](https://livy.incubator.apache.org/)) and **Apache Doris**, built with React 19, Vite 7, and Monaco Editor. Write, run, and manage analytical queries against remote Spark clusters and Doris data warehouses — completely client-side from your browser.
 
-![Tech Stack](https://img.shields.io/badge/React-19-blue) ![Tech Stack](https://img.shields.io/badge/Vite-7-purple) ![Tech Stack](https://img.shields.io/badge/Tailwind_CSS-4-cyan) ![Tech Stack](https://img.shields.io/badge/Monaco_Editor-0.52-green) ![Release](https://img.shields.io/badge/Release-v3.0.0-emerald)
+![Tech Stack](https://img.shields.io/badge/React-19-blue) ![Tech Stack](https://img.shields.io/badge/Vite-7-purple) ![Tech Stack](https://img.shields.io/badge/Tailwind_CSS-4-cyan) ![Tech Stack](https://img.shields.io/badge/Monaco_Editor-0.52-green) ![AI Copilot](https://img.shields.io/badge/AI_Copilot-Ollama%20%7C%20Gemini%20%7C%20OpenAI-purple) ![PWA](https://img.shields.io/badge/PWA-Offline%20Ready-orange) ![Release](https://img.shields.io/badge/Release-v3.1.0-emerald)
 
 ## Features
 
+- **Multi-Provider AI Copilot (`⌘⇧A` / `Ctrl+Shift+A`)** — Autonomous data engineering AI assistant supporting local **Ollama** models (Gemma 2, Llama 3, Qwen 2.5, DeepSeek) with zero telemetry, **Google GenAI** (Gemini 2.5 Flash / Pro), and **OpenAI** (GPT-4o / o1).
+- **DeepAgents Subagent Architecture with Context Quarantine** — Supervisor agent delegating to isolated subagents (`schema_analyst`, `sql_specialist`, `cluster_operator`) that run private loops and return distilled summaries, achieving **75%–85% token reduction per turn**.
+- **Interactive 1-Click Action Cards** — In-chat action buttons (`[▶ Run Query]`, `[+ Open in Tab]`, `[Insert]`, `[Copy]`) for every generated SQL block with click-protection and tab deduplication.
+- **Smart Tab Reuse** — AI edits and query runs default to updating the active editor tab, eliminating tab explosion.
+- **Local Workspaces & Native File System Access API (`⌘O`)** — Open local directories and Git repositories directly on disk via `showDirectoryPicker`, with scaffolding templates, nested file tree explorer, and IndexedDB handle persistence.
+- **Native Markdown Documents & Live Preview (`⌘⌥M`)** — Full Monaco Markdown editing with Mermaid diagram rendering, KaTeX LaTeX math support, and side-by-side preview.
+- **Headless Query Execution** — Execute queries and view live results in the Result Table even when zero files are open on the Welcome Screen.
 - **Dual-Engine Architecture (Spark SQL ⇋ Apache Doris)** — Seamless 1-click switching between Apache Spark SQL sessions and Apache Doris MPP data warehouse query execution.
-- **Compute & Session Manager (`⌘⇧M`)** — Dedicated sidebar panel with quick engine switcher (`⚡ Spark` / `🐬 Doris`), active connection health & latency ping, database selector, and saved endpoints catalog.
+- **Streamlined Compute & Session Manager (`⌘⇧M`)** — Dedicated sidebar panel with isolated engine views (`⚡ Spark` / `🐬 Doris`), real-time latency ping (`● 21ms`), inline database selector, and zero duplicate host cards or badges.
 - **Stateless Apache Doris FE Query Execution** — Instant query execution against Doris Frontends (`/api/query/<cluster>/<database>`) with zero startup wait time.
-- **Doris Cluster Tools** — 1-click introspection shortcuts for storage backends, frontend nodes, databases, tables, AI resources, and workload groups with inline `▶ Run` and insert.
+- **Doris Cluster Introspection Tools** — 1-click shortcuts for storage backends, frontend nodes, databases, tables, AI resources, and workload groups with inline `▶ Run` and insert.
 - **Engine-Aware Autocomplete & Documentation** — Dynamic Monaco autocompletion for 112+ Doris functions (including native `AI_*` and bitmap operations), 32 data types, 178 keywords, and 13 DDL snippets, plus 600+ Spark SQL functions.
 - **Real-Time Static SQL Syntax Validation** — Instant dialect-aware SQL validation powered by `dt-sql-parser` (`MySQL` parser for Doris with syntax masking for custom DDL/SHOW commands; `SparkSQL` parser for Spark).
 - **Native Doris AI & LLM Integration** — Built-in templates and query support for Ollama and OpenAI model resources (`AI_TRANSLATE`, `AI_GENERATE`, `AI_SUMMARIZE`, `AI_MASK`).
@@ -18,7 +25,7 @@ A modern, high-performance web-based SQL workbench for **Apache Spark SQL** (via
 - **Compute Resource Manager** — Fine-grained cluster configuration presets (memory, CPU cores, custom Spark submit options).
 - **Multi-tab SQL Editor** — Create, rename, and manage multiple SQL files with Monaco Editor.
 - **Smart SQL Snippets** — Interactive boilerplate templates for common Spark SQL and Doris operations with tab-stop navigation.
-- **Keyboard Shortcuts** — VS Code-style shortcuts for sidebar, result panel, tabs, and query execution.
+- **Keyboard Shortcuts** — Comprehensive VS Code-style shortcuts for sidebar, result panel, tabs, and query execution.
 - **Query Execution** — Run queries against any Livy or Doris server with live elapsed timer, cancellation, and comment-based run history titles.
 - **Result Table** — Structured table display with column data types, row counts, execution time, and raw value fidelity.
 - **EXPLAIN Plan Viewer** — Syntax-highlighted execution plan display for EXPLAIN queries.
@@ -31,15 +38,17 @@ A modern, high-performance web-based SQL workbench for **Apache Spark SQL** (via
 
 ## Tech Stack
 
-| Layer       | Technology                          |
-| ----------- | ----------------------------------- |
-| Framework   | React 19                            |
-| Bundler     | Vite 7.3                            |
-| Styling     | Tailwind CSS v4                     |
-| Editor      | Monaco Editor (`@monaco-editor/react`) |
-| HTTP Client | Axios                               |
-| Icons       | Lucide React                        |
-| SQL Format  | sql-formatter                       |
+| Layer          | Technology                          |
+| -------------- | ----------------------------------- |
+| Framework      | React 19                            |
+| Bundler        | Vite 7.3                            |
+| Styling        | Tailwind CSS v4                     |
+| Editor         | Monaco Editor (`@monaco-editor/react`) |
+| AI Integration | Ollama / Google GenAI / OpenAI SDK  |
+| Markdown & Math| Marked + Mermaid 12 + KaTeX         |
+| SQL Parsing    | `dt-sql-parser` + `sql-formatter`   |
+| HTTP Client    | Axios                               |
+| Icons          | Lucide React                        |
 
 ## Getting Started
 
@@ -71,6 +80,51 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 2. Enter your Livy server URL (e.g., `http://your-livy-host:8998`)
 3. Click **Add Host** and select it
 4. Start a Spark session using the **Start Session** button
+
+## AI Copilot & DeepAgents Architecture
+
+Livy UI features a built-in AI Copilot (`⌘⇧A` / `Ctrl+Shift+A`) designed specifically for big data analytics and SQL engineering. It supports multiple LLM providers:
+- **Ollama** — 100% private local inference on `http://localhost:11434` with zero telemetry (Gemma 2, Llama 3, Qwen 2.5, DeepSeek).
+- **Google GenAI (Gemini)** — Gemini 2.5 Flash, Gemini 1.5 Pro, Flash-Lite with 1-click external API key links.
+- **OpenAI** — GPT-4o, GPT-4o-mini, and o1 models.
+
+### Context Quarantine with Subagents
+
+Traditional AI assistants suffer from massive token bloat by dumping entire database catalogs, hundreds of columns, and multi-dialect SQL rules into the conversation context. Livy UI solves this using a **Supervisor Agent** with **Quarantined Subagents**:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Data Analyst
+    participant Sup as Supervisor Agent (~250 tokens)
+    participant SA as Schema Analyst (Quarantined)
+    participant SQL as SQL Specialist (Quarantined)
+    participant OP as Cluster Operator (Quarantined)
+    participant UI as Monaco Editor / Result Table
+
+    User->>Sup: "Show me customer revenue from orders"
+    Sup->>SA: delegate_task(schema_analyst)
+    Note over SA: Inspects schemas, tables, and columns in isolated scope
+    SA-->>Sup: Returns concise 3-line Markdown summary
+    Sup->>SQL: delegate_task(sql_specialist)
+    Note over SQL: Crafts dialect-accurate SQL (Doris or Spark)
+    SQL-->>Sup: Returns verified SQL statement
+    Sup->>UI: write_sql_file / execute_sql
+    Sup-->>User: Markdown explanation + Interactive 1-Click Action Cards
+```
+
+- **75%–85% Token Reduction**: Subagent loops run in private scopes; only distilled summaries are returned to the supervisor.
+- **Sliding Context Window**: The API history payload is capped to the last 8 messages (`messages.slice(-8)`), preventing linear token growth.
+- **Interactive 1-Click Action Cards**: Every generated SQL block features inline `[▶ Run Query]`, `[+ Open in Tab]` (with click deduplication protection), `[Insert]`, and `[Copy]` buttons.
+- **Smart Tab Reuse**: Queries and AI write operations update the active editor tab by default instead of opening infinite tabs.
+- **Headless Execution**: Queries can be executed headlessly from chat or Action Cards even when no file is open, displaying live results directly below the Welcome Screen.
+
+## Local Workspaces & Markdown Documents
+
+Livy UI is not just a scratchpad editor; it is a full local analytical workbench:
+- **Local Disk Workspaces (`⌘O`)**: Open local directories and Git repositories directly from your computer using the native File System Access API (`showDirectoryPicker`). Files and edits sync directly to disk. Directory handles persist in IndexedDB across browser reloads.
+- **Project Scaffolding**: 1-click workspace scaffolding for `standard`, `spark-sql-workspace`, and `doris-analytics` project templates.
+- **Native Markdown Documents (`.md` / `⌘⌥M`)**: Write, edit, and document your analytical runbooks alongside SQL queries. Features live split preview with **Mermaid** diagrams (`graph TD`, `sequenceDiagram`, `classDiagram`) and **KaTeX** LaTeX math formulas (`$...$` and `$$...$$`).
 
 ## HDFS & Data Access
 
@@ -179,12 +233,17 @@ SELECT * FROM parquet.`hdfs://namenode/path/to/data` LIMIT 100
 | Shortcut (Windows/Linux) | Shortcut (macOS) | Action | Scope |
 |--------------------------|------------------|--------|-------|
 | `Ctrl+Enter` | `⌘+Enter` | **Run SQL** (selected text or all) | Global / Editor |
+| `Ctrl+Shift+A` | `⌘+Shift+A` | **Toggle AI Copilot** | Global / Editor |
+| `Ctrl+Shift+M` | `⌘+Shift+M` | **Focus Compute & Session Manager** | Global / Editor |
 | `Ctrl+Shift+F` | `⌘+Shift+F` | **Format SQL** (statement-by-statement) | Editor |
-| `Ctrl+Shift+M` | `⌘+Shift+M` | **Minify SQL** (statement-by-statement) | Editor |
-| `Ctrl+S` | `⌘+S` | **Save SQL file** | Editor |
-| `Ctrl+Shift+A` | `⌘+Shift+A` | **Toggle Auto-Save** | Editor |
+| `Ctrl+Shift+U` | `⌘+Shift+U` | **Minify SQL** (statement-by-statement) | Editor |
+| `Ctrl+S` | `⌘+S` | **Save file to disk / storage** | Editor |
 | `Alt+Z` | `⌥+Z` | **Toggle Word Wrap** (VS Code style) | Editor |
 | `Ctrl+B` | `⌘+B` | **Toggle sidebar** | Global / Editor |
+| `Ctrl+P` | `⌘+P` | **Search files or run commands** (Command Palette) | Global |
+| `Ctrl+,` | `⌘+,` | **Open Settings** | Global |
+| `Ctrl+O` | `⌘+O` | **Open Local Folder / Git Repo** | Global |
+| `Ctrl+Alt+M` | `⌘+⌥+M` | **New Markdown Document** | Global / Editor |
 | `Ctrl+Shift+E` | `⌘+Shift+E` | **Focus File Explorer** | Global / Editor |
 | `Ctrl+Shift+K` | `⌘+Shift+K` | **Focus Schema Explorer** | Global / Editor |
 | `` Ctrl+` `` | `` ⌘+` `` | **Toggle result panel** | Global / Editor |
@@ -194,7 +253,7 @@ SELECT * FROM parquet.`hdfs://namenode/path/to/data` LIMIT 100
 | `Ctrl+PageUp` / `Ctrl+Alt+←` | `⌘+PageUp` / `⌘+⌥+←` | **Previous tab** | Global / Editor |
 | `Ctrl+PageDown` / `Ctrl+Alt+→` | `⌘+PageDown` / `⌘+⌥+→` | **Next tab** | Global / Editor |
 | `Ctrl+H` | `⌘+H` | **Query history** | Global / Editor |
-| `Ctrl+.` | `⌘+.` | **Manage Livy hosts** | Global / Editor |
+| `Ctrl+.` | `⌘+.` | **Manage compute hosts** | Global / Editor |
 | `Ctrl+/` | `⌘+/` | **Show keyboard shortcuts** | Global / Editor |
 | `F2` | `F2` | **Rename file** | File Explorer |
 | `Del` | `Delete` / `Backspace` | **Delete file** | File Explorer |
@@ -252,7 +311,7 @@ livy-ui/
 ├── vite.config.js              # Vite 7 + Tailwind 4 + PWA Workbox config
 ├── CHANGELOG.md                 # Version changelog history
 ├── PRIVACY.md                   # Privacy policy & data handling documentation
-├── release-notes/               # Version release notes
+├── release-notes/               # Version release notes (v1.1 through v3.1.0)
 ├── public/                     # Static assets, PWA icons, manifest
 └── src/                        # React 19 frontend application source
     ├── main.jsx                # Application root mount
@@ -260,41 +319,39 @@ livy-ui/
     ├── index.css               # Tailwind v4 theme & CSS design system
     ├── components/             # Reusable UI components
     │   ├── ActivityBar.jsx     # Primary left icon navigation bar
-    │   ├── SidebarTabs.jsx     # Explorer, Schema, History sidebars
-    │   ├── FileExplorer.jsx    # Local workspace & file tree explorer
-    │   ├── TabBar.jsx          # Monaco multi-tab editor header
-    │   ├── SqlEditor.jsx       # Monaco SQL editor with autocomplete
-    │   ├── ResultTable.jsx     # Query result grid & statistics
-    │   ├── TitleBar.jsx        # Compact window header & quick command search
-    │   └── StatusBar.jsx       # Bottom status bar with session metrics
+    │   ├── AiChat/             # AI Copilot UI (Panel, ChatMessage, ModelSelector)
+    │   ├── CommandPalette.jsx  # Centered VS Code-style command search (⌘P)
+    │   ├── ComputePanel.jsx    # Spark & Doris isolated compute & session manager
+    │   ├── ConnectionModal.jsx # Advanced host config, Spark properties & JAR presets
+    │   ├── FileExplorer.jsx    # Local workspace disk file tree & templates
+    │   ├── MarkdownPreview.jsx # Split-view Markdown preview with Mermaid & KaTeX
+    │   ├── ResultTable.jsx     # Query result grid, statistics, and export
+    │   ├── SchemaExplorer.jsx  # Database/table/column lazy-loaded catalog tree
+    │   ├── SettingsView.jsx    # Multi-category settings overlay (⌘,)
+    │   ├── SqlEditor.jsx       # Monaco Editor with engine-aware autocomplete & validation
+    │   ├── StatusBar.jsx       # Bottom status bar with engine readiness & diagnostics
+    │   ├── TabBar.jsx          # Monaco multi-tab editor header with model swapping
+    │   ├── TitleBar.jsx        # Compact window header & quick command center
+    │   └── WelcomeScreen.jsx   # VS Code-style welcome screen with quick actions
     ├── context/                # React state providers
-    │   ├── LivyContext.jsx     # Livy REST sessions, hosts & compute config
-    │   └── SqlFilesContext.jsx # Local file system sync & tabs state
-    ├── services/               # Background services
-    │   ├── fileSystemService.js# File System Access API & IndexedDB handles
+    │   ├── AiContext.jsx       # AI Copilot streaming, tool dispatcher & chat history
+    │   ├── LivyContext.jsx     # Spark Livy REST sessions, Doris FE hosts & reachability
+    │   ├── SchemaContext.jsx   # Catalog metadata cache & background fetcher
+    │   ├── SettingsContext.jsx # LocalStorage settings persistence & raw JSON sync
+    │   └── SqlFilesContext.jsx # Local file system sync, tabs state & result cache
+    ├── services/               # Background services & APIs
+    │   ├── ai/                 # AI Copilot agents (agentRunner, subAgentManager, tools)
     │   ├── axiosConfig.js      # Livy API HTTP client
-    │   └── livyApi.js          # Spark query submission & status polling
+    │   ├── dorisApi.js         # Apache Doris FE HTTP REST query client
+    │   ├── fileSystemService.js# File System Access API & IndexedDB handles
+    │   ├── livyApi.js          # Apache Livy REST API & statement runner
+    │   └── sqlValidator.js     # Dialect-aware SQL syntax parser (dt-sql-parser)
     └── utils/                  # Functions catalog, snippets, helpers
-```
-    ├── components/
-    │   ├── Navbar.jsx          # Connection status, session controls
-    │   ├── ConnectionModal.jsx # Host management + session configuration
-    │   ├── TabBar.jsx          # Multi-tab SQL file management
-    │   ├── SqlEditor.jsx       # Monaco Editor with Spark SQL support
-    │   ├── ResultTable.jsx     # Query results with data types & timing
-    │   └── SchemaExplorer.jsx  # Database/table/column tree sidebar
-    ├── context/
-    │   ├── LivyContext.jsx     # Livy session, connection & config state
-    │   └── SqlFilesContext.jsx # SQL files (tabs) state & persistence
-    ├── services/
-    │   ├── axiosConfig.js      # Axios client configured for direct Livy API requests
-    │   └── livyApi.js          # Livy REST API + runSql helper
-    └── utils/
-        ├── constants.js        # App constants & storage keys
-        ├── localStorage.js     # localStorage helpers
-        ├── spark-functions-data.js  # 300+ Spark SQL function definitions
-        ├── spark-keywords-data.js   # Spark SQL keywords
-        └── spark_sql_snippets.js    # Interactive SQL snippet templates
+        ├── constants.js        # App constants, defaults, and storage keys
+        ├── doris-functions-data.js # 112+ Doris built-in functions
+        ├── spark-functions-data.js # 600+ Spark SQL function definitions
+        ├── doris-snippets-data.js  # Interactive Doris DDL snippets
+        └── spark_sql_snippets.js   # Interactive Spark SQL snippet templates
 ```
 
 ## Architecture & CORS Handling

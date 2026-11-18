@@ -56,6 +56,15 @@ graph TD
 *   **Where they live:** The application shell assets (scripts, styles, Monaco Editor assets) are cached in your browser's Cache Storage via a Service Worker (`sw.js`).
 *   **Scope:** This is standard browser caching that allows you to run the SQL editor even when you have no internet access.
 
+### IV. AI Copilot & LLM Providers
+*   **Local Inference (Ollama):** When using Ollama (`http://localhost:11434`), prompts and tool executions stay 100% inside your private local machine. No data, queries, or telemetry ever leave your device or transit the public internet.
+*   **Cloud Providers (Google GenAI & OpenAI):** When using Google Gemini or OpenAI models, requests are dispatched directly from your browser to Google AI or OpenAI endpoints using your personal API key stored securely in `localStorage`. Requests **never** route through any Livy UI backend, tracking server, or intermediary proxy.
+*   **Subagent Privacy (Context Quarantine):** Subagents execute in isolated, private scopes. Schema tables and queries are distilled into minimal summaries before reaching the supervisor, preventing raw data leakage.
+
+### V. Local Workspace & File System Access API
+*   **Where files live:** When you open a local folder or Git repository via the File System Access API (`showDirectoryPicker`), files are read from and saved directly to your local computer's disk.
+*   **Permissions:** File system directory handles are managed within the browser's sandbox and cached in browser IndexedDB. No files are uploaded to any server.
+
 ---
 
 ## 3. Security Boundary Analysis
@@ -64,7 +73,10 @@ graph TD
 | :--- | :--- | :--- | :--- |
 | **SQL Editor Workspace** | Browser `localStorage` | None (Local Read/Write) | **Zero** |
 | **Livy Host List** | Browser `localStorage` | None (Local Read/Write) | **Zero** |
-| **SQL Execution** | Browser Memory | Direct to user-specified Livy Host | **Zero** |
+| **SQL Execution (Spark & Doris)** | Browser Memory | Direct to user-specified Livy/Doris Host | **Zero** |
+| **AI Copilot (Ollama)** | Local Machine / GPU | `localhost:11434` (Local loopback only) | **Zero** |
+| **AI Copilot (Gemini / OpenAI)** | Browser Memory / `localStorage` | Direct browser-to-provider HTTPS (Personal API key) | User-selected provider only (Zero proxy) |
+| **Local Workspace Disk Access** | Local Filesystem | None (Local File System Access API) | **Zero** |
 | **PWA Cache** | Browser Cache Storage | HTTPS download from GitHub Pages (Initial setup only) | **Zero** (Only standard host requests) |
 | **Analytics & Telemetry** | N/A (None used) | No network calls made | **Zero** |
 
