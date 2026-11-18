@@ -168,8 +168,23 @@ export default function App() {
   const prevResultHeight = useRef(DEFAULT_RESULT_HEIGHT);
 
   const handleInsertAtCursor = useCallback((text) => {
-    editorRef.current?.insertText(text);
-  }, []);
+    if (editorRef.current?.insertText) {
+      editorRef.current.insertText(text);
+    } else {
+      addFile({ name: "Query.sql", content: text });
+    }
+  }, [addFile]);
+
+  const handleRunSqlFromSidebar = useCallback(async (sql) => {
+    if (editorRef.current?.runSql) {
+      editorRef.current.runSql(sql);
+    } else {
+      await addFile({ name: "Query.sql", content: sql });
+      setTimeout(() => {
+        editorRef.current?.runSql?.(sql);
+      }, 150);
+    }
+  }, [addFile]);
 
   const handleFocusSchemaSearch = useCallback(() => {
     setSidebarCollapsed(false);
@@ -698,7 +713,7 @@ export default function App() {
             collapsed={sidebarCollapsed}
             setCollapsed={setSidebarCollapsed}
             onInsertAtCursor={handleInsertAtCursor}
-            onRunSql={(sql) => editorRef.current?.runSql?.(sql)}
+            onRunSql={handleRunSqlFromSidebar}
             width={sidebarWidth}
             theme={theme}
             toggleTheme={toggleTheme}
