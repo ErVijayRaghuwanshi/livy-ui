@@ -57,12 +57,16 @@ A modern, high-performance web-based SQL workbench for **Apache Spark SQL** (via
 - **Node.js** >= 18
 - **npm** >= 9
 - A running [Apache Livy](https://livy.incubator.apache.org/) server
+OR
+- A running [livy-next](https://github.com/ErVijayRaghuwanshi/livy-next) server
+- A running [Apache Doris](https://doris.apache.org/) cluster (optional, for Doris support)
+
 
 ### Install & Run
 
 ```bash
 # Clone the repository
-git clone <repo-url>
+git clone https://github.com/ErVijayRaghuwanshi/livy-ui.git
 cd livy-ui
 
 # Install dependencies

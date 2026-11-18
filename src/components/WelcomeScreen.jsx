@@ -6,13 +6,13 @@ const alt = isMac ? "⌥" : "Alt";
 
 export default function WelcomeScreen({ onCreateFile, onCreateMarkdownFile, onFocusFiles, onFocusSchema, onShowShortcuts, onShowHistory, onRestoreTab, hasClosedTabs, onOpenWorkspace }) {
   const actions = [
-    {
-      icon: FolderGit2,
-      label: "Open Local Folder / Git Repo",
-      shortcut: [mod, "O"],
-      onClick: onOpenWorkspace,
-      highlight: true,
-    },
+    // {
+    //   icon: FolderGit2,
+    //   label: "Open Local Folder / Git Repo",
+    //   shortcut: [mod, "O"],
+    //   onClick: onOpenWorkspace,
+    //   highlight: true,
+    // },
     {
       icon: FilePlus,
       label: "New SQL File",
@@ -25,18 +25,18 @@ export default function WelcomeScreen({ onCreateFile, onCreateMarkdownFile, onFo
       shortcut: [mod, alt, "M"],
       onClick: onCreateMarkdownFile,
     },
-    {
-      icon: Search,
-      label: "Focus File Explorer",
-      shortcut: [mod, "Shift", "E"],
-      onClick: onFocusFiles,
-    },
-    {
-      icon: Database,
-      label: "Focus Schema Explorer",
-      shortcut: [mod, "Shift", "K"],
-      onClick: onFocusSchema,
-    },
+    // {
+    //   icon: Search,
+    //   label: "Focus File Explorer",
+    //   shortcut: [mod, "Shift", "E"],
+    //   onClick: onFocusFiles,
+    // },
+    // {
+    //   icon: Database,
+    //   label: "Focus Schema Explorer",
+    //   shortcut: [mod, "Shift", "K"],
+    //   onClick: onFocusSchema,
+    // },
     {
       icon: History,
       label: "Query History",
