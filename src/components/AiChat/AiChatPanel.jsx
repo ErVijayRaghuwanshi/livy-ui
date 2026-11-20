@@ -102,13 +102,21 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
   const handleSubmit = (e) => {
     e?.preventDefault();
     if (!input.trim() || isStreaming) return;
-    sendMessage(input);
+    const textToSend = input;
     setInput("");
     setIsContextPickerOpen(false);
     if (textareaRef.current) {
       textareaRef.current.style.height = "38px";
+      textareaRef.current.focus();
     }
+    sendMessage(textToSend);
   };
+
+  useEffect(() => {
+    if (!isStreaming) {
+      textareaRef.current?.focus();
+    }
+  }, [isStreaming]);
 
   const handleKeyDown = (e) => {
     // Option/Alt + M toggles agentMode
@@ -466,9 +474,8 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              disabled={isStreaming}
               rows={1}
-              placeholder="Chat with Copilot..."
+              placeholder={isStreaming ? "Thinking... (Esc to stop)" : "Chat with Copilot..."}
               className="w-full bg-transparent text-[#e0e0e0] text-xs px-3 pt-2 pb-1 resize-none focus:outline-none placeholder-[#666666] min-h-[38px] max-h-32 leading-relaxed"
             />
 
