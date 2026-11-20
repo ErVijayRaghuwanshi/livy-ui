@@ -447,23 +447,79 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
       if (mode === "new_tab" || !hasActiveSqlFile) {
         const resolvedName = fileName || `Query_${Date.now().toString().slice(-4)}.sql`;
         if (typeof sqlFiles?.addFile === "function") {
-          await sqlFiles.addFile({ name: resolvedName, content: sql });
-          return { ok: true, action: "opened_new_tab", fileName: resolvedName };
+          const newFile = await sqlFiles.addFile({ name: resolvedName, content: sql });
+          const targetId = newFile?.id || (sqlFiles.files || []).find((f) => f.name === resolvedName)?.id || sqlFiles.activeTabId;
+
+          // Stage as a new file diff so the user can Accept or Reject (Discard)
+          let diffStats = null;
+          if (typeof sqlFiles?.stageDiff === "function" && targetId) {
+            diffStats = sqlFiles.stageDiff(targetId, sql, true);
+          }
+
+          const addedLines = diffStats?.addedLines ?? sql.split("\n").length;
+          return {
+            ok: true,
+            action: "staged_new_file",
+            fileId: targetId,
+            fileName: resolvedName,
+            hasPendingDiff: true,
+            addedLines,
+            removedLines: 0,
+            hunks: diffStats?.hunks || [],
+            message: `Created new tab '${resolvedName}' with proposed code (+${addedLines} lines). Review and Accept or Reject.`,
+          };
         }
       }
 
-      // If mode is 'append', append SQL to active tab
+      // If mode is 'append', stage append diff to active tab
       if (mode === "append" && hasActiveSqlFile) {
         const existing = sqlFiles.activeFile?.content || "";
         const combined = existing.trim() ? `${existing}\n\n${sql}` : sql;
-        sqlFiles.updateContent?.(sqlFiles.activeTabId, combined);
-        return { ok: true, action: "appended_to_current_tab", fileName: sqlFiles.activeFile?.name };
+
+        let diffStats = null;
+        if (typeof sqlFiles?.stageDiff === "function") {
+          diffStats = sqlFiles.stageDiff(sqlFiles.activeTabId, combined, false);
+        } else {
+          sqlFiles.updateContent?.(sqlFiles.activeTabId, combined);
+        }
+
+        const addedLines = diffStats?.addedLines ?? sql.split("\n").length;
+        const removedLines = diffStats?.removedLines ?? 0;
+        return {
+          ok: true,
+          action: "staged_file_edit",
+          fileId: sqlFiles.activeTabId,
+          fileName: sqlFiles.activeFile?.name,
+          hasPendingDiff: true,
+          addedLines,
+          removedLines,
+          hunks: diffStats?.hunks || [],
+          message: `Proposed appended changes to '${sqlFiles.activeFile?.name}' (+${addedLines} lines). Review and Accept or Reject.`,
+        };
       }
 
-      // Default: replace content in current active tab
+      // Default: stage replacement in current active tab
       if (hasActiveSqlFile) {
-        sqlFiles.updateContent?.(sqlFiles.activeTabId, sql);
-        return { ok: true, action: "updated_active_tab", fileName: sqlFiles.activeFile?.name };
+        let diffStats = null;
+        if (typeof sqlFiles?.stageDiff === "function") {
+          diffStats = sqlFiles.stageDiff(sqlFiles.activeTabId, sql, false);
+        } else {
+          sqlFiles.updateContent?.(sqlFiles.activeTabId, sql);
+        }
+
+        const addedLines = diffStats?.addedLines ?? 0;
+        const removedLines = diffStats?.removedLines ?? 0;
+        return {
+          ok: true,
+          action: "staged_file_edit",
+          fileId: sqlFiles.activeTabId,
+          fileName: sqlFiles.activeFile?.name,
+          hasPendingDiff: true,
+          addedLines,
+          removedLines,
+          hunks: diffStats?.hunks || [],
+          message: `Proposed changes to '${sqlFiles.activeFile?.name}' (+${addedLines} / -${removedLines} lines). Review and Accept or Reject.`,
+        };
       }
 
       return { ok: false, error: "No active editor tab found." };

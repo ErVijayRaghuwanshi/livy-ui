@@ -20,9 +20,11 @@ import {
   FileSearch,
   FileText,
   AlertTriangle,
+  X,
 } from "lucide-react";
 import { marked } from "marked";
 import { useAi } from "../../context/AiContext";
+import { useSqlFiles } from "../../context/SqlFilesContext";
 
 function escapeHtml(str) {
   if (!str) return "";
@@ -64,6 +66,7 @@ marked.use({ renderer: customRenderer });
  */
 function ToolResultItem({ tr }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { acceptDiff, rejectDiff, hasPendingDiff } = useSqlFiles();
 
   const rawName = (tr.name || "").toLowerCase();
   const subagentType =
@@ -80,12 +83,21 @@ function ToolResultItem({ tr }) {
       : "");
 
   const isSubAgent = Boolean(subagentType);
+  const isDiffReview = tr.name === "write_sql_file" && Boolean(tr.result?.hasPendingDiff);
+  const fileId = tr.result?.fileId;
+  const isPending = fileId && typeof hasPendingDiff === "function" ? hasPendingDiff(fileId) : false;
 
   let Icon = Wrench;
   let label = tr.name;
   let themeClass = "text-[#cccccc] border-(--color-border) bg-(--color-bg-secondary)";
 
-  if (subagentType === "schema_analyst") {
+  if (isDiffReview) {
+    Icon = FilePlus;
+    label = "Diff Review: " + (tr.result?.fileName || "File");
+    themeClass = isPending
+      ? "text-purple-300 border-purple-700/60 bg-purple-950/30"
+      : "text-emerald-300 border-emerald-800/40 bg-emerald-950/20";
+  } else if (subagentType === "schema_analyst") {
     Icon = Database;
     label = "Schema Analyst";
     themeClass = "text-cyan-300 border-cyan-800/40 bg-cyan-950/20";
@@ -119,7 +131,8 @@ function ToolResultItem({ tr }) {
     label = "Write to Editor";
   }
 
-  const hasDetails = Boolean(tr.result?.summary || tr.result?.error);
+  const hunks = tr.result?.hunks || [];
+  const hasDetails = Boolean(tr.result?.summary || tr.result?.error || (hunks && hunks.length > 0));
   const isSuccess = tr.result?.ok !== false;
 
   return (
@@ -128,28 +141,54 @@ function ToolResultItem({ tr }) {
         <div className="flex items-center gap-1.5 min-w-0">
           <Icon size={12} className="shrink-0" />
           <span className="font-semibold font-mono text-[10px] truncate">{label}</span>
-          {tr.args?.task && (
-            <span className="text-[#888888] truncate text-[10px] hidden sm:inline max-w-[180px]">
-              - {tr.args.task}
+          {isDiffReview ? (
+            <span className="text-[10px] font-mono px-1 py-0.2 rounded bg-purple-900/60 border border-purple-700/50 text-purple-200">
+              <span className="text-emerald-400">+{tr.result.addedLines ?? 0}</span>
+              <span className="text-[#777777] mx-0.5">/</span>
+              <span className="text-red-400">-{tr.result.removedLines ?? 0}</span>
             </span>
-          )}
-          {tr.args?.fileName && (
-            <span className="text-[#888888] truncate text-[10px]">
-              ({tr.args.fileName})
-            </span>
-          )}
-          {tr.args?.newTabName && (
-            <span className="text-[#888888] truncate text-[10px]">
-              ({tr.args.newTabName})
-            </span>
+          ) : (
+            <>
+              {tr.args?.task && (
+                <span className="text-[#888888] truncate text-[10px] hidden sm:inline max-w-[180px]">
+                  - {tr.args.task}
+                </span>
+              )}
+              {tr.args?.fileName && (
+                <span className="text-[#888888] truncate text-[10px]">
+                  ({tr.args.fileName})
+                </span>
+              )}
+            </>
           )}
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0 text-[10px]">
-          {isSuccess ? (
+          {isDiffReview && isPending ? (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => acceptDiff(fileId)}
+                className="flex items-center gap-0.5 px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-[10px] transition-colors cursor-pointer shadow-xs"
+                title="Accept proposed changes"
+              >
+                <Check size={10} />
+                <span>Accept</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => rejectDiff(fileId)}
+                className="flex items-center gap-0.5 px-2 py-0.5 rounded bg-red-950/60 hover:bg-red-900/80 border border-red-700/60 text-red-200 hover:text-white text-[10px] transition-colors cursor-pointer"
+                title="Discard proposed changes"
+              >
+                <X size={10} />
+                <span>Discard</span>
+              </button>
+            </div>
+          ) : isSuccess ? (
             <span className="flex items-center gap-0.5 text-emerald-400">
               <CheckCircle2 size={11} />
-              <span>Done</span>
+              <span>{isDiffReview ? "Reviewed" : "Done"}</span>
             </span>
           ) : (
             <span className="flex items-center gap-0.5 text-red-400">
@@ -162,19 +201,41 @@ function ToolResultItem({ tr }) {
             <button
               onClick={() => setIsExpanded((prev) => !prev)}
               className="flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-(--color-bg-hover) text-[#888888] hover:text-white transition-colors cursor-pointer font-sans"
-              title={isExpanded ? "Collapse details" : "Expand details / error"}
+              title={isExpanded ? "Collapse details" : "Expand details / diff"}
             >
-              <span>{isExpanded ? "Hide" : "Details"}</span>
+              <span>{isExpanded ? "Hide" : isDiffReview ? "Diff" : "Details"}</span>
               {isExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
             </button>
           )}
         </div>
       </div>
 
-      {/* Accordion Body with Subagent Summary or Error Message */}
+      {/* Accordion Body with Subagent Summary or Diff Hunks */}
       {isExpanded && hasDetails && (
         <div className="px-2.5 py-2 border-t border-(--color-border) bg-(--color-bg-primary)/60 text-[#bbbbbb] font-mono text-[10px] whitespace-pre-wrap max-h-48 overflow-y-auto select-text leading-relaxed">
-          {tr.result?.summary || tr.result?.error}
+          {hunks && hunks.length > 0 ? (
+            <div className="flex flex-col font-mono text-[10px] divide-y divide-(--color-border)/20">
+              {hunks.map((h, i) => (
+                <div
+                  key={i}
+                  className={`px-1 py-0.5 ${
+                    h.type === "added"
+                      ? "bg-emerald-950/40 text-emerald-300"
+                      : h.type === "removed"
+                      ? "bg-red-950/40 text-red-300"
+                      : "text-[#888888]"
+                  }`}
+                >
+                  <span className="inline-block w-4 opacity-60">
+                    {h.type === "added" ? "+" : h.type === "removed" ? "-" : " "}
+                  </span>
+                  <span>{h.text}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            tr.result?.summary || tr.result?.error
+          )}
         </div>
       )}
     </div>
@@ -299,6 +360,21 @@ export default function ChatMessage({ message }) {
           )}
         </div>
       </div>
+
+      {/* Pinned Context Badges for User Messages */}
+      {isUser && Array.isArray(message.contextBadges) && message.contextBadges.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap pt-0.5 pb-1 border-b border-(--color-border)/30">
+          <span className="text-[10px] text-[#888888] font-medium">Context:</span>
+          {message.contextBadges.map((badge, idx) => (
+            <span
+              key={idx}
+              className="px-1.5 py-0.5 rounded bg-purple-950/60 border border-purple-800/40 text-[10px] text-purple-300 font-mono flex items-center gap-1"
+            >
+              <span>@{badge.label}</span>
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Reasoning / Thinking Accordion */}
       {!isUser && message.reasoning && (

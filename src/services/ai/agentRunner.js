@@ -58,6 +58,8 @@ export async function runAgentConversation({
     livyContext,
     schemaContext,
     activeEngine = "doris",
+    agentMode = "action",
+    pinnedContext = "",
   } = context;
 
   const modelConfig = {
@@ -80,6 +82,8 @@ export async function runAgentConversation({
     activeFileName: sqlFiles?.activeFile?.name,
     activeDatabase,
     availableTables: currentDbTables,
+    agentMode,
+    pinnedContext,
   });
 
   const conversationMessages = [
@@ -107,8 +111,12 @@ export async function runAgentConversation({
     iteration++;
     if (signal?.aborted) break;
 
-    // Supervisor uses SUPERVISOR_TOOLS (delegate_task, write_sql_file, open_file)
-    const toolsToPass = supportsTools ? SUPERVISOR_TOOLS : null;
+    // Supervisor uses SUPERVISOR_TOOLS (in Ask Mode, filter out mutating tools write_sql_file & run_query)
+    const availableTools = agentMode === "ask"
+      ? SUPERVISOR_TOOLS.filter((t) => t.function?.name !== "write_sql_file" && t.function?.name !== "run_query")
+      : SUPERVISOR_TOOLS;
+
+    const toolsToPass = supportsTools ? availableTools : null;
 
     let turnContent = "";
     let turnReasoning = "";

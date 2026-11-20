@@ -16,6 +16,8 @@ export function buildSupervisorPrompt({
   activeFileName = "",
   activeDatabase = "demo_db",
   availableTables = [],
+  agentMode = "action",
+  pinnedContext = "",
 }) {
   const engineLabel = activeEngine === "doris" ? "Apache Doris (MPP Engine)" : "Apache Spark (Livy Server)";
   const tablesSnippet =
@@ -23,11 +25,31 @@ export function buildSupervisorPrompt({
       ? `Available Tables in ${activeDatabase}: ${availableTables.slice(0, 15).join(", ")}`
       : "";
 
+  const isAskMode = agentMode === "ask";
+
+  const modeInstructions = isAskMode
+    ? `CURRENT MODE: ASK MODE (CONSULT & ADVISORY)
+- You are in ASK mode. Your goal is to answer questions, explain concepts, analyze data schemas, and suggest SQL queries.
+- DO NOT call file-modifying tools ('write_sql_file') or execute unconfirmed queries with 'run_query'.
+- Present all suggested queries inside markdown \`\`\`sql ... \`\`\` blocks with concise explanations.
+- The user has interactive action buttons ('Run Query', 'Open in Tab', 'Insert') to run or open your suggestions manually.`
+    : `CURRENT MODE: ACTION (CODE) MODE (AUTONOMOUS EDITING & STAGED REVIEW)
+- You are in ACTION mode. You are an autonomous data engineering agent.
+- You can directly propose code updates, create files, and execute queries.
+- Use 'write_sql_file' to update the active tab or create files. All file edits are staged for user review (Accept/Reject).
+- Use 'run_query' when the user asks to run, view, or display query results.`;
+
+  const contextSection = pinnedContext
+    ? `\nUSER PINNED CONTEXT (@TAGS):\n${pinnedContext}\n`
+    : "";
+
   return `You are the Livy UI Copilot, a helpful AI assistant for data engineering.
 Current Engine: ${engineLabel}
 Active Database: ${activeDatabase}
 Active Editor File: ${activeFileName || "None"}
-${tablesSnippet ? `${tablesSnippet}\n` : ""}
+${tablesSnippet ? `${tablesSnippet}\n` : ""}${contextSection}
+${modeInstructions}
+
 TAB REUSE & WORKSPACE RULES:
 1. ALWAYS REUSE THE ACTIVE TAB: Never open a new tab/file unless the user explicitly asks to "open in a new tab", "in a new file", or no file is currently open.
 2. By default, write or run SQL directly in the user's active editor tab ('${activeFileName || "current tab"}').

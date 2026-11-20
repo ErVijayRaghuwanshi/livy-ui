@@ -49,6 +49,7 @@ export function AiProvider({ children, editorRef }) {
 
   // Active provider
   const provider = settings["ai.provider"] || "ollama";
+  const agentMode = settings["ai.agentMode"] || "action";
   const hostUrl = settings["ai.hostUrl"] || "http://localhost:11434";
   const geminiApiKey = settings["ai.geminiApiKey"] || "";
   const openaiApiKey = settings["ai.openaiApiKey"] || "";
@@ -62,6 +63,32 @@ export function AiProvider({ children, editorRef }) {
 
   const [isOllamaOnline, setIsOllamaOnline] = useState(false);
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
+
+  // Attached context chips (@file, @table, @editor, @result, @cluster)
+  const [attachedContexts, setAttachedContexts] = useState([]);
+
+  const addAttachedContext = useCallback((item) => {
+    if (!item || !item.id) return;
+    setAttachedContexts((prev) => {
+      if (prev.some((c) => c.id === item.id)) return prev;
+      return [...prev, item];
+    });
+  }, []);
+
+  const removeAttachedContext = useCallback((id) => {
+    setAttachedContexts((prev) => prev.filter((c) => c.id !== id));
+  }, []);
+
+  const clearAttachedContexts = useCallback(() => {
+    setAttachedContexts([]);
+  }, []);
+
+  const setAgentMode = useCallback(
+    (mode) => {
+      updateSetting("ai.agentMode", mode);
+    },
+    [updateSetting]
+  );
 
   // Active model depending on provider
   const activeModel =
@@ -230,16 +257,74 @@ export function AiProvider({ children, editorRef }) {
     setIsWarmingUp(false);
   }, [stopGeneration]);
 
+  // Resolves attached context chips into formatted prompt text
+  const resolveContextPayload = useCallback((contextsToResolve) => {
+    if (!contextsToResolve || contextsToResolve.length === 0) return "";
+    const sections = [];
+
+    for (const ctx of contextsToResolve) {
+      if (ctx.type === "file") {
+        const file = (sqlFiles?.files || []).find((f) => f.id === ctx.id || f.name === ctx.name || f.name === ctx.label);
+        if (file && file.content) {
+          const content = file.content.length > 3500 ? file.content.slice(0, 3500) + "\n...[truncated]" : file.content;
+          sections.push(`### Pinned File: ${file.name}\n\`\`\`sql\n${content}\n\`\`\``);
+        }
+      } else if (ctx.type === "table") {
+        const tableName = ctx.name || ctx.label;
+        const activeDb = livyContext?.activeHost?.database || "demo_db";
+        const tableSchema = schemaContext?.schemas?.[activeDb]?.[tableName];
+        if (Array.isArray(tableSchema) && tableSchema.length > 0) {
+          const cols = tableSchema.map((c) => `${c.name || c.COLUMN_NAME} (${c.type || c.DATA_TYPE})`).join(", ");
+          sections.push(`### Pinned Table: ${tableName} (Database: ${activeDb})\nColumns: ${cols}`);
+        } else {
+          sections.push(`### Pinned Table: ${tableName} (Database: ${activeDb})`);
+        }
+      } else if (ctx.type === "editor") {
+        const editorText = editorRef?.current?.getSelection?.() || sqlFiles?.activeFile?.content || "";
+        if (editorText) {
+          const content = editorText.length > 3500 ? editorText.slice(0, 3500) + "\n...[truncated]" : editorText;
+          sections.push(`### Pinned Active Editor / Selection (${sqlFiles?.activeFile?.name || "Editor"}):\n\`\`\`sql\n${content}\n\`\`\``);
+        }
+      } else if (ctx.type === "result") {
+        const activeRes = sqlFiles?.activeResult;
+        if (activeRes) {
+          if (activeRes.status === "error") {
+            sections.push(`### Pinned Query Error:\n${activeRes.error || "Execution failed"}`);
+          } else {
+            const rows = activeRes.data?.["application/json"]?.data || [];
+            const sample = rows.slice(0, 5);
+            sections.push(`### Pinned Query Results (${rows.length} rows):\n\`\`\`json\n${JSON.stringify(sample, null, 2)}\n\`\`\``);
+          }
+        }
+      } else if (ctx.type === "cluster") {
+        sections.push(`### Pinned Cluster Context:\nEngine: ${activeEngine}\nDatabase: ${livyContext?.activeHost?.database || "demo_db"}\nHost: ${livyContext?.activeHost?.url || "N/A"}`);
+      }
+    }
+
+    return sections.join("\n\n");
+  }, [sqlFiles, schemaContext, livyContext, editorRef, activeEngine]);
+
   // Send a message and trigger the agent loop
   const sendMessage = useCallback(
-    async (text) => {
+    async (text, overrideContexts = null) => {
       const userText = String(text || "").trim();
       if (!userText || isStreaming) return;
+
+      const currentContexts = overrideContexts || attachedContexts;
+      const pinnedContext = resolveContextPayload(currentContexts);
+      if (!overrideContexts) {
+        clearAttachedContexts();
+      }
 
       const userMessage = {
         id: uuidv4(),
         role: "user",
         content: userText,
+        contextBadges: currentContexts.map((c) => ({
+          id: c.id,
+          type: c.type,
+          label: c.label || c.name,
+        })),
         timestamp: new Date().toISOString(),
       };
 
@@ -266,6 +351,8 @@ export function AiProvider({ children, editorRef }) {
         schemaContext,
         editorRef,
         activeEngine,
+        agentMode,
+        pinnedContext,
       };
 
       // Sliding Context Window: retain only the last 8 messages (4 user + 4 assistant)
@@ -359,6 +446,10 @@ export function AiProvider({ children, editorRef }) {
       schemaContext,
       editorRef,
       activeEngine,
+      agentMode,
+      attachedContexts,
+      resolveContextPayload,
+      clearAttachedContexts,
       provider,
       hostUrl,
       geminiApiKey,
@@ -499,6 +590,12 @@ export function AiProvider({ children, editorRef }) {
     refreshModels,
     messages,
     activeEngine,
+    agentMode,
+    setAgentMode,
+    attachedContexts,
+    addAttachedContext,
+    removeAttachedContext,
+    clearAttachedContexts,
     isStreaming,
     isWarmingUp,
     streamingContent,

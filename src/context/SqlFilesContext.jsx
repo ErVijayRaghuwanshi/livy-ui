@@ -24,6 +24,7 @@ import {
   saveFileAsLocalDisk,
   assertFileSystemAccessSupported,
 } from "../services/fileSystemService";
+import { computeLineDiff } from "../utils/diffUtils";
 
 const SqlFilesContext = createContext(null);
 
@@ -116,6 +117,8 @@ const initialState = {
   closedTabsHistory: [],
   pendingLineReveal: null,
   previewTabId: getItem(STORAGE_KEYS.PREVIEW_TAB, null),
+  pendingDiffs: {},
+  diffViewMode: "split", // "split" | "inline"
   workspace: {
     name: null,
     handle: null,
@@ -328,17 +331,122 @@ function reducer(state, action) {
       delete nextResults[action.payload];
       const nextDirty = { ...state.dirtyFiles };
       delete nextDirty[action.payload];
+      const nextPending = { ...state.pendingDiffs };
+      delete nextPending[action.payload];
       const nextClosedHistory = (state.closedTabsHistory || []).filter((id) => id !== action.payload);
       const isPreviewActive = state.previewTabId === action.payload;
       const nextPreviewTabId = isPreviewActive ? null : state.previewTabId;
       if (filtered.length === 0) {
-        return { files: [], openFiles: [], activeTabId: null, results: {}, dirtyFiles: {}, closedTabsHistory: [], previewTabId: null };
+        return { files: [], openFiles: [], activeTabId: null, results: {}, dirtyFiles: {}, pendingDiffs: {}, closedTabsHistory: [], previewTabId: null };
       }
       const newActiveId =
         state.activeTabId === action.payload
           ? (filteredOpen.length > 0 ? filteredOpen[filteredOpen.length - 1] : null)
           : (filteredOpen.includes(state.activeTabId) ? state.activeTabId : (filteredOpen.length > 0 ? filteredOpen[0] : null));
-      return { ...state, files: filtered, openFiles: filteredOpen, activeTabId: newActiveId, results: nextResults, dirtyFiles: nextDirty, closedTabsHistory: nextClosedHistory, previewTabId: nextPreviewTabId };
+      return { ...state, files: filtered, openFiles: filteredOpen, activeTabId: newActiveId, results: nextResults, dirtyFiles: nextDirty, pendingDiffs: nextPending, closedTabsHistory: nextClosedHistory, previewTabId: nextPreviewTabId };
+    }
+
+    case "SET_DIFF_VIEW_MODE":
+      return { ...state, diffViewMode: action.payload };
+
+    case "STAGE_FILE_DIFF": {
+      const { fileId, originalContent, proposedContent, diffStats, isNewFile } = action.payload;
+      const file = state.files.find((f) => f.id === fileId);
+      if (!file) return state;
+
+      const nextPendingDiffs = {
+        ...state.pendingDiffs,
+        [fileId]: {
+          fileId,
+          fileName: file.name,
+          originalContent,
+          proposedContent,
+          addedLines: diffStats.addedLines,
+          removedLines: diffStats.removedLines,
+          hunks: diffStats.hunks,
+          isNewFile: !!isNewFile,
+          status: "pending",
+          timestamp: new Date().toISOString(),
+        },
+      };
+
+      const nextFiles = state.files.map((f) =>
+        f.id === fileId
+          ? { ...f, content: proposedContent, updatedAt: new Date().toISOString() }
+          : f
+      );
+
+      return {
+        ...state,
+        files: nextFiles,
+        pendingDiffs: nextPendingDiffs,
+      };
+    }
+
+    case "ACCEPT_FILE_DIFF": {
+      const { fileId } = action.payload;
+      const diff = state.pendingDiffs[fileId];
+      if (!diff) return state;
+
+      const nextPending = { ...state.pendingDiffs };
+      delete nextPending[fileId];
+
+      const targetFile = state.files.find((f) => f.id === fileId);
+      const isDirty = targetFile ? targetFile.content !== targetFile.lastSavedContent : false;
+
+      return {
+        ...state,
+        pendingDiffs: nextPending,
+        dirtyFiles: {
+          ...state.dirtyFiles,
+          [fileId]: isDirty,
+        },
+      };
+    }
+
+    case "REJECT_FILE_DIFF": {
+      const { fileId } = action.payload;
+      const diff = state.pendingDiffs[fileId];
+      if (!diff) return state;
+
+      const nextPending = { ...state.pendingDiffs };
+      delete nextPending[fileId];
+
+      if (diff.isNewFile) {
+        const filteredFiles = state.files.filter((f) => f.id !== fileId);
+        const filteredOpen = state.openFiles.filter((id) => id !== fileId);
+        const nextActiveId =
+          state.activeTabId === fileId
+            ? (filteredOpen.length > 0 ? filteredOpen[filteredOpen.length - 1] : null)
+            : state.activeTabId;
+
+        return {
+          ...state,
+          files: filteredFiles,
+          openFiles: filteredOpen,
+          activeTabId: nextActiveId,
+          pendingDiffs: nextPending,
+        };
+      }
+
+      const nextFiles = state.files.map((f) =>
+        f.id === fileId
+          ? { ...f, content: diff.originalContent, updatedAt: new Date().toISOString() }
+          : f
+      );
+
+      const targetFile = nextFiles.find((f) => f.id === fileId);
+      const isDirty = targetFile ? targetFile.content !== targetFile.lastSavedContent : false;
+
+      return {
+        ...state,
+        files: nextFiles,
+        pendingDiffs: nextPending,
+        dirtyFiles: {
+          ...state.dirtyFiles,
+          [fileId]: isDirty,
+        },
+      };
     }
 
     case "UPDATE_FILE_CONTENT": {
@@ -1954,6 +2062,44 @@ export function SqlFilesProvider({ children }) {
     }
   }, [state.openFiles, state.dirtyFiles]);
 
+  // Diff Review Management (Staged Accept / Reject)
+  const stageDiff = useCallback((fileId, proposedContent, isNewFile = false) => {
+    const file = filesRef.current.find((f) => f.id === fileId) || state.files.find((f) => f.id === fileId);
+    if (!file) return null;
+    const diffStats = computeLineDiff(file.content || "", proposedContent || "");
+    dispatch({
+      type: "STAGE_FILE_DIFF",
+      payload: {
+        fileId,
+        originalContent: file.content || "",
+        proposedContent: proposedContent || "",
+        diffStats,
+        isNewFile,
+      },
+    });
+    return diffStats;
+  }, [state.files]);
+
+  const acceptDiff = useCallback((fileId) => {
+    dispatch({ type: "ACCEPT_FILE_DIFF", payload: { fileId } });
+  }, []);
+
+  const rejectDiff = useCallback((fileId) => {
+    dispatch({ type: "REJECT_FILE_DIFF", payload: { fileId } });
+  }, []);
+
+  const setDiffViewMode = useCallback((mode) => {
+    dispatch({ type: "SET_DIFF_VIEW_MODE", payload: mode });
+  }, []);
+
+  const hasPendingDiff = useCallback((fileId) => {
+    return Boolean(state.pendingDiffs && state.pendingDiffs[fileId]);
+  }, [state.pendingDiffs]);
+
+  const getPendingDiff = useCallback((fileId) => {
+    return state.pendingDiffs?.[fileId] || null;
+  }, [state.pendingDiffs]);
+
   let fileResults = (state.activeTabId && state.results[state.activeTabId]) || null;
   let activeResultFileId = state.activeTabId;
 
@@ -1988,6 +2134,14 @@ export function SqlFilesProvider({ children }) {
     autoSave,
     pendingLineReveal: state.pendingLineReveal,
     previewTabId: state.previewTabId,
+    pendingDiffs: state.pendingDiffs,
+    diffViewMode: state.diffViewMode,
+    setDiffViewMode,
+    stageDiff,
+    acceptDiff,
+    rejectDiff,
+    hasPendingDiff,
+    getPendingDiff,
     workspace: state.workspace,
     isFsSupported,
     setPendingLineReveal,

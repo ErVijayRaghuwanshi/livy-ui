@@ -14,9 +14,14 @@ import {
   PanelRightClose,
   Sliders,
   AlertCircle,
+  MessageSquare,
+  Zap,
+  AtSign,
+  X,
 } from "lucide-react";
 import { useAi } from "../../context/AiContext";
 import ChatMessage from "./ChatMessage";
+import ContextPicker from "./ContextPicker";
 
 const SUGGESTIONS = [
   {
@@ -42,6 +47,12 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
     providerLabel,
     activeModelLabel,
     activeEngine,
+    agentMode,
+    setAgentMode,
+    attachedContexts,
+    addAttachedContext,
+    removeAttachedContext,
+    clearAttachedContexts,
     hostUrl,
     messages,
     isStreaming,
@@ -56,6 +67,8 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
   } = useAi();
 
   const [input, setInput] = useState("");
+  const [isContextPickerOpen, setIsContextPickerOpen] = useState(false);
+  const [contextSearchQuery, setContextSearchQuery] = useState("");
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
@@ -81,16 +94,29 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
     if (!input.trim() || isStreaming) return;
     sendMessage(input);
     setInput("");
+    setIsContextPickerOpen(false);
     if (textareaRef.current) {
       textareaRef.current.style.height = "46px";
     }
   };
 
   const handleKeyDown = (e) => {
+    // Option/Alt + M toggles agentMode
+    if (e.altKey && (e.key === "m" || e.key === "M")) {
+      e.preventDefault();
+      setAgentMode(agentMode === "ask" ? "action" : "ask");
+      return;
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
+      if (isContextPickerOpen) return; // Allow context picker to handle Enter
       e.preventDefault();
       handleSubmit();
     } else if (e.key === "Escape") {
+      if (isContextPickerOpen) {
+        setIsContextPickerOpen(false);
+        return;
+      }
       if (isStreaming) {
         stopGeneration();
       }
@@ -98,16 +124,37 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
   };
 
   const handleInputChange = (e) => {
-    setInput(e.target.value);
+    const val = e.target.value;
+    setInput(val);
     e.target.style.height = "auto";
     e.target.style.height = `${Math.min(Math.max(e.target.scrollHeight, 46), 130)}px`;
+
+    // Detect inline @ mention trigger
+    const atMatch = val.match(/@([a-zA-Z0-9_\-\.]*)$/);
+    if (atMatch) {
+      setContextSearchQuery(atMatch[1]);
+      setIsContextPickerOpen(true);
+    } else if (isContextPickerOpen && !val.includes("@")) {
+      setIsContextPickerOpen(false);
+    }
+  };
+
+  const handleSelectContext = (item) => {
+    addAttachedContext(item);
+    setIsContextPickerOpen(false);
+    setInput((prev) => prev.replace(/@[a-zA-Z0-9_\-\.]*$/, "").trimEnd() + " ");
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
   };
 
   const placeholderText = !isOnline
     ? provider === "ollama"
       ? `Ollama offline at ${hostUrl}...`
       : `API key required in Settings...`
-    : "Ask AI to write SQL, run queries, or inspect tables...";
+    : agentMode === "ask"
+    ? "Ask questions, explain queries, explore schemas (read-only)..."
+    : "Describe SQL to build, edit files, or execute queries...";
 
   return (
     <div className="flex flex-col h-full bg-(--color-bg-primary) select-none">
@@ -282,10 +329,88 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
         </div>
       )}
 
-      {/* Input Form */}
-      <div className="p-2.5 border-t border-(--color-border) bg-(--color-bg-secondary)">
+      {/* Input Form with Mode Switcher & Context Bar */}
+      <div className="p-2.5 border-t border-(--color-border) bg-(--color-bg-secondary) flex flex-col gap-2 relative">
+        {/* Floating Context Picker Popover */}
+        {isContextPickerOpen && (
+          <div className="absolute bottom-full left-2.5 right-2.5 mb-2 z-50">
+            <ContextPicker
+              onSelect={handleSelectContext}
+              onClose={() => setIsContextPickerOpen(false)}
+              searchFilter={contextSearchQuery}
+            />
+          </div>
+        )}
+
+        {/* Toolbar: Segmented Mode Switcher & Add Context */}
+        <div className="flex items-center justify-between text-xs select-none">
+          {/* Segmented Mode Switcher */}
+          <div className="flex items-center rounded-lg bg-(--color-bg-primary) border border-(--color-border) p-0.5 shadow-xs">
+            <button
+              type="button"
+              onClick={() => setAgentMode("ask")}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
+                agentMode === "ask"
+                  ? "bg-blue-600/30 text-blue-200 border border-blue-500/40 shadow-xs"
+                  : "text-[#888888] hover:text-[#cccccc]"
+              }`}
+              title="Ask Mode: Q&A, explain queries, explore schemas. Advisory only, does not alter files. (⌥M)"
+            >
+              <MessageSquare size={12} className={agentMode === "ask" ? "text-blue-400" : ""} />
+              <span>Ask</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAgentMode("action")}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
+                agentMode === "action"
+                  ? "bg-purple-600/30 text-purple-200 border border-purple-500/40 shadow-xs"
+                  : "text-[#888888] hover:text-[#cccccc]"
+              }`}
+              title="Code Mode: Autonomous agent. Writes and edits files with Staged Diff Review (Accept/Reject). (⌥M)"
+            >
+              <Zap size={12} className={agentMode === "action" ? "text-purple-400" : ""} />
+              <span>Code</span>
+            </button>
+          </div>
+
+          {/* Add Context Button */}
+          <button
+            type="button"
+            onClick={() => setIsContextPickerOpen((prev) => !prev)}
+            className="flex items-center gap-1 px-2 py-1 rounded-md bg-(--color-bg-primary) hover:bg-(--color-bg-hover) text-[#aaaaaa] hover:text-white border border-(--color-border) text-[11px] transition-colors cursor-pointer"
+            title="Add context (@): Pin SQL files, tables, editor selection, or query results"
+          >
+            <AtSign size={12} className="text-purple-400" />
+            <span>Add Context</span>
+          </button>
+        </div>
+
         <form onSubmit={handleSubmit} className="flex flex-col gap-1.5">
           <div className="flex flex-col bg-(--color-bg-primary) border border-(--color-border) rounded-lg focus-within:border-purple-500/80 focus-within:ring-1 focus-within:ring-purple-500/30 transition-all shadow-sm overflow-hidden">
+            {/* Attached Context Chips */}
+            {attachedContexts.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 pt-2 flex-wrap border-b border-(--color-border)/40 pb-1.5 bg-(--color-bg-secondary)/30">
+                {attachedContexts.map((ctx) => (
+                  <span
+                    key={ctx.id}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-950/60 border border-purple-700/60 text-[10px] text-purple-200 font-mono"
+                  >
+                    <span className="truncate max-w-[140px]">{ctx.label || ctx.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachedContext(ctx.id)}
+                      className="hover:text-red-400 transition-colors ml-0.5 cursor-pointer"
+                      title="Remove context"
+                    >
+                      <X size={10} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
             <textarea
               ref={textareaRef}
               value={input}
@@ -301,7 +426,9 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
               <span className="text-[10px] text-[#666666] flex items-center gap-1">
                 <span>Enter ↵ to send</span>
                 <span className="text-[#444444]">•</span>
-                <span>Shift+Enter for newline</span>
+                <span>Type @ for context</span>
+                <span className="text-[#444444]">•</span>
+                <span>⌥M toggles mode</span>
               </span>
 
               <div className="flex items-center gap-1 shrink-0">
@@ -329,8 +456,12 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
           </div>
 
           <div className="flex items-center justify-between text-[10px] text-[#666666] px-1 select-none">
-            <span className="truncate max-w-[140px] text-[#777777]">
-              {activeEngine === "doris" ? "⚡ Doris SQL" : "✨ Spark SQL"}
+            <span className="truncate max-w-[160px] text-[#777777] flex items-center gap-1">
+              <span>{activeEngine === "doris" ? "⚡ Doris" : "✨ Spark"}</span>
+              <span className="text-[#444444]">•</span>
+              <span className={agentMode === "ask" ? "text-blue-400 font-medium" : "text-purple-400 font-medium"}>
+                {agentMode === "ask" ? "Ask Mode" : "Code Mode"}
+              </span>
             </span>
             <span className="truncate max-w-[160px] font-mono text-[#777777]">{providerLabel}</span>
           </div>

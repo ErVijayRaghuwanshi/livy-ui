@@ -1,8 +1,8 @@
 import { useRef, useCallback, useState, forwardRef, useImperativeHandle, useEffect } from "react";
 import { loader } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
-import Editor from "@monaco-editor/react";
-import { Play, Loader2, Ban, AlignLeft, WrapText } from "lucide-react";
+import Editor, { DiffEditor } from "@monaco-editor/react";
+import { Play, Loader2, Ban, AlignLeft, WrapText, Check, X, Sparkles, Columns2, AlignJustify } from "lucide-react";
 import MarkdownPreview from "./MarkdownPreview";
 import { format } from "sql-formatter";
 import { useSqlFiles } from "../context/SqlFilesContext";
@@ -1705,7 +1705,15 @@ const SqlEditor = forwardRef(function SqlEditor({
     pendingLineReveal,
     clearPendingLineReveal,
     markdownViewMode,
+    pendingDiffs,
+    diffViewMode,
+    setDiffViewMode,
+    acceptDiff,
+    rejectDiff,
+    getPendingDiff,
   } = useSqlFiles();
+
+  const activePendingDiff = activeFile ? getPendingDiff(activeFile.id) : null;
   const activeFileRef = useRef(activeFile);
   const toggleAutoSaveRef = useRef(toggleAutoSave);
   const onPrevTabRef = useRef(onPrevTab);
@@ -3403,6 +3411,32 @@ const SqlEditor = forwardRef(function SqlEditor({
     }
   }, [activeFile?.content, updateDecorations]);
 
+  // Handle keyboard shortcuts when an AI diff review is pending on the active file
+  useEffect(() => {
+    if (!activePendingDiff || !activeFile) return;
+
+    const handleDiffShortcuts = (e) => {
+      // Cmd/Ctrl + Enter -> Accept Diff
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        acceptDiff(activeFile.id);
+        toast({ message: `Accepted AI changes for ${activeFile.name}`, type: "success" });
+      } else if (
+        ((e.metaKey || e.ctrlKey) && (e.key === "Backspace" || e.key === "Delete")) ||
+        e.key === "Escape"
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        rejectDiff(activeFile.id);
+        toast({ message: `Discarded AI changes for ${activeFile.name}`, type: "info" });
+      }
+    };
+
+    window.addEventListener("keydown", handleDiffShortcuts, true);
+    return () => window.removeEventListener("keydown", handleDiffShortcuts, true);
+  }, [activePendingDiff, activeFile, acceptDiff, rejectDiff, toast]);
+
   // Handle pending line reveals when the editor is already active
   useEffect(() => {
     if (editorRef.current && pendingLineReveal && pendingLineReveal.fileId === activeFile?.id) {
@@ -3484,54 +3518,157 @@ const SqlEditor = forwardRef(function SqlEditor({
               </button>
             </div>
           )}
-          <Editor
-            height="100%"
-            defaultLanguage={getLanguageForFile(activeFile?.name)}
-            theme={theme === "light" ? "light" : VSCODE_DARK_CUSTOM}
-            beforeMount={handleBeforeMount}
-            onMount={handleEditorMount}
-            options={{
-              fontSize: settings["editor.fontSize"] || 14,
-              fontFamily: settings["editor.fontFamily"] || "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
-              glyphMargin: !isMarkdownFile,
-              glyphMarginWidth: isMarkdownFile ? 0 : 16,
-              lineNumbersMinChars: 2,
-              minimap: {
-                enabled: settings["editor.minimap.enabled"] ?? true,
-                side: "right",
-                showSlider: "mouseover",
-                renderCharacters: true,
-                maxColumn: 120,
-              },
-              lineNumbers: settings["editor.lineNumbers"] || "on",
-              scrollBeyondLastLine: false,
-              wordWrap: isMarkdownFile ? "on" : (wordWrap ? "on" : "off"),
-              automaticLayout: true,
-              tabSize: settings["editor.tabSize"] || 2,
-              cursorBlinking: settings["editor.cursorBlinking"] || "smooth",
-              renderWhitespace: settings["editor.renderWhitespace"] || "selection",
-              suggestOnTriggerCharacters: true,
-              acceptSuggestionOnEnter: settings["editor.acceptSuggestionOnEnter"] || "smart",
-              tabCompletion: "on",
-              snippetSuggestions: "inline",
-              quickSuggestions: { other: true, comments: true, strings: true },
-              wordBasedSuggestions: "currentDocument",
-              suggest: {
-                showKeywords: true,
-                showFunctions: true,
-                showSnippets: true,
-                snippetsPreventQuickSuggestions: false,
-                showClasses: true,
-                showModules: true,
-                showFields: true,
-                showWords: true,
-              },
-              padding: { top: 8 },
-              renderLineHighlight: "all",
-              bracketPairColorization: { enabled: true },
-              guides: { bracketPairs: true },
-            }}
-          />
+          {/* AI Diff Review Banner */}
+          {activePendingDiff && (
+            <div className="flex items-center justify-between px-3 py-1.5 bg-gradient-to-r from-purple-950/90 via-[#1c1427]/90 to-purple-950/90 border-b border-purple-800/60 text-xs shadow-md z-20 shrink-0 animate-fadeIn backdrop-blur-sm">
+              <div className="flex items-center gap-2 min-w-0">
+                <Sparkles size={14} className="text-purple-400 shrink-0 animate-pulse" />
+                <span className="font-semibold text-purple-200 truncate">
+                  AI Proposed Changes
+                </span>
+                <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-purple-900/60 border border-purple-700/50 text-purple-200">
+                  <span className="text-emerald-400 font-semibold">+{activePendingDiff.addedLines}</span>
+                  <span className="text-[#888888] mx-0.5">/</span>
+                  <span className="text-red-400 font-semibold">-{activePendingDiff.removedLines}</span>
+                </span>
+                <span className="text-[11px] text-[#aaaaaa] truncate hidden sm:inline">
+                  in {activeFile?.name}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Diff View Mode Switcher */}
+                <div className="flex items-center rounded bg-[#181818] border border-(--color-border) p-0.5 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setDiffViewMode("split")}
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                      diffViewMode === "split"
+                        ? "bg-purple-600/40 text-purple-200 font-medium"
+                        : "text-[#888888] hover:text-[#cccccc]"
+                    }`}
+                    title="Side-by-side split diff view"
+                  >
+                    <Columns2 size={12} />
+                    <span className="hidden md:inline">Split</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDiffViewMode("inline")}
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                      diffViewMode === "inline"
+                        ? "bg-purple-600/40 text-purple-200 font-medium"
+                        : "text-[#888888] hover:text-[#cccccc]"
+                    }`}
+                    title="Inline unified diff view"
+                  >
+                    <AlignJustify size={12} />
+                    <span className="hidden md:inline">Inline</span>
+                  </button>
+                </div>
+
+                {/* Accept Changes Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    acceptDiff(activeFile.id);
+                    toast({ message: `Accepted AI changes for ${activeFile.name}`, type: "success" });
+                  }}
+                  title="Accept AI proposed changes (⌘↵)"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-[11px] cursor-pointer shadow-sm transition-all"
+                >
+                  <Check size={12} />
+                  <span>Accept</span>
+                  <span className="text-[10px] opacity-75 font-mono ml-0.5 hidden lg:inline">⌘↵</span>
+                </button>
+
+                {/* Discard Changes Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    rejectDiff(activeFile.id);
+                    toast({ message: `Discarded AI changes for ${activeFile.name}`, type: "info" });
+                  }}
+                  title="Discard AI proposed changes (⌘⌫ or Esc)"
+                  className="flex items-center gap-1 px-2 py-1 rounded bg-red-950/60 hover:bg-red-900/80 border border-red-700/60 text-red-200 hover:text-white font-medium text-[11px] cursor-pointer transition-colors"
+                >
+                  <X size={12} />
+                  <span>Discard</span>
+                  <span className="text-[10px] opacity-75 font-mono ml-0.5 hidden lg:inline">⌘⌫</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activePendingDiff ? (
+            <DiffEditor
+              height="100%"
+              language={getLanguageForFile(activeFile?.name)}
+              theme={theme === "light" ? "light" : VSCODE_DARK_CUSTOM}
+              original={activePendingDiff.originalContent}
+              modified={activePendingDiff.proposedContent}
+              options={{
+                readOnly: true,
+                renderSideBySide: diffViewMode === "split",
+                fontSize: settings["editor.fontSize"] || 14,
+                fontFamily: settings["editor.fontFamily"] || "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
+                minimap: { enabled: false },
+                automaticLayout: true,
+                scrollBeyondLastLine: false,
+                lineNumbers: settings["editor.lineNumbers"] || "on",
+                padding: { top: 8 },
+              }}
+            />
+          ) : (
+            <Editor
+              height="100%"
+              defaultLanguage={getLanguageForFile(activeFile?.name)}
+              theme={theme === "light" ? "light" : VSCODE_DARK_CUSTOM}
+              beforeMount={handleBeforeMount}
+              onMount={handleEditorMount}
+              options={{
+                fontSize: settings["editor.fontSize"] || 14,
+                fontFamily: settings["editor.fontFamily"] || "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
+                glyphMargin: !isMarkdownFile,
+                glyphMarginWidth: isMarkdownFile ? 0 : 16,
+                lineNumbersMinChars: 2,
+                minimap: {
+                  enabled: settings["editor.minimap.enabled"] ?? true,
+                  side: "right",
+                  showSlider: "mouseover",
+                  renderCharacters: true,
+                  maxColumn: 120,
+                },
+                lineNumbers: settings["editor.lineNumbers"] || "on",
+                scrollBeyondLastLine: false,
+                wordWrap: isMarkdownFile ? "on" : (wordWrap ? "on" : "off"),
+                automaticLayout: true,
+                tabSize: settings["editor.tabSize"] || 2,
+                cursorBlinking: settings["editor.cursorBlinking"] || "smooth",
+                renderWhitespace: settings["editor.renderWhitespace"] || "selection",
+                suggestOnTriggerCharacters: true,
+                acceptSuggestionOnEnter: settings["editor.acceptSuggestionOnEnter"] || "smart",
+                tabCompletion: "on",
+                snippetSuggestions: "inline",
+                quickSuggestions: { other: true, comments: true, strings: true },
+                wordBasedSuggestions: "currentDocument",
+                suggest: {
+                  showKeywords: true,
+                  showFunctions: true,
+                  showSnippets: true,
+                  snippetsPreventQuickSuggestions: false,
+                  showClasses: true,
+                  showModules: true,
+                  showFields: true,
+                  showWords: true,
+                },
+                padding: { top: 8 },
+                renderLineHighlight: "all",
+                bracketPairColorization: { enabled: true },
+                guides: { bracketPairs: true },
+              }}
+            />
+          )}
         </div>
 
         {/* Markdown Preview Container */}

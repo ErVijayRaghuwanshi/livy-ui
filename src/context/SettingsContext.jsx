@@ -39,6 +39,7 @@ export const DEFAULT_SETTINGS = {
 
   // AI & Copilot Configuration (Zero Backend / Client-Side)
   "ai.provider": "ollama", // "ollama" | "gemini" | "openai" | "custom"
+  "ai.agentMode": "action", // "action" (Code Mode with Review) | "ask" (Advisory / Q&A)
   "ai.hostUrl": "http://localhost:11434",
   "ai.defaultModel": "nemotron-3-nano:4b",
   "ai.geminiApiKey": "",
