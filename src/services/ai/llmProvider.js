@@ -265,7 +265,7 @@ export async function streamUnifiedChat({
 
   if (config.requiresKey && !config.hasKey) {
     throw new Error(
-      `Missing API Key for ${provider.toUpperCase()}. Please configure your API key in the AI Copilot settings.`
+      `Missing API Key for ${provider.toUpperCase()}. Please configure your API key in AI settings.`
     );
   }
 

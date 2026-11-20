@@ -60,10 +60,10 @@ export default function TitleBar({ onOpenCommandPalette, onOpenComputePanel, isA
               ? "bg-purple-950/60 text-purple-300 border-purple-500/50 shadow-[0_0_8px_rgba(168,85,247,0.3)]"
               : "bg-(--color-bg-primary) hover:bg-(--color-bg-tertiary)/60 text-(--color-text-secondary) hover:text-white border-(--color-border)"
           }`}
-          title={isMac ? "Toggle AI Copilot (⌘⇧A)" : "Toggle AI Copilot (Ctrl+Shift+A)"}
+          title={isMac ? "Toggle Chat (⌘⇧A)" : "Toggle Chat (Ctrl+Shift+A)"}
         >
           <Sparkles size={12} className={isAiPanelOpen ? "text-purple-400" : "text-[#858585]"} />
-          <span className="font-medium text-[11px]">AI Copilot</span>
+          <span className="font-medium text-[11px]">Chat</span>
         </button>
 
         {/* <button

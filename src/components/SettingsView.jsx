@@ -493,7 +493,7 @@ export default function SettingsView({
       category: "ai",
       categoryLabel: "AI & Copilot",
       title: "Model & Provider Configuration",
-      description: "Manage LLM providers (Local Ollama, Google GenAI Gemini, OpenAI, Custom), host endpoints, API keys, and model parameters for AI Copilot.",
+      description: "Manage LLM providers (Local Ollama, Google GenAI Gemini, OpenAI, Custom), host endpoints, API keys, and model parameters.",
       type: "aiManager",
       commonlyUsed: true,
     },

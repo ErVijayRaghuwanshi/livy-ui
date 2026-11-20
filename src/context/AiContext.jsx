@@ -26,21 +26,6 @@ import { v4 as uuidv4 } from "uuid";
 const AiContext = createContext(null);
 const STORAGE_KEY_CHAT_HISTORY = "livy_ai_chat_history";
 
-const DEFAULT_WELCOME_MESSAGE = {
-  id: "welcome",
-  role: "assistant",
-  content: `Hello! I'm your **Livy & Doris AI Copilot**.
-
-I can help you:
-- 📝 **Write SQL** for Apache Spark or Apache Doris
-- 📂 **Create & Open Files** in your editor
-- ▶️ **Execute Queries** and view live results
-- 🔍 **Inspect Schemas** & table catalogs automatically via specialized subagents
-
-Select your provider in the header above to begin!`,
-  timestamp: new Date().toISOString(),
-};
-
 export function AiProvider({ children, editorRef }) {
   const { settings, updateSetting } = useSettings();
   const sqlFiles = useSqlFiles();
@@ -123,10 +108,12 @@ export function AiProvider({ children, editorRef }) {
       const saved = localStorage.getItem(STORAGE_KEY_CHAT_HISTORY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.filter((m) => m && m.id !== "welcome");
+        }
       }
     } catch {}
-    return [DEFAULT_WELCOME_MESSAGE];
+    return [];
   });
 
   const [isStreaming, setIsStreaming] = useState(false);
@@ -253,7 +240,7 @@ export function AiProvider({ children, editorRef }) {
   // Clear chat history
   const clearChat = useCallback(() => {
     stopGeneration();
-    setMessages([DEFAULT_WELCOME_MESSAGE]);
+    setMessages([]);
     try {
       localStorage.removeItem(STORAGE_KEY_CHAT_HISTORY);
     } catch {}

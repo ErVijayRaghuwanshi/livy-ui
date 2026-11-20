@@ -103,7 +103,7 @@ export default function ActivityBar({
               ? "text-purple-400"
               : "text-[#858585] hover:text-purple-300"
           }`}
-          title={isMac ? "Toggle AI Copilot & SQL Agent (⌘⇧A)" : "Toggle AI Copilot & SQL Agent (Ctrl+Shift+A)"}
+          title={isMac ? "Toggle Chat (⌘⇧A)" : "Toggle Chat (Ctrl+Shift+A)"}
         >
           {isAiPanelOpen && (
             <span className="absolute left-0 top-0 bottom-0 w-[2px] bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)]" />

@@ -8,9 +8,6 @@ import {
   Wrench,
   Loader2,
   Terminal,
-  Database,
-  Cpu,
-  FileCode,
   PanelRightClose,
   Sliders,
   AlertCircle,
@@ -27,24 +24,6 @@ import {
 import { useAi } from "../../context/AiContext";
 import ChatMessage from "./ChatMessage";
 import ContextPicker from "./ContextPicker";
-
-const SUGGESTIONS = [
-  {
-    label: "Explore Catalog & Tables",
-    prompt: "Explore the database catalog and list the available tables and their schemas.",
-    icon: Database,
-  },
-  {
-    label: "List Compute Sessions",
-    prompt: "List all active Livy / compute sessions and check their states.",
-    icon: Cpu,
-  },
-  {
-    label: "Explain Active Query",
-    prompt: "Explain the active SQL query in my editor tab and suggest any performance optimizations.",
-    icon: FileCode,
-  },
-];
 
 export default function AiChatPanel({ onClose, onOpenSettings }) {
   const {
@@ -190,9 +169,9 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
       {/* Top Header: Ultra-compact single line (~36px) */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border) bg-(--color-bg-secondary) shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <Sparkles size={15} className="text-purple-400 shrink-0" />
-          <span className="font-semibold text-xs text-white uppercase tracking-wider shrink-0">
-            AI Copilot
+          <Sparkles size={14} className="text-purple-400 shrink-0" />
+          <span className="font-medium text-xs text-[#e0e0e0] shrink-0">
+            Chat
           </span>
 
           {/* Model Status Pill & Quick Switcher Dropdown */}
@@ -299,7 +278,7 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
             <button
               type="button"
               onClick={onClose}
-              title="Close AI Copilot Panel (⌘⇧A)"
+              title="Close Chat Panel (⌘⇧A)"
               className="p-1 rounded text-[#858585] hover:text-white hover:bg-(--color-bg-hover) transition-colors cursor-pointer ml-0.5"
             >
               <PanelRightClose size={14} />
@@ -348,7 +327,7 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
           <div className="flex flex-col gap-2 p-3 rounded-lg bg-(--color-bg-tertiary)/60 border border-(--color-border) text-xs leading-relaxed mr-2 animate-fadeIn">
             <div className="flex items-center gap-1.5 font-medium text-[11px] text-[#858585]">
               <Sparkles size={13} className="text-purple-400 animate-spin" />
-              <span className="text-purple-300 font-semibold">AI Copilot Thinking...</span>
+              <span className="text-purple-300 font-medium">Thinking...</span>
             </div>
 
             {/* Streaming Reasoning / Thinking */}
@@ -405,32 +384,6 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
           </button>
         )}
       </div>
-
-      {/* Quick Suggestion Chips (when chat has only welcome message) */}
-      {messages.length <= 1 && (
-        <div className="p-2 border-t border-(--color-border) bg-(--color-bg-secondary)/50 flex flex-col gap-1.5">
-          <span className="text-[10px] uppercase font-semibold text-[#666666] px-1">
-            Suggested Prompts:
-          </span>
-          <div className="flex flex-col gap-1">
-            {SUGGESTIONS.map((item, i) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => sendMessage(item.prompt)}
-                  disabled={!isOnline || isStreaming}
-                  className="flex items-center gap-2 px-2.5 py-1.5 rounded bg-(--color-bg-secondary) hover:bg-(--color-bg-hover) text-[#aaaaaa] hover:text-white border border-(--color-border) text-[11px] text-left transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Icon size={12} className="text-purple-400 shrink-0" />
-                  <span className="truncate">{item.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Input Form with Compact Mode & Context Controls */}
       <div className="p-2 border-t border-(--color-border) bg-(--color-bg-secondary) flex flex-col gap-1.5 relative">

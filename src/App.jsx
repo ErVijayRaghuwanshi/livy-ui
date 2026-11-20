@@ -964,7 +964,7 @@ export default function App() {
               <div
                 onMouseDown={handleAiResizeMouseDown}
                 className={`dg-sidebar-resize-handle group ${isAiDragging ? "is-dragging" : ""}`}
-                title="Drag to resize AI Copilot width"
+                title="Drag to resize panel width"
               >
                 <div className="absolute -inset-x-2 inset-y-0 z-10" />
                 <div

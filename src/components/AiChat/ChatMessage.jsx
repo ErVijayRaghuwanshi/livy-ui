@@ -441,44 +441,39 @@ export default function ChatMessage({ message }) {
           : "bg-(--color-bg-secondary)/60 border border-(--color-border)"
       }`}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between text-[11px] text-[#858585]">
-        <div className="flex items-center gap-1.5 font-medium">
-          <Sparkles size={13} className="text-purple-400" />
-          <span className="text-purple-300 font-semibold">AI Copilot</span>
-        </div>
-
-        <div className="flex items-center gap-2">
+      {/* Assistant Message Header / Actions */}
+      <div className="flex items-center justify-between text-[10px] text-[#666666] -mb-0.5">
+        <div className="flex items-center gap-1.5 text-[#777777]">
           {message.timestamp && (
-            <span className="text-[10px] text-[#666666]">
+            <span>
               {new Date(message.timestamp).toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
               })}
             </span>
           )}
-
-          {/* Universal Copy Message Button */}
-          {message.content && (
-            <button
-              onClick={handleCopyFull}
-              className="flex items-center gap-1 text-[10px] text-[#858585] hover:text-white transition-colors cursor-pointer px-1 py-0.5 rounded hover:bg-(--color-bg-hover)"
-              title="Copy entire response"
-            >
-              {copiedFull ? (
-                <>
-                  <Check size={11} className="text-emerald-400" />
-                  <span className="text-emerald-400 font-sans">Copied</span>
-                </>
-              ) : (
-                <>
-                  <Copy size={11} />
-                  <span className="font-sans">Copy</span>
-                </>
-              )}
-            </button>
-          )}
         </div>
+
+        {/* Universal Copy Message Button */}
+        {message.content && (
+          <button
+            onClick={handleCopyFull}
+            className="flex items-center gap-1 text-[10px] text-[#777777] hover:text-white transition-colors cursor-pointer px-1.5 py-0.5 rounded hover:bg-(--color-bg-hover)"
+            title="Copy entire response"
+          >
+            {copiedFull ? (
+              <>
+                <Check size={11} className="text-emerald-400" />
+                <span className="text-emerald-400 font-sans">Copied</span>
+              </>
+            ) : (
+              <>
+                <Copy size={11} />
+                <span className="font-sans">Copy</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Reasoning / Thinking Accordion */}

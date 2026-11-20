@@ -59,7 +59,7 @@ WORKBENCH ACTION TOOLS:
 3. 'open_file': Opens and displays an editor tab. Opens an existing file into the tab bar, or opens a new SQL tab if requested or no file is currently open.
 `;
 
-  return `You are the Livy UI Copilot, a helpful AI assistant for data engineering.
+  return `You are the Livy UI assistant, a helpful AI expert for data engineering.
 Current Engine: ${engineLabel}
 Active Database: ${activeDatabase || "None selected (Use 'schema_analyst' to list databases or ask user)"}
 Active Editor File: ${activeFileName || "None"}
