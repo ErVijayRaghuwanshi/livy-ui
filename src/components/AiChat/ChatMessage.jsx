@@ -20,6 +20,7 @@ import {
   FileText,
   AlertTriangle,
   X,
+  Table,
 } from "lucide-react";
 import { marked } from "marked";
 import { useAi } from "../../context/AiContext";
@@ -81,7 +82,7 @@ marked.use({ renderer: customRenderer });
  */
 function ToolResultItem({ tr }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const { acceptDiff, rejectDiff, hasPendingDiff } = useSqlFiles();
+  const { acceptDiff, rejectDiff, hasPendingDiff, getDiffResolution } = useSqlFiles();
 
   const rawName = (tr.name || "").toLowerCase();
   const subagentType =
@@ -101,6 +102,7 @@ function ToolResultItem({ tr }) {
   const isDiffReview = tr.name === "write_sql_file" && Boolean(tr.result?.hasPendingDiff);
   const fileId = tr.result?.fileId;
   const isPending = fileId && typeof hasPendingDiff === "function" ? hasPendingDiff(fileId) : false;
+  const diffResolution = fileId && typeof getDiffResolution === "function" ? getDiffResolution(fileId) : null;
 
   let Icon = Wrench;
   let label = tr.name;
@@ -109,9 +111,13 @@ function ToolResultItem({ tr }) {
   if (isDiffReview) {
     Icon = FilePlus;
     label = "Diff Review: " + (tr.result?.fileName || "File");
-    themeClass = isPending
-      ? "text-purple-300 border-purple-700/60 bg-purple-950/30"
-      : "text-emerald-300 border-emerald-800/40 bg-emerald-950/20";
+    if (isPending) {
+      themeClass = "text-purple-300 border-purple-700/60 bg-purple-950/30";
+    } else if (diffResolution === "discarded") {
+      themeClass = "text-[#888888] border-red-900/30 bg-red-950/15";
+    } else {
+      themeClass = "text-emerald-300 border-emerald-800/40 bg-emerald-950/20";
+    }
   } else if (subagentType === "schema_analyst") {
     Icon = Database;
     label = "Schema Analyst";
@@ -200,10 +206,20 @@ function ToolResultItem({ tr }) {
                 <span>Discard</span>
               </button>
             </div>
+          ) : isDiffReview && diffResolution === "discarded" ? (
+            <span className="flex items-center gap-0.5 text-red-400 font-medium">
+              <XCircle size={11} />
+              <span>Discarded</span>
+            </span>
+          ) : isDiffReview && diffResolution === "accepted" ? (
+            <span className="flex items-center gap-0.5 text-emerald-400 font-medium">
+              <CheckCircle2 size={11} />
+              <span>Accepted</span>
+            </span>
           ) : isSuccess ? (
             <span className="flex items-center gap-0.5 text-emerald-400">
               <CheckCircle2 size={11} />
-              <span>{isDiffReview ? "Reviewed" : "Done"}</span>
+              <span>{isDiffReview ? "Accepted" : "Done"}</span>
             </span>
           ) : (
             <span className="flex items-center gap-0.5 text-red-400">
@@ -259,10 +275,39 @@ function ToolResultItem({ tr }) {
 
 export default function ChatMessage({ message }) {
   const { handleActionCard, retryLastMessage } = useAi();
+  const { files, openFile } = useSqlFiles();
   const [showReasoning, setShowReasoning] = useState(false);
   const [copiedFull, setCopiedFull] = useState(false);
 
   const isUser = message.role === "user";
+
+  const handleBadgeClick = (badge) => {
+    if (!badge) return;
+    if (badge.type === "file") {
+      const rawId = badge.id?.startsWith("file_") ? badge.id.slice(5) : badge.id;
+      const target = (files || []).find((f) => f.id === rawId || f.name === badge.label);
+      if (target) {
+        openFile(target.id);
+      }
+    }
+  };
+
+  const getBadgeIcon = (type) => {
+    switch (type) {
+      case "file":
+        return <FileText size={10} className="text-blue-400 shrink-0" />;
+      case "table":
+        return <Table size={10} className="text-cyan-400 shrink-0" />;
+      case "editor":
+        return <Code2 size={10} className="text-purple-400 shrink-0" />;
+      case "result":
+        return <CheckCircle2 size={10} className="text-emerald-400 shrink-0" />;
+      case "cluster":
+        return <Cpu size={10} className="text-amber-400 shrink-0" />;
+      default:
+        return null;
+    }
+  };
 
   // Parse markdown for non-user messages
   const parsedHtml = useMemo(() => {
@@ -382,14 +427,26 @@ export default function ChatMessage({ message }) {
       {isUser && Array.isArray(message.contextBadges) && message.contextBadges.length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap pt-0.5 pb-1 border-b border-(--color-border)/30">
           <span className="text-[10px] text-[#888888] font-medium">Context:</span>
-          {message.contextBadges.map((badge, idx) => (
-            <span
-              key={idx}
-              className="px-1.5 py-0.5 rounded bg-purple-950/60 border border-purple-800/40 text-[10px] text-purple-300 font-mono flex items-center gap-1"
-            >
-              <span>@{badge.label}</span>
-            </span>
-          ))}
+          {message.contextBadges.map((badge, idx) => {
+            const isClickable = badge.type === "file";
+            return (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleBadgeClick(badge)}
+                disabled={!isClickable}
+                className={`px-1.5 py-0.5 rounded bg-purple-950/60 border border-purple-800/40 text-[10px] text-purple-300 font-mono flex items-center gap-1 transition-all ${
+                  isClickable
+                    ? "hover:bg-purple-900/80 hover:border-purple-600 hover:text-white cursor-pointer"
+                    : "cursor-default"
+                }`}
+                title={isClickable ? `Click to open ${badge.label} in editor tab` : badge.label}
+              >
+                {getBadgeIcon(badge.type)}
+                <span>@{badge.label}</span>
+              </button>
+            );
+          })}
         </div>
       )}
 

@@ -18,6 +18,8 @@ import {
   Zap,
   AtSign,
   X,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import { useAi } from "../../context/AiContext";
 import ChatMessage from "./ChatMessage";
@@ -45,8 +47,12 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
   const {
     provider,
     providerLabel,
+    activeModel,
     activeModelLabel,
+    setActiveModel,
+    availableModels,
     activeEngine,
+    activeDatabase,
     agentMode,
     setAgentMode,
     attachedContexts,
@@ -69,8 +75,22 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
   const [input, setInput] = useState("");
   const [isContextPickerOpen, setIsContextPickerOpen] = useState(false);
   const [contextSearchQuery, setContextSearchQuery] = useState("");
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
+  const modelDropdownRef = useRef(null);
+
+  // Close model dropdown on click outside
+  useEffect(() => {
+    if (!isModelDropdownOpen) return;
+    const handleClickOutside = (e) => {
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target)) {
+        setIsModelDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isModelDropdownOpen]);
 
   // Focus textarea on panel open
   useEffect(() => {
@@ -166,22 +186,80 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
             AI Copilot
           </span>
 
-          {/* Model Status Pill: Clicking opens AI Settings */}
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            title={`Active Model: ${activeModelLabel} (${providerLabel})\nStatus: ${isOnline ? "Online" : "Needs Setup"}\nClick to configure in Settings`}
-            className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-(--color-bg-primary) border border-(--color-border) hover:border-purple-500/50 text-[10px] text-[#aaaaaa] hover:text-white cursor-pointer transition-colors truncate max-w-[170px]"
-          >
-            <span
-              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                isOnline
-                  ? "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.8)]"
-                  : "bg-amber-500 shadow-[0_0_5px_rgba(245,158,11,0.8)]"
-              }`}
-            />
-            <span className="truncate font-mono">{activeModelLabel}</span>
-          </button>
+          {/* Model Status Pill & Quick Switcher Dropdown */}
+          <div className="relative" ref={modelDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setIsModelDropdownOpen((prev) => !prev)}
+              title={`Active Model: ${activeModelLabel} (${providerLabel})\nClick to change model or configure in Settings`}
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-(--color-bg-primary) border border-(--color-border) hover:border-purple-500/50 text-[10px] text-[#aaaaaa] hover:text-white cursor-pointer transition-colors max-w-[190px]"
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                  isOnline
+                    ? "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.8)]"
+                    : "bg-amber-500 shadow-[0_0_5px_rgba(245,158,11,0.8)]"
+                }`}
+              />
+              <span className="truncate font-mono">{activeModelLabel}</span>
+              <ChevronDown size={10} className="shrink-0 text-[#777777] ml-0.5" />
+            </button>
+
+            {/* Quick Model Selector Popover */}
+            {isModelDropdownOpen && (
+              <div className="absolute left-0 top-full mt-1.5 w-64 rounded-lg bg-[#181818] border border-(--color-border) shadow-2xl z-50 overflow-hidden flex flex-col py-1 animate-fadeIn">
+                <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-(--color-border)/60 text-[10px] text-[#888888]">
+                  <span className="font-semibold uppercase tracking-wider">{providerLabel}</span>
+                  {onOpenSettings && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsModelDropdownOpen(false);
+                        onOpenSettings();
+                      }}
+                      className="text-purple-400 hover:text-purple-300 hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      <Sliders size={10} />
+                      <span>Settings</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="max-h-56 overflow-y-auto py-1">
+                  {availableModels && availableModels.length > 0 ? (
+                    availableModels.map((m) => {
+                      const modelId = m.model || m.id || m.name;
+                      const isSelected = modelId === activeModel || m.name === activeModel;
+                      return (
+                        <button
+                          key={modelId}
+                          type="button"
+                          onClick={() => {
+                            setActiveModel(modelId);
+                            setIsModelDropdownOpen(false);
+                          }}
+                          className={`flex items-center justify-between w-full px-2.5 py-1.5 text-left text-xs transition-colors cursor-pointer ${
+                            isSelected
+                              ? "bg-purple-950/60 text-purple-200 font-medium"
+                              : "text-[#cccccc] hover:bg-(--color-bg-hover) hover:text-white"
+                          }`}
+                        >
+                          <span className="truncate font-mono text-[11px]">
+                            {m.displayName || m.name || modelId}
+                          </span>
+                          {isSelected && <Check size={12} className="text-purple-400 shrink-0 ml-1.5" />}
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <div className="px-3 py-2 text-[11px] text-[#777777] text-center">
+                      No models available
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
@@ -387,6 +465,26 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
           </button>
         </div>
 
+        {/* Ask Mode Action Nudge Banner */}
+        {agentMode === "ask" &&
+          /\b(write|create|save|edit|modify|update|replace|overwrite|insert)\b.*\b(file|sql|script|tab|editor)\b/i.test(
+            input
+          ) && (
+            <div className="flex items-center justify-between px-2.5 py-1.5 bg-purple-950/50 border border-purple-700/50 rounded-lg text-[11px] text-purple-200 animate-fadeIn">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Zap size={12} className="text-purple-400 shrink-0" />
+                <span className="truncate">Editing files requires <strong>Code Mode</strong></span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAgentMode("action")}
+                className="px-2 py-0.5 rounded bg-purple-600 hover:bg-purple-500 text-white font-medium text-[10px] shrink-0 cursor-pointer transition-colors shadow-xs"
+              >
+                Switch to Code
+              </button>
+            </div>
+          )}
+
         <form onSubmit={handleSubmit} className="flex flex-col gap-1.5">
           <div className="flex flex-col bg-(--color-bg-primary) border border-(--color-border) rounded-lg focus-within:border-purple-500/80 focus-within:ring-1 focus-within:ring-purple-500/30 transition-all shadow-sm overflow-hidden">
             {/* Attached Context Chips */}
@@ -456,12 +554,10 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
           </div>
 
           <div className="flex items-center justify-between text-[10px] text-[#666666] px-1 select-none">
-            <span className="truncate max-w-[160px] text-[#777777] flex items-center gap-1">
-              <span>{activeEngine === "doris" ? "⚡ Doris" : "✨ Spark"}</span>
+            <span className="truncate max-w-[200px] text-[#888888] flex items-center gap-1.5">
+              <span>{activeEngine === "doris" ? "🐬 Doris" : "⚡ Spark"}</span>
               <span className="text-[#444444]">•</span>
-              <span className={agentMode === "ask" ? "text-blue-400 font-medium" : "text-purple-400 font-medium"}>
-                {agentMode === "ask" ? "Ask Mode" : "Code Mode"}
-              </span>
+              <span className="text-[#aaaaaa] font-mono">{activeDatabase || (activeEngine === "doris" ? "demo_db" : "default")}</span>
             </span>
             <span className="truncate max-w-[160px] font-mono text-[#777777]">{providerLabel}</span>
           </div>

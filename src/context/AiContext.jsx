@@ -145,8 +145,14 @@ export function AiProvider({ children, editorRef }) {
     } catch {}
   }, [messages]);
 
-  // Determine active engine (doris or spark)
-  const activeEngine = sqlFiles?.activeFile?.engine || (sqlFiles?.dorisMode ? "doris" : "spark");
+  // Determine active engine (doris or spark) and active database
+  const activeEngine = livyContext?.isDoris
+    ? "doris"
+    : (sqlFiles?.activeFile?.engine || (sqlFiles?.dorisMode ? "doris" : "spark"));
+
+  const activeDatabase = livyContext?.isDoris
+    ? (livyContext?.activeHost?.database || settings["doris.defaultDatabase"] || "demo_db")
+    : (livyContext?.activeHost?.database || "default");
 
   // Fetch models dynamically depending on selected provider
   const refreshModels = useCallback(async () => {
@@ -590,6 +596,7 @@ export function AiProvider({ children, editorRef }) {
     refreshModels,
     messages,
     activeEngine,
+    activeDatabase,
     agentMode,
     setAgentMode,
     attachedContexts,

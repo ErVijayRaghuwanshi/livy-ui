@@ -118,6 +118,7 @@ const initialState = {
   pendingLineReveal: null,
   previewTabId: getItem(STORAGE_KEYS.PREVIEW_TAB, null),
   pendingDiffs: {},
+  diffResolutions: {}, // fileId -> "pending" | "accepted" | "discarded"
   diffViewMode: "split", // "split" | "inline"
   workspace: {
     name: null,
@@ -380,6 +381,10 @@ function reducer(state, action) {
         ...state,
         files: nextFiles,
         pendingDiffs: nextPendingDiffs,
+        diffResolutions: {
+          ...state.diffResolutions,
+          [fileId]: "pending",
+        },
       };
     }
 
@@ -397,6 +402,10 @@ function reducer(state, action) {
       return {
         ...state,
         pendingDiffs: nextPending,
+        diffResolutions: {
+          ...state.diffResolutions,
+          [fileId]: "accepted",
+        },
         dirtyFiles: {
           ...state.dirtyFiles,
           [fileId]: isDirty,
@@ -426,6 +435,10 @@ function reducer(state, action) {
           openFiles: filteredOpen,
           activeTabId: nextActiveId,
           pendingDiffs: nextPending,
+          diffResolutions: {
+            ...state.diffResolutions,
+            [fileId]: "discarded",
+          },
         };
       }
 
@@ -442,6 +455,10 @@ function reducer(state, action) {
         ...state,
         files: nextFiles,
         pendingDiffs: nextPending,
+        diffResolutions: {
+          ...state.diffResolutions,
+          [fileId]: "discarded",
+        },
         dirtyFiles: {
           ...state.dirtyFiles,
           [fileId]: isDirty,
@@ -2100,6 +2117,11 @@ export function SqlFilesProvider({ children }) {
     return state.pendingDiffs?.[fileId] || null;
   }, [state.pendingDiffs]);
 
+  const getDiffResolution = useCallback((fileId) => {
+    if (state.pendingDiffs && state.pendingDiffs[fileId]) return "pending";
+    return state.diffResolutions?.[fileId] || null;
+  }, [state.pendingDiffs, state.diffResolutions]);
+
   let fileResults = (state.activeTabId && state.results[state.activeTabId]) || null;
   let activeResultFileId = state.activeTabId;
 
@@ -2135,6 +2157,7 @@ export function SqlFilesProvider({ children }) {
     pendingLineReveal: state.pendingLineReveal,
     previewTabId: state.previewTabId,
     pendingDiffs: state.pendingDiffs,
+    diffResolutions: state.diffResolutions,
     diffViewMode: state.diffViewMode,
     setDiffViewMode,
     stageDiff,
@@ -2142,6 +2165,7 @@ export function SqlFilesProvider({ children }) {
     rejectDiff,
     hasPendingDiff,
     getPendingDiff,
+    getDiffResolution,
     workspace: state.workspace,
     isFsSupported,
     setPendingLineReveal,
