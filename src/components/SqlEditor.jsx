@@ -3421,7 +3421,7 @@ const SqlEditor = forwardRef(function SqlEditor({
         e.preventDefault();
         e.stopPropagation();
         acceptDiff(activeFile.id);
-        toast({ message: `Accepted AI changes for ${activeFile.name}`, type: "success" });
+        addToast("ok", `Accepted AI changes for ${activeFile.name}`);
       } else if (
         ((e.metaKey || e.ctrlKey) && (e.key === "Backspace" || e.key === "Delete")) ||
         e.key === "Escape"
@@ -3429,13 +3429,13 @@ const SqlEditor = forwardRef(function SqlEditor({
         e.preventDefault();
         e.stopPropagation();
         rejectDiff(activeFile.id);
-        toast({ message: `Discarded AI changes for ${activeFile.name}`, type: "info" });
+        addToast("info", `Discarded AI changes for ${activeFile.name}`);
       }
     };
 
     window.addEventListener("keydown", handleDiffShortcuts, true);
     return () => window.removeEventListener("keydown", handleDiffShortcuts, true);
-  }, [activePendingDiff, activeFile, acceptDiff, rejectDiff, toast]);
+  }, [activePendingDiff, activeFile, acceptDiff, rejectDiff, addToast]);
 
   // Handle pending line reveals when the editor is already active
   useEffect(() => {
@@ -3572,7 +3572,7 @@ const SqlEditor = forwardRef(function SqlEditor({
                   type="button"
                   onClick={() => {
                     acceptDiff(activeFile.id);
-                    toast({ message: `Accepted AI changes for ${activeFile.name}`, type: "success" });
+                    addToast("ok", `Accepted AI changes for ${activeFile.name}`);
                   }}
                   title="Accept AI proposed changes (⌘↵)"
                   className="flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-[11px] cursor-pointer shadow-sm transition-all"
@@ -3587,7 +3587,7 @@ const SqlEditor = forwardRef(function SqlEditor({
                   type="button"
                   onClick={() => {
                     rejectDiff(activeFile.id);
-                    toast({ message: `Discarded AI changes for ${activeFile.name}`, type: "info" });
+                    addToast("info", `Discarded AI changes for ${activeFile.name}`);
                   }}
                   title="Discard AI proposed changes (⌘⌫ or Esc)"
                   className="flex items-center gap-1 px-2 py-1 rounded bg-red-950/60 hover:bg-red-900/80 border border-red-700/60 text-red-200 hover:text-white font-medium text-[11px] cursor-pointer transition-colors"
