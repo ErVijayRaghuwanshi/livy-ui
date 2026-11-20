@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import {
   Play,
   FilePlus,
-  ArrowDownToLine,
   Copy,
   Check,
   ChevronDown,
@@ -39,9 +38,8 @@ function escapeHtml(str) {
 /**
  * Configure marked with custom code block renderer that adds:
  * - Language tag header
- * - 1-click Run Query button (for SQL code blocks)
- * - 1-click Open in Tab button
- * - 1-click Copy code button with encoded data-code attribute
+ * - 1-click ▶ Run Query icon button (for SQL code blocks)
+ * - 1-click Copy icon button with encoded data-code attribute
  */
 const customRenderer = {
   code({ text, lang }) {
@@ -55,21 +53,18 @@ const customRenderer = {
       /^\s*(SELECT|WITH|SHOW|DESCRIBE|EXPLAIN|CREATE|DROP|ALTER|INSERT)\b/i.test(text.trim());
 
     return `<div class="code-block-wrapper my-2 rounded border border-(--color-border) overflow-hidden bg-(--color-bg-secondary)">
-  <div class="flex items-center justify-between px-2.5 py-1.5 bg-[#1c1c1c] border-b border-(--color-border) text-[10px] text-[#888888] font-mono">
+  <div class="flex items-center justify-between px-2.5 py-1 bg-[#1c1c1c] border-b border-(--color-border) text-[10px] text-[#888888] font-mono">
     <span class="uppercase font-semibold tracking-wider text-purple-300/80">${cleanLang || (isSql ? "sql" : "code")}</span>
-    <div class="flex items-center gap-1.5">
+    <div class="flex items-center gap-1">
       ${
         isSql
-          ? `<button type="button" class="run-code-btn flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-600/90 hover:bg-emerald-500 text-white font-medium transition-all cursor-pointer shadow-xs active:scale-95" data-code="${encodedCode}" title="Execute query immediately">
-        <span>▶ Run Query</span>
-      </button>
-      <button type="button" class="open-code-btn flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#282828] hover:bg-[#383838] text-[#cccccc] hover:text-white transition-colors cursor-pointer" data-code="${encodedCode}" title="Open query in a new editor tab">
-        <span>+ Tab</span>
+          ? `<button type="button" class="run-code-btn flex items-center justify-center w-5 h-5 rounded hover:bg-emerald-600/30 text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer" data-code="${encodedCode}" title="Run Query">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
       </button>`
           : ""
       }
-      <button type="button" class="copy-code-btn flex items-center gap-1 hover:text-white transition-colors cursor-pointer ml-0.5" data-code="${encodedCode}" title="Copy to clipboard">
-        Copy
+      <button type="button" class="copy-code-btn flex items-center justify-center w-5 h-5 rounded hover:bg-(--color-bg-hover) text-[#888888] hover:text-white transition-colors cursor-pointer" data-code="${encodedCode}" title="Copy SQL">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
       </button>
     </div>
   </div>
@@ -265,15 +260,7 @@ function ToolResultItem({ tr }) {
 export default function ChatMessage({ message }) {
   const { handleActionCard, retryLastMessage } = useAi();
   const [showReasoning, setShowReasoning] = useState(false);
-  const [copiedIndex, setCopiedIndex] = useState(null);
   const [copiedFull, setCopiedFull] = useState(false);
-  const [openedCards, setOpenedCards] = useState(() => message.openedCards || {});
-
-  const handleOpenInTab = (sql, idx) => {
-    if (openedCards[idx] || message.openedCards?.[idx]) return;
-    setOpenedCards((prev) => ({ ...prev, [idx]: true }));
-    handleActionCard("new_tab", sql, idx, message.id);
-  };
 
   const isUser = message.role === "user";
 
@@ -295,14 +282,7 @@ export default function ChatMessage({ message }) {
     setTimeout(() => setCopiedFull(false), 2000);
   };
 
-  // Copy SQL action card snippet
-  const handleCopyCard = (text, idx) => {
-    navigator.clipboard.writeText(text);
-    setCopiedIndex(idx);
-    setTimeout(() => setCopiedIndex(null), 2000);
-  };
-
-  // Event delegation to catch "Run Query", "Open Tab", and "Copy" button clicks inside rendered markdown code blocks
+  // Event delegation to catch "Run Query" and "Copy" button clicks inside rendered markdown code blocks
   const handleContainerClick = (e) => {
     const runBtn = e.target.closest(".run-code-btn");
     if (runBtn) {
@@ -313,26 +293,9 @@ export default function ChatMessage({ message }) {
         const sql = decodeURIComponent(encoded);
         handleActionCard("run", sql);
         const originalHtml = runBtn.innerHTML;
-        runBtn.innerHTML = `<span>✓ Running...</span>`;
+        runBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
         setTimeout(() => {
           runBtn.innerHTML = originalHtml;
-        }, 1500);
-      }
-      return;
-    }
-
-    const openBtn = e.target.closest(".open-code-btn");
-    if (openBtn) {
-      e.preventDefault();
-      e.stopPropagation();
-      const encoded = openBtn.getAttribute("data-code");
-      if (encoded) {
-        const sql = decodeURIComponent(encoded);
-        handleActionCard("new_tab", sql);
-        const originalHtml = openBtn.innerHTML;
-        openBtn.innerHTML = `<span>✓ Opened</span>`;
-        setTimeout(() => {
-          openBtn.innerHTML = originalHtml;
         }, 1500);
       }
       return;
@@ -346,10 +309,10 @@ export default function ChatMessage({ message }) {
       if (encoded) {
         const code = decodeURIComponent(encoded);
         navigator.clipboard.writeText(code);
-        const originalText = btn.innerHTML;
-        btn.innerHTML = `<span class="text-emerald-400">✓ Copied</span>`;
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
         setTimeout(() => {
-          btn.innerHTML = originalText;
+          btn.innerHTML = originalHtml;
         }, 2000);
       }
     }
@@ -481,93 +444,6 @@ export default function ChatMessage({ message }) {
             <RefreshCw size={11} />
             <span>Retry Message</span>
           </button>
-        </div>
-      )}
-
-      {/* Action Cards on Extracted SQL Code Blocks */}
-      {!isUser && Array.isArray(message.actionCards) && message.actionCards.length > 0 && (
-        <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-(--color-border)">
-          <div className="text-[10px] font-semibold text-[#858585] uppercase tracking-wider">
-            Query Actions:
-          </div>
-          {message.actionCards.map((sql, idx) => (
-            <div
-              key={idx}
-              className="flex flex-col gap-1.5 p-2 rounded bg-(--color-bg-secondary) border border-purple-900/40"
-            >
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="font-mono text-purple-300 truncate max-w-[180px]">
-                  {sql.split("\n")[0].slice(0, 30)}...
-                </span>
-                <button
-                  onClick={() => handleCopyCard(sql, idx)}
-                  className="flex items-center gap-1 text-[10px] text-[#888888] hover:text-white transition-colors cursor-pointer"
-                  title="Copy SQL to clipboard"
-                >
-                  {copiedIndex === idx ? (
-                    <>
-                      <Check size={11} className="text-emerald-400" />
-                      <span className="text-emerald-400 font-sans">Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={11} />
-                      <span className="font-sans">Copy</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-1.5 pt-1 flex-wrap">
-                <button
-                  onClick={() => handleActionCard("run", sql, idx, message.id)}
-                  className="flex items-center gap-1 px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-[11px] transition-colors cursor-pointer shadow-sm"
-                  title="Execute query immediately on active engine"
-                >
-                  <Play size={11} />
-                  <span>Run Query</span>
-                </button>
-
-                {(() => {
-                  const isOpened = Boolean(openedCards[idx] || message.openedCards?.[idx]);
-                  return (
-                    <button
-                      onClick={() => handleOpenInTab(sql, idx)}
-                      disabled={isOpened}
-                      className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-all ${
-                        isOpened
-                          ? "bg-emerald-950/40 text-emerald-300 border border-emerald-800/50 cursor-default opacity-85 select-none"
-                          : "bg-(--color-bg-hover) hover:bg-[#3d3d3d] text-[#cccccc] hover:text-white border border-(--color-border) cursor-pointer"
-                      }`}
-                      title={isOpened ? "Query already opened in an editor tab" : "Open this SQL in a new editor tab"}
-                    >
-                      {isOpened ? (
-                        <>
-                          <Check size={11} className="text-emerald-400" />
-                          <span className="text-emerald-400 font-medium">Opened in Tab</span>
-                        </>
-                      ) : (
-                        <>
-                          <FilePlus size={11} />
-                          <span>Open in Tab</span>
-                        </>
-                      )}
-                    </button>
-                  );
-                })()}
-
-                <button
-                  onClick={() => handleActionCard("insert", sql, idx, message.id)}
-                  className="flex items-center gap-1 px-2 py-1 rounded bg-(--color-bg-hover) hover:bg-[#3d3d3d] text-[#cccccc] hover:text-white border border-(--color-border) text-[11px] transition-colors cursor-pointer"
-                  title="Insert SQL into active editor at cursor"
-                >
-                  <ArrowDownToLine size={11} />
-                  <span>Insert</span>
-                </button>
-              </div>
-            </div>
-          ))}
         </div>
       )}
     </div>
