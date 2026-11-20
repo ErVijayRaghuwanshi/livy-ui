@@ -431,9 +431,6 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
           targetFileName = resolvedName;
           await new Promise((r) => setTimeout(r, 120));
         }
-      } else if (hasActiveSqlFile && sqlFiles?.activeTabId) {
-        // Reuse current active tab and sync content so editor displays the query being executed
-        sqlFiles.updateContent?.(sqlFiles.activeTabId, sql);
       }
 
       if (editorRef?.current?.runSql) {

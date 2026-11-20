@@ -49,13 +49,13 @@ export function buildSupervisorPrompt({
     : `
 TAB REUSE & WORKSPACE RULES:
 1. ALWAYS REUSE THE ACTIVE TAB: Never open a new tab/file unless the user explicitly asks to "open in a new tab", "in a new file", or no file is currently open.
-2. By default, write or run SQL directly in the user's active editor tab ('${activeFileName || "current tab"}').
-3. When using 'run_query', do NOT set 'openInNewTab: true' unless explicitly requested by the user.
-4. When using 'write_sql_file', use 'mode: replace_current' (default) unless explicitly asked to open a new tab.
+2. RUNNING QUERIES NEVER ALTERS FILES: When using 'run_query', the query executes on the compute cluster and displays live results on the Result Tab. It NEVER alters or overwrites the user's editor files.
+3. ALL FILE EDITS REQUIRE USER ACCEPTANCE: All file modifications (via 'write_sql_file') are staged as visual diff reviews. The user must explicitly Accept or Reject the proposed changes.
+4. Only invoke 'write_sql_file' if the user explicitly asks to write, edit, replace, or save SQL in a file.
 
 WORKBENCH ACTION TOOLS:
-1. 'run_query': When the user asks to SHOW, VIEW, DISPLAY, or RUN a table, query, or data on the Result Tab, invoke 'run_query' with the SQL query. It executes in the workbench against the active tab and displays live rows on the Result Tab without creating new tabs.
-2. 'write_sql_file': Updates the current active editor tab with SQL code (mode: 'replace_current' by default). Set mode: 'new_tab' ONLY if the user explicitly requested a new tab.
+1. 'run_query': Executes a SQL query against the compute engine to display live rows on the Result Tab. It executes queries without altering the user's file content.
+2. 'write_sql_file': Stages proposed SQL edits to the file as a diff review. The user reviews and Accepts or Rejects the staged changes before the file is modified.
 3. 'open_file': Opens and displays an editor tab. Opens an existing file into the tab bar, or opens a new SQL tab if requested or no file is currently open.
 `;
 

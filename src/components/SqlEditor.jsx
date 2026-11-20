@@ -2744,10 +2744,15 @@ const SqlEditor = forwardRef(function SqlEditor({
       }
     }
 
-    // Synchronize content if changed externally (e.g. initial load, external reload)
+    // Synchronize content if changed externally while preserving undo/redo stack
     if (newModel.getValue() !== activeFile.content) {
       isApplyingExternalUpdateRef.current = true;
-      newModel.setValue(activeFile.content);
+      const fullRange = newModel.getFullModelRange();
+      newModel.pushEditOperations(
+        [],
+        [{ range: fullRange, text: activeFile.content }],
+        () => null
+      );
       isApplyingExternalUpdateRef.current = false;
     }
 
@@ -2804,7 +2809,12 @@ const SqlEditor = forwardRef(function SqlEditor({
     if (currentModel && currentModel.getValue() !== activeFile.content) {
       isApplyingExternalUpdateRef.current = true;
       const viewState = editor.saveViewState();
-      currentModel.setValue(activeFile.content);
+      const fullRange = currentModel.getFullModelRange();
+      currentModel.pushEditOperations(
+        [],
+        [{ range: fullRange, text: activeFile.content }],
+        () => null
+      );
       if (viewState) {
         editor.restoreViewState(viewState);
       }
@@ -2820,7 +2830,12 @@ const SqlEditor = forwardRef(function SqlEditor({
       const model = modelsRef.current.get(f.id);
       if (model && model.getValue() !== f.content) {
         isApplyingExternalUpdateRef.current = true;
-        model.setValue(f.content);
+        const fullRange = model.getFullModelRange();
+        model.pushEditOperations(
+          [],
+          [{ range: fullRange, text: f.content }],
+          () => null
+        );
         isApplyingExternalUpdateRef.current = false;
       }
     }
