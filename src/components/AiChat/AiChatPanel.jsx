@@ -22,6 +22,7 @@ import {
   Check,
   Plus,
   ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { useAi } from "../../context/AiContext";
 import ChatMessage from "./ChatMessage";
@@ -77,8 +78,10 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
   const [contextSearchQuery, setContextSearchQuery] = useState("");
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const messagesEndRef = useRef(null);
+  const scrollContainerRef = useRef(null);
   const textareaRef = useRef(null);
   const modelDropdownRef = useRef(null);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
 
   // Close model dropdown on click outside
   useEffect(() => {
@@ -99,6 +102,12 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
       textareaRef.current.style.height = "38px";
     }
   }, []);
+
+  // Detect user scroll position to show floating scroll-to-bottom button
+  const handleScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    setShowScrollBottom(scrollHeight - scrollTop - clientHeight > 100);
+  };
 
   // Auto-scroll to bottom
   const scrollToBottom = () => {
@@ -300,7 +309,11 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
       </div>
 
       {/* Chat Messages Scroll Container */}
-      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 select-text">
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 select-text relative"
+      >
         {/* Offline / Setup Needed Callout */}
         {!isOnline && messages.length <= 1 && (
           <div className="p-3 rounded-lg bg-amber-950/20 border border-amber-600/40 text-amber-200 text-xs flex flex-col gap-2 mr-2 animate-fadeIn">
@@ -379,6 +392,18 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
         )}
 
         <div ref={messagesEndRef} />
+
+        {/* Floating Scroll-to-Bottom Button (VS Code style) */}
+        {showScrollBottom && (
+          <button
+            type="button"
+            onClick={scrollToBottom}
+            className="sticky bottom-2 ml-auto mr-2 w-7 h-7 rounded-full bg-[#252525] border border-[#3e3e3e] shadow-xl flex items-center justify-center text-[#aaaaaa] hover:text-white transition-all cursor-pointer z-30 hover:bg-[#333333] animate-fadeIn"
+            title="Scroll to bottom"
+          >
+            <ArrowDown size={13} />
+          </button>
+        )}
       </div>
 
       {/* Quick Suggestion Chips (when chat has only welcome message) */}

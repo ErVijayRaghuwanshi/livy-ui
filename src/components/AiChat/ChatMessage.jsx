@@ -241,9 +241,9 @@ function ToolResultItem({ tr }) {
         </div>
       </div>
 
-      {/* Accordion Body with Subagent Summary or Diff Hunks */}
+      {/* Accordion Body with Subagent Summary or Diff Hunks or Input/Output */}
       {isExpanded && hasDetails && (
-        <div className="px-2.5 py-2 border-t border-(--color-border) bg-(--color-bg-primary)/60 text-[#bbbbbb] font-mono text-[10px] whitespace-pre-wrap max-h-48 overflow-y-auto select-text leading-relaxed">
+        <div className="px-2.5 py-2 border-t border-(--color-border) bg-(--color-bg-primary)/70 text-[#bbbbbb] font-mono text-[10px] whitespace-pre-wrap max-h-56 overflow-y-auto select-text leading-relaxed flex flex-col gap-2">
           {hunks && hunks.length > 0 ? (
             <div className="flex flex-col font-mono text-[10px] divide-y divide-(--color-border)/20">
               {hunks.map((h, i) => (
@@ -265,7 +265,24 @@ function ToolResultItem({ tr }) {
               ))}
             </div>
           ) : (
-            tr.result?.summary || tr.result?.error
+            <>
+              {tr.args && Object.keys(tr.args).length > 0 && (
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[9px] uppercase font-bold text-[#777777] tracking-wider">Input</span>
+                  <pre className="p-1.5 rounded bg-[#161616] border border-(--color-border)/40 text-[#888888] overflow-x-auto m-0! font-mono text-[10px]">
+                    {JSON.stringify(tr.args, null, 2)}
+                  </pre>
+                </div>
+              )}
+              {(tr.result?.summary || tr.result?.error || tr.result?.output) && (
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[9px] uppercase font-bold text-[#777777] tracking-wider">Output</span>
+                  <div className="p-1.5 rounded bg-[#161616] border border-(--color-border)/40 text-[#cccccc] font-mono text-[10px]">
+                    {tr.result?.summary || tr.result?.error || tr.result?.output}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -493,9 +510,13 @@ export default function ChatMessage({ message }) {
         </div>
       )}
 
-      {/* Subagent & Tool Execution Badges */}
+      {/* Subagent & Tool Execution Badges (VS Code style step indicator) */}
       {Array.isArray(message.toolResults) && message.toolResults.length > 0 && (
         <div className="flex flex-col gap-1.5 my-1">
+          <div className="text-[10px] text-[#777777] font-medium flex items-center gap-1.5 px-0.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-400/80" />
+            <span>Completed {message.toolResults.length} {message.toolResults.length === 1 ? "step" : "steps"}</span>
+          </div>
           {message.toolResults.map((tr, idx) => (
             <ToolResultItem key={idx} tr={tr} />
           ))}
