@@ -51,6 +51,46 @@ export function AiProvider({ children, editorRef }) {
 
   // Attached context chips (@file, @table, @editor, @result, @cluster)
   const [attachedContexts, setAttachedContexts] = useState([]);
+  const dismissedFileIdRef = useRef(null);
+
+  // Auto-attach currently active editor file (VS Code Copilot behavior)
+  useEffect(() => {
+    const active = sqlFiles?.activeFile;
+    if (!active || !active.id || active.id === "settings" || active.isSpecial) {
+      return;
+    }
+
+    // Reset dismissed ref if active file changed to a different file
+    if (dismissedFileIdRef.current && dismissedFileIdRef.current !== active.id) {
+      dismissedFileIdRef.current = null;
+    }
+
+    if (dismissedFileIdRef.current === active.id) {
+      return;
+    }
+
+    const fileCtxId = `file_${active.id}`;
+
+    setAttachedContexts((prev) => {
+      // If this file is already attached, no-op
+      if (prev.some((c) => c.id === fileCtxId || c.fileId === active.id)) {
+        return prev;
+      }
+      // Replace any previous auto-attached file with the current active file
+      const filtered = prev.filter((c) => !c.isAutoAttached);
+      return [
+        {
+          id: fileCtxId,
+          fileId: active.id,
+          type: "file",
+          label: active.name,
+          name: active.name,
+          isAutoAttached: true,
+        },
+        ...filtered,
+      ];
+    });
+  }, [sqlFiles?.activeFile?.id, sqlFiles?.activeFile?.name]);
 
   const addAttachedContext = useCallback((item) => {
     if (!item || !item.id) return;
@@ -61,7 +101,13 @@ export function AiProvider({ children, editorRef }) {
   }, []);
 
   const removeAttachedContext = useCallback((id) => {
-    setAttachedContexts((prev) => prev.filter((c) => c.id !== id));
+    setAttachedContexts((prev) => {
+      const target = prev.find((c) => c.id === id);
+      if (target?.fileId) {
+        dismissedFileIdRef.current = target.fileId;
+      }
+      return prev.filter((c) => c.id !== id);
+    });
   }, []);
 
   const clearAttachedContexts = useCallback(() => {
@@ -257,7 +303,9 @@ export function AiProvider({ children, editorRef }) {
 
     for (const ctx of contextsToResolve) {
       if (ctx.type === "file") {
-        const file = (sqlFiles?.files || []).find((f) => f.id === ctx.id || f.name === ctx.name || f.name === ctx.label);
+        const file = (sqlFiles?.files || []).find(
+          (f) => f.id === ctx.id || f.id === ctx.fileId || f.name === ctx.name || f.name === ctx.label
+        );
         if (file && file.content) {
           const content = file.content.length > 3500 ? file.content.slice(0, 3500) + "\n...[truncated]" : file.content;
           sections.push(`### Pinned File: ${file.name}\n\`\`\`sql\n${content}\n\`\`\``);
@@ -315,7 +363,10 @@ export function AiProvider({ children, editorRef }) {
       const currentContexts = overrideContexts || attachedContexts;
       const pinnedContext = resolveContextPayload(currentContexts);
       if (!overrideContexts) {
-        clearAttachedContexts();
+        // Retain the active editor file context for follow-up turns (VS Code behavior)
+        setAttachedContexts((prev) =>
+          prev.filter((c) => c.isAutoAttached && c.fileId === sqlFiles?.activeFile?.id)
+        );
       }
 
       const userMessage = {

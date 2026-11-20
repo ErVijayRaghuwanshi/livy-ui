@@ -8,6 +8,8 @@ import {
   Wrench,
   Loader2,
   Terminal,
+  FileCode,
+  Table,
   PanelRightClose,
   Sliders,
   AlertCircle,
@@ -420,7 +422,7 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
 
         <form onSubmit={handleSubmit} className="flex flex-col">
           <div className="flex flex-col bg-(--color-bg-primary) border border-(--color-border) rounded-xl focus-within:border-purple-500/80 focus-within:ring-1 focus-within:ring-purple-500/30 transition-all shadow-sm overflow-hidden">
-            {/* Attached Context Pills (VS Code style) */}
+            {/* Attached Context Pills (VS Code Copilot style) */}
             {attachedContexts.length > 0 && (
               <div className="flex items-center gap-1.5 px-2.5 pt-2 pb-1.5 flex-wrap border-b border-(--color-border)/30 bg-(--color-bg-secondary)/20">
                 <button
@@ -434,18 +436,26 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
                 {attachedContexts.map((ctx) => (
                   <span
                     key={ctx.id}
-                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#1e1e1e] border border-[#383838] text-[10px] text-[#cccccc] font-mono shadow-xs"
+                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#222222] border border-[#383838] hover:border-[#4e4e4e] text-xs text-[#cccccc] shadow-xs group transition-colors"
                   >
-                    <span className="text-purple-400">≡</span>
-                    <span className="truncate max-w-[130px]">{ctx.label || ctx.name}</span>
                     <button
                       type="button"
                       onClick={() => removeAttachedContext(ctx.id)}
-                      className="hover:text-red-400 transition-colors ml-0.5 cursor-pointer text-[#888888]"
+                      className="text-[#777777] hover:text-red-400 transition-colors cursor-pointer -ml-0.5"
                       title="Remove context"
                     >
-                      <X size={10} />
+                      <X size={11} />
                     </button>
+                    {ctx.type === "file" ? (
+                      <FileCode size={12} className="text-purple-400 shrink-0" />
+                    ) : ctx.type === "table" ? (
+                      <Table size={12} className="text-cyan-400 shrink-0" />
+                    ) : (
+                      <span className="text-purple-400 text-[11px]">≡</span>
+                    )}
+                    <span className="truncate max-w-[170px] font-mono text-[11px] text-[#e0e0e0]">
+                      {ctx.label || ctx.name}
+                    </span>
                   </span>
                 ))}
               </div>
