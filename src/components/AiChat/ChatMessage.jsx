@@ -512,7 +512,7 @@ export default function ChatMessage({ message }) {
 
       {/* Message Content Body */}
       <div
-        className="prose prose-invert max-w-none text-[#cccccc] break-words text-xs [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:pl-4 [&>ol]:pl-4"
+        className="chat-markdown select-text"
         dangerouslySetInnerHTML={{ __html: parsedHtml }}
       />
 

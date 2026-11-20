@@ -470,3 +470,140 @@ body {
   padding: 0.5rem 0;
   text-align: center;
 }
+
+/* AI Chat Markdown Typography */
+.chat-markdown {
+  color: #cccccc;
+  font-size: 12px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.chat-markdown p {
+  margin-top: 0;
+  margin-bottom: 0.65rem;
+}
+
+.chat-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.chat-markdown h1,
+.chat-markdown h2,
+.chat-markdown h3,
+.chat-markdown h4 {
+  color: #f0f0f0;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 0.85rem;
+  margin-bottom: 0.35rem;
+}
+
+.chat-markdown h1 { font-size: 1.15rem; }
+.chat-markdown h2 { font-size: 1.05rem; }
+.chat-markdown h3 { font-size: 0.95rem; }
+.chat-markdown h4 { font-size: 0.85rem; }
+
+.chat-markdown strong,
+.chat-markdown b {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.chat-markdown em,
+.chat-markdown i {
+  color: #e0e0e0;
+  font-style: italic;
+}
+
+.chat-markdown ol {
+  list-style-type: decimal !important;
+  margin-top: 0.35rem;
+  margin-bottom: 0.65rem;
+  padding-left: 1.35rem !important;
+}
+
+.chat-markdown ul {
+  list-style-type: disc !important;
+  margin-top: 0.35rem;
+  margin-bottom: 0.65rem;
+  padding-left: 1.35rem !important;
+}
+
+.chat-markdown li {
+  margin-bottom: 0.25rem;
+  padding-left: 0.15rem;
+  display: list-item !important;
+}
+
+.chat-markdown li:last-child {
+  margin-bottom: 0;
+}
+
+.chat-markdown li::marker {
+  color: #a855f7;
+  font-weight: 600;
+}
+
+.chat-markdown ol > li::marker {
+  color: #c084fc;
+}
+
+.chat-markdown blockquote {
+  border-left: 3px solid #a855f7;
+  background-color: rgba(168, 85, 247, 0.08);
+  padding: 0.35rem 0.75rem;
+  margin: 0.6rem 0;
+  border-radius: 0 0.375rem 0.375rem 0;
+  color: #b0b0b0;
+}
+
+.chat-markdown code:not(pre code) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+  background-color: #1e1e1e;
+  color: #e6edf3;
+  padding: 0.12rem 0.35rem;
+  border-radius: 0.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.chat-markdown hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 0.85rem 0;
+}
+
+.chat-markdown a {
+  color: #a855f7;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.chat-markdown a:hover {
+  color: #c084fc;
+}
+
+.chat-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.65rem 0;
+  font-size: 11px;
+}
+
+.chat-markdown th,
+.chat-markdown td {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--color-border);
+}
+
+.chat-markdown th {
+  background-color: #1f1f1f;
+  font-weight: 600;
+  color: #ffffff;
+  text-align: left;
+}
+
+.chat-markdown tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.02);
+}
