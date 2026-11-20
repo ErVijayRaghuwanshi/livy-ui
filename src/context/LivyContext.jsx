@@ -59,7 +59,7 @@ function reducer(state, action) {
           recalledSessionId = action.payload.sessionId;
         } else {
           const map = getItem(STORAGE_KEYS.HOST_SESSIONS, {});
-          recalledSessionId = map[hostId] ?? getItem(STORAGE_KEYS.SESSION_ID, null);
+          recalledSessionId = map[hostId] ?? getItem(STORAGE_KEYS.SESSION_ID, null) ?? getItem("livy-last-spark-session", null);
         }
       }
 
@@ -185,7 +185,7 @@ export function LivyProvider({ children }) {
     const savedHostSessions = getItem(STORAGE_KEYS.HOST_SESSIONS, {});
     const recalledSessionId = isDorisHost
       ? null
-      : (savedHostSessions[hostId] ?? getItem(STORAGE_KEYS.SESSION_ID, null));
+      : (savedHostSessions[hostId] ?? getItem(STORAGE_KEYS.SESSION_ID, null) ?? getItem("livy-last-spark-session", null));
 
     dispatch({
       type: "SET_ACTIVE_HOST",
@@ -240,7 +240,9 @@ export function LivyProvider({ children }) {
         }
         return res.success;
       } else {
-        await livyApi.listSessions();
+        const data = await livyApi.listSessions();
+        const sessionList = Array.isArray(data.sessions) ? data.sessions : [];
+        dispatch({ type: "SET_SESSIONS", payload: sessionList });
         dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
         return true;
       }
@@ -271,7 +273,9 @@ export function LivyProvider({ children }) {
       if (err.response && err.response.status === 404) {
         dispatch({ type: "CLEAR_SESSION" });
       }
-      dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
+      if (!err.response && (err.message.includes("Network Error") || err.message.includes("ECONNREFUSED") || err.code === "ERR_NETWORK")) {
+        dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
+      }
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
@@ -313,7 +317,11 @@ export function LivyProvider({ children }) {
 
       // Automatically recall and attach the remembered session if it exists on Livy
       const savedMap = getItem(STORAGE_KEYS.HOST_SESSIONS, {});
-      const targetSid = savedMap[currentHost.id] ?? getItem(STORAGE_KEYS.SESSION_ID, null) ?? state.sessionId;
+      const targetSid =
+        savedMap[currentHost.id] ??
+        getItem(STORAGE_KEYS.SESSION_ID, null) ??
+        getItem("livy-last-spark-session", null) ??
+        state.sessionId;
 
       if (targetSid !== null && targetSid !== undefined) {
         const matched = sessionList.find(
@@ -321,6 +329,24 @@ export function LivyProvider({ children }) {
         );
         if (matched) {
           dispatch({ type: "SET_SESSION", payload: matched });
+        } else if (sessionList.length > 0) {
+          // If remembered session is gone, attach to latest live session on Livy
+          const activeSessions = sessionList.filter(
+            (s) => s.state === "idle" || s.state === "busy" || s.state === "starting"
+          );
+          const fallback = activeSessions[activeSessions.length - 1] || sessionList[sessionList.length - 1];
+          if (fallback) {
+            dispatch({ type: "SET_SESSION", payload: fallback });
+          }
+        }
+      } else if (sessionList.length > 0) {
+        // No session remembered, but Livy has live sessions: attach to latest
+        const activeSessions = sessionList.filter(
+          (s) => s.state === "idle" || s.state === "busy" || s.state === "starting"
+        );
+        const fallback = activeSessions[activeSessions.length - 1] || sessionList[sessionList.length - 1];
+        if (fallback) {
+          dispatch({ type: "SET_SESSION", payload: fallback });
         }
       }
     } catch (err) {
@@ -353,6 +379,9 @@ export function LivyProvider({ children }) {
       fetchSessions();
     } catch (err) {
       dispatch({ type: "SET_ERROR", payload: err.message });
+      if (err.response?.status === 404) {
+        fetchSessions(); // Prune dead sessions from list
+      }
       if (!err.response && (err.message.includes("Network Error") || err.message.includes("ECONNREFUSED") || err.code === "ERR_NETWORK")) {
         dispatch({ type: "SET_SERVER_REACHABLE", payload: false });
       }
@@ -465,23 +494,26 @@ export function LivyProvider({ children }) {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Poll session state while starting
+  // Poll session state while starting or busy to quickly recover to idle as soon as statements finish
   useEffect(() => {
-    if (state.sessionState !== SESSION_STATES.STARTING) return;
+    if (isDoris || state.sessionId === null) return;
+    if (state.sessionState !== SESSION_STATES.STARTING && state.sessionState !== SESSION_STATES.BUSY) return;
+
     const interval = setInterval(async () => {
       try {
         const session = await livyApi.getSession(state.sessionId);
         dispatch({ type: "SET_SESSION", payload: session });
-        if (session.state !== SESSION_STATES.STARTING) {
+        if (session.state !== SESSION_STATES.STARTING && session.state !== SESSION_STATES.BUSY) {
           clearInterval(interval);
           fetchSessions();
         }
       } catch {
         clearInterval(interval);
       }
-    }, 2000);
+    }, 1500);
+
     return () => clearInterval(interval);
-  }, [state.sessionState, state.sessionId, fetchSessions]);
+  }, [state.sessionState, state.sessionId, isDoris, fetchSessions]);
 
   // Kill any session by ID
   const killSession = useCallback(async (id) => {

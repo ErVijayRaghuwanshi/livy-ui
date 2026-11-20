@@ -44,6 +44,7 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
     startSession,
     killSession,
     attachSession,
+    refreshSession,
     isDoris,
     isSpark,
     isServerReachable,
@@ -169,6 +170,9 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
   const handleRefreshAll = async () => {
     if (isSpark) {
       fetchSessions();
+      if (sessionId !== null) {
+        refreshSession(sessionId);
+      }
     }
     currentEngineHosts.forEach((h) => testHostPing(h));
     refreshSchema?.();
@@ -713,7 +717,7 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
                     </div>
                   ) : (
                     sessions.map((s) => {
-                      const isAttached = s.id === sessionId;
+                      const isAttached = Number(s.id) === Number(sessionId) || String(s.id) === String(sessionId);
                       return (
                         <div
                           key={s.id}
@@ -731,7 +735,16 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
                               {s.name || s.kind}
                             </span>
                             <span
-                              className={`w-1.5 h-1.5 rounded-full ${s.state === "idle" ? "bg-emerald-400" : "bg-amber-400"}`}
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                s.state === "idle"
+                                  ? "bg-emerald-400"
+                                  : s.state === "busy"
+                                  ? "bg-blue-400 animate-pulse"
+                                  : s.state === "starting"
+                                  ? "bg-amber-400 animate-pulse"
+                                  : "bg-rose-400"
+                              }`}
+                              title={`State: ${s.state}`}
                             />
                           </div>
 

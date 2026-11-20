@@ -1819,7 +1819,7 @@ const SqlEditor = forwardRef(function SqlEditor({
     onCursorPositionChangeRef.current = onCursorPositionChange;
   });
 
-  const { sessionId, sessionState, isOnline, isServerReachable, isDoris, isSpark, activeHost } = useLivy();
+  const { sessionId, sessionState, isOnline, isServerReachable, isDoris, isSpark, activeHost, refreshSession, fetchSessions } = useLivy();
   const isDorisRef = useRef(isDoris);
   useEffect(() => {
     isDorisRef.current = isDoris;
@@ -3244,6 +3244,10 @@ const SqlEditor = forwardRef(function SqlEditor({
       } finally {
         clearRunningHighlight();
         setRunning(false);
+        if (isSpark && sessionId !== null) {
+          refreshSession?.(sessionId)?.catch?.(() => {});
+          fetchSessions?.()?.catch?.(() => {});
+        }
         // Record in query history
         if (finalStatus) {
           addHistoryEntry({

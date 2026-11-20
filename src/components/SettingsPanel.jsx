@@ -404,7 +404,7 @@ export default function SettingsPanel({
                     </div>
                   ) : (
                     sessions.map((s) => {
-                      const isCurrent = s.id === sessionId;
+                      const isCurrent = Number(s.id) === Number(sessionId) || String(s.id) === String(sessionId);
                       const sAlive =
                         s.state === "idle" ||
                         s.state === "busy" ||

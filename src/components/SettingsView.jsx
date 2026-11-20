@@ -1186,7 +1186,7 @@ export default function SettingsView({
                           ) : (
                             <div className="space-y-2">
                               {sessions.map((s) => {
-                                const isAttached = sessionId === s.id;
+                                const isAttached = Number(sessionId) === Number(s.id) || String(sessionId) === String(s.id);
                                 return (
                                   <div
                                     key={s.id}

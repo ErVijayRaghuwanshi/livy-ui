@@ -266,7 +266,7 @@ export default function Navbar({ theme, toggleTheme, showConnectionModal, setSho
                     <div className="py-8 text-center text-xs text-(--color-text-muted) font-medium">No active sessions found</div>
                   ) : (
                     sessions.map((s) => {
-                      const isCurrent = s.id === sessionId;
+                      const isCurrent = Number(s.id) === Number(sessionId) || String(s.id) === String(sessionId);
                       const sAlive = s.state === "idle" || s.state === "busy" || s.state === "starting";
                       return (
                         <div
