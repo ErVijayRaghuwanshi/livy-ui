@@ -433,14 +433,6 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
             {/* Attached Context Pills (VS Code Copilot style) */}
             {attachedContexts.length > 0 && (
               <div className="flex items-center gap-1.5 px-2.5 pt-2 pb-1.5 flex-wrap border-b border-(--color-border)/30 bg-(--color-bg-secondary)/20">
-                <button
-                  type="button"
-                  onClick={() => setIsContextPickerOpen(true)}
-                  className="flex items-center justify-center w-5 h-5 rounded hover:bg-(--color-bg-hover) text-[#888888] hover:text-white transition-colors cursor-pointer"
-                  title="Add context (@)"
-                >
-                  <Plus size={12} />
-                </button>
                 {attachedContexts.map((ctx) => (
                   <span
                     key={ctx.id}

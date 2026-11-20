@@ -282,13 +282,65 @@ function ToolResultItem({ tr }) {
   );
 }
 
+/**
+ * Automatically extracts candidate query suggestions or next actions from assistant text
+ * when it contains an invitation or numbered/bulleted options.
+ */
+function extractSuggestions(text) {
+  if (!text) return [];
+  const hasInvitation = /(?:would you like|do you want|which one|let me know|you can run|analyses\?|next\?|start\?|options:|where would you like)/i.test(text);
+  if (!hasInvitation) return [];
+
+  const lines = text.split("\n");
+  const suggestions = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    // Pattern 1: Numbered or bullet with title and colon/dash: 1. Total Calls & Average Duration: desc
+    const match1 = trimmed.match(/^(?:\d+[\.\)]|\*|-)\s+(?:\*\*([^*]+)\*\*|([A-Z][A-Za-z0-9\s&/_-]{2,45}))(?::|\s*-\s*)(.*)$/);
+    if (match1) {
+      const title = (match1[1] || match1[2] || "").trim();
+      const desc = (match1[3] || "").trim();
+      if (title && title.length >= 3 && title.length <= 50 && !title.toLowerCase().startsWith("http")) {
+        suggestions.push({
+          label: title,
+          prompt: `Write a query for ${title}${desc ? `: ${desc}` : ""}`,
+        });
+        continue;
+      }
+    }
+
+    // Pattern 2: Bulleted or numbered direct questions / actions: * Do you want to see what databases...
+    const match2 = trimmed.match(/^(?:\d+[\.\)]|\*|-)\s+(?:(?:\*\*([^*]+)\*\*)|([^:\n]{5,120}))\??$/);
+    if (match2) {
+      const rawText = (match2[1] || match2[2] || "").trim();
+      // Clean up common conversational prefixes
+      const cleaned = rawText.replace(/^(?:Do you want to|Would you like to|Can you|Do you have a|Would you like me to)\s+/i, "");
+      if (cleaned.length >= 5 && !cleaned.toLowerCase().startsWith("http")) {
+        const labelText = cleaned.length > 50 ? cleaned.slice(0, 48).trim() + "..." : cleaned;
+        suggestions.push({
+          label: labelText.charAt(0).toUpperCase() + labelText.slice(1),
+          prompt: rawText.endsWith("?") ? rawText : `${rawText}?`,
+        });
+      }
+    }
+  }
+  return suggestions.slice(0, 4);
+}
+
 export default function ChatMessage({ message }) {
-  const { handleActionCard, retryLastMessage } = useAi();
+  const { handleActionCard, retryLastMessage, sendMessage, isStreaming } = useAi();
   const { files, openFile } = useSqlFiles();
   const [showReasoning, setShowReasoning] = useState(false);
   const [copiedFull, setCopiedFull] = useState(false);
 
   const isUser = message.role === "user";
+
+  // 1-Click candidate suggestions extracted from assistant response
+  const suggestions = useMemo(() => {
+    if (isUser || message.isError || !message.content) return [];
+    return extractSuggestions(message.content);
+  }, [isUser, message.isError, message.content]);
 
   const handleBadgeClick = (badge) => {
     if (!badge) return;
@@ -515,6 +567,25 @@ export default function ChatMessage({ message }) {
         className="chat-markdown select-text"
         dangerouslySetInnerHTML={{ __html: parsedHtml }}
       />
+
+      {/* 1-Click Interactive Suggestion Action Chips */}
+      {suggestions.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap pt-2 mt-1 border-t border-(--color-border)/30">
+          {suggestions.map((s, idx) => (
+            <button
+              key={idx}
+              type="button"
+              disabled={isStreaming}
+              onClick={() => sendMessage(s.prompt)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-950/40 hover:bg-purple-900/60 border border-purple-700/50 hover:border-purple-500/80 text-purple-200 hover:text-white text-[11px] font-medium transition-all cursor-pointer shadow-xs group disabled:opacity-50 disabled:cursor-not-allowed"
+              title={`Ask: "${s.prompt}"`}
+            >
+              <Sparkles size={11} className="text-purple-400 group-hover:scale-110 transition-transform" />
+              <span>{s.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 1-Click Retry on Error Messages */}
       {message.isError && (
