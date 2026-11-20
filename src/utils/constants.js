@@ -38,6 +38,7 @@ export const STORAGE_KEYS = {
   OPEN_FILES: "livy-open-files",
   ACTIVE_TAB: "livy-active-tab",
   SESSION_ID: "livy-session-id",
+  HOST_SESSIONS: "livy-host-sessions",
   SESSION_CONF: "livy-session-conf",
   SESSION_JARS: "livy-session-jars",
   PREVIEW_TAB: "livy-preview-tab",

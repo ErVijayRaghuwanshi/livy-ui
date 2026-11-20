@@ -390,16 +390,40 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
         try {
           if (sessionId != null) {
             const rows = await livyApi.runSql(sessionId, `DESCRIBE \`${targetDb}\`.\`${targetTable}\``);
-            const cols = rows.map((r) => ({
-              name: r.col_name || r.name || Object.values(r)[0],
-              type: r.data_type || r.type || Object.values(r)[1],
-            }));
-            return { ok: true, engine: "Apache Spark", database: targetDb, table: targetTable, columns: cols };
+            const cols = rows
+              .filter((r) => {
+                const name = r.col_name || r.name || Object.values(r)[0];
+                return name && !name.startsWith("#") && name.trim() !== "";
+              })
+              .map((r) => ({
+                name: r.col_name || r.name || Object.values(r)[0],
+                type: r.data_type || r.type || Object.values(r)[1] || "string",
+              }));
+            if (cols.length > 0) {
+              return { ok: true, engine: "Apache Spark", database: targetDb, table: targetTable, columns: cols };
+            }
           }
         } catch (err) {
-          return { ok: false, error: err.message };
+          console.warn(`[describe_table] Spark DESCRIBE error for ${targetDb}.${targetTable}:`, err);
         }
-        return { ok: false, error: "Spark session not active to describe table." };
+
+        // Fallback to schemaContext cache if available
+        const colKey = `${targetDb}.${targetTable}`;
+        const cachedCols = schemaContext?.columns?.[colKey] || schemaContext?.columns?.[targetTable];
+        if (Array.isArray(cachedCols) && cachedCols.length > 0) {
+          return {
+            ok: true,
+            engine: "Apache Spark",
+            database: targetDb,
+            table: targetTable,
+            columns: cachedCols.map((c) => ({
+              name: c.name || c.col_name || String(c),
+              type: c.type || c.data_type || "string",
+            })),
+          };
+        }
+
+        return { ok: false, error: `Could not retrieve columns for table '${targetDb}.${targetTable}'. Ensure a Spark session is attached or inspect in Schema Explorer.` };
       }
     }
 

@@ -67,8 +67,10 @@ ${tablesSnippet ? `${tablesSnippet}\n` : ""}${contextSection}
 ${modeInstructions}
 ${actionSections}
 CRITICAL SCHEMA & ACCURACY RULES:
-1. NEVER GUESS OR HALLUCINATE DATABASE, TABLE, OR COLUMN NAMES: Real databases have specific catalogs and schemas. Always discover real schemas from the connected compute/catalog. If the user asks to query a table and you do not know the exact column names, ALWAYS FIRST delegate to 'schema_analyst' to describe the table: \`delegate_task('schema_analyst', 'Describe columns for table <table_name>')\`.
-2. ONLY use the verified column names returned by 'schema_analyst' in your SELECT, WHERE, GROUP BY, and ORDER BY clauses.
+1. NEVER GUESS OR HALLUCINATE DATABASE, TABLE, OR COLUMN NAMES: Real databases have specific catalogs and schemas. Always discover real schemas from the connected compute/catalog.
+2. STRICT TRUTH ON SCHEMAS: If 'schema_analyst' or context only lists table names without columns, DO NOT invent columns! If the user asks "what tables do I have?", list ONLY the table names. NEVER make up column names (such as id, device_id, call_id).
+3. If you need column names to write or explain a query and you don't have verified columns, ALWAYS FIRST delegate to 'schema_analyst' to describe that table: \`delegate_task('schema_analyst', 'Describe columns for table <table_name>')\`.
+4. ONLY use verified column names returned by 'schema_analyst' or pinned context in your SELECT, WHERE, GROUP BY, and ORDER BY clauses.
 
 SELF-HEALING & ERROR RECOVERY RULES:
 1. ACT ON FAILED ACTIONS: If a tool returns an error (e.g. Unknown column, table not found, syntax error), do NOT stop or pretend it worked.
@@ -94,16 +96,18 @@ export function buildSchemaAnalystPrompt({ activeEngine = "doris" }) {
 
   return `You are the Schema Discovery Subagent for ${isDoris ? "Apache Doris" : "Apache Spark"}.
 Your mission:
-1. Discover the database and find relevant tables for the user request.
-2. Inspect column definitions for the relevant tables using 'describe_table'.
-3. Return ONLY a concise, structured markdown summary:
-   ### Table \`<database>.<table_name>\`
-   - \`<column_name>\` (\`<data_type>\`)
-
-CRITICAL RULES:
-- Do NOT output large lists of irrelevant tables.
-- Return ONLY the tables and columns needed for the user's task.
-- Keep your entire response under 150 words to maintain token efficiency.`;
+1. Discover the database and list tables using 'list_databases' and 'search_tables'.
+2. Inspect column definitions using 'describe_table' ONLY when the user or task explicitly needs column details.
+3. STRICT SCHEMA HONESTY & ANTI-HALLUCINATION:
+   - NEVER EVER invent, assume, or guess column names or data types!
+   - If you only searched or listed tables ('search_tables'), output ONLY the table names:
+     * \`<table_name>\`
+   - DO NOT list any columns for a table UNLESS you explicitly called 'describe_table' for that specific table in this turn.
+   - When 'describe_table' was called and verified for a table, output:
+     ### Table \`<database>.<table_name>\`
+     - \`<column_name>\` (\`<data_type>\`)
+4. Every single column name you report MUST be 100% verified from a 'describe_table' tool output. If you did not describe it, do not mention columns!
+Keep your entire response strictly truthful, concise, and under 200 words.`;
 }
 
 /**
