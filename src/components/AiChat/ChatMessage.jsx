@@ -39,21 +39,41 @@ function escapeHtml(str) {
 /**
  * Configure marked with custom code block renderer that adds:
  * - Language tag header
- * - 1-click copy code button with encoded data-code attribute
+ * - 1-click Run Query button (for SQL code blocks)
+ * - 1-click Open in Tab button
+ * - 1-click Copy code button with encoded data-code attribute
  */
 const customRenderer = {
   code({ text, lang }) {
     const cleanLang = (lang || "").match(/^\S*/)?.[0] || "";
     const escapedCode = escapeHtml(text);
     const encodedCode = encodeURIComponent(text);
+
+    const isSql =
+      !cleanLang ||
+      ["sql", "sparksql", "dorisql", "mysql", "hql"].includes(cleanLang.toLowerCase()) ||
+      /^\s*(SELECT|WITH|SHOW|DESCRIBE|EXPLAIN|CREATE|DROP|ALTER|INSERT)\b/i.test(text.trim());
+
     return `<div class="code-block-wrapper my-2 rounded border border-(--color-border) overflow-hidden bg-(--color-bg-secondary)">
-  <div class="flex items-center justify-between px-2.5 py-1 bg-[#1c1c1c] border-b border-(--color-border) text-[10px] text-[#888888] font-mono">
-    <span class="uppercase font-semibold tracking-wider">${cleanLang || "code"}</span>
-    <button type="button" class="copy-code-btn flex items-center gap-1 hover:text-white transition-colors cursor-pointer" data-code="${encodedCode}">
-      Copy
-    </button>
+  <div class="flex items-center justify-between px-2.5 py-1.5 bg-[#1c1c1c] border-b border-(--color-border) text-[10px] text-[#888888] font-mono">
+    <span class="uppercase font-semibold tracking-wider text-purple-300/80">${cleanLang || (isSql ? "sql" : "code")}</span>
+    <div class="flex items-center gap-1.5">
+      ${
+        isSql
+          ? `<button type="button" class="run-code-btn flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-600/90 hover:bg-emerald-500 text-white font-medium transition-all cursor-pointer shadow-xs active:scale-95" data-code="${encodedCode}" title="Execute query immediately">
+        <span>▶ Run Query</span>
+      </button>
+      <button type="button" class="open-code-btn flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#282828] hover:bg-[#383838] text-[#cccccc] hover:text-white transition-colors cursor-pointer" data-code="${encodedCode}" title="Open query in a new editor tab">
+        <span>+ Tab</span>
+      </button>`
+          : ""
+      }
+      <button type="button" class="copy-code-btn flex items-center gap-1 hover:text-white transition-colors cursor-pointer ml-0.5" data-code="${encodedCode}" title="Copy to clipboard">
+        Copy
+      </button>
+    </div>
   </div>
-  <pre class="p-2.5 overflow-x-auto text-[11px] font-mono leading-relaxed m-0! bg-transparent!"><code class="language-${cleanLang}">${escapedCode}</code></pre>
+  <pre class="p-2.5 overflow-x-auto text-[11px] font-mono leading-relaxed m-0! bg-transparent!"><code class="language-${cleanLang || "sql"}">${escapedCode}</code></pre>
 </div>`;
   },
 };
@@ -282,8 +302,42 @@ export default function ChatMessage({ message }) {
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
-  // Event delegation to catch "Copy" button clicks inside rendered markdown code blocks
+  // Event delegation to catch "Run Query", "Open Tab", and "Copy" button clicks inside rendered markdown code blocks
   const handleContainerClick = (e) => {
+    const runBtn = e.target.closest(".run-code-btn");
+    if (runBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const encoded = runBtn.getAttribute("data-code");
+      if (encoded) {
+        const sql = decodeURIComponent(encoded);
+        handleActionCard("run", sql);
+        const originalHtml = runBtn.innerHTML;
+        runBtn.innerHTML = `<span>✓ Running...</span>`;
+        setTimeout(() => {
+          runBtn.innerHTML = originalHtml;
+        }, 1500);
+      }
+      return;
+    }
+
+    const openBtn = e.target.closest(".open-code-btn");
+    if (openBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const encoded = openBtn.getAttribute("data-code");
+      if (encoded) {
+        const sql = decodeURIComponent(encoded);
+        handleActionCard("new_tab", sql);
+        const originalHtml = openBtn.innerHTML;
+        openBtn.innerHTML = `<span>✓ Opened</span>`;
+        setTimeout(() => {
+          openBtn.innerHTML = originalHtml;
+        }, 1500);
+      }
+      return;
+    }
+
     const btn = e.target.closest(".copy-code-btn");
     if (btn) {
       e.preventDefault();
