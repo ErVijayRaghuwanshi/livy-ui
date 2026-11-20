@@ -72,9 +72,13 @@ export async function runAgentConversation({
     model,
   };
 
-  const activeDatabase = livyContext?.activeHost?.database || "demo_db";
+  const isDoris = activeEngine === "doris";
+  const activeDatabase =
+    livyContext?.activeHost?.database ||
+    schemaContext?.databases?.[0] ||
+    (isDoris ? "" : "default");
   const tablesMap = schemaContext?.tables || {};
-  const currentDbTables = tablesMap[activeDatabase] || Object.values(tablesMap)[0] || [];
+  const currentDbTables = activeDatabase ? (tablesMap[activeDatabase] || []) : [];
 
   // Lean supervisor prompt with active database & discovered tables awareness (~250 tokens)
   const systemPrompt = buildSupervisorPrompt({
@@ -111,10 +115,16 @@ export async function runAgentConversation({
     iteration++;
     if (signal?.aborted) break;
 
-    // Supervisor uses SUPERVISOR_TOOLS (in Ask Mode, filter out mutating tools write_sql_file & run_query)
-    const availableTools = agentMode === "ask"
-      ? SUPERVISOR_TOOLS.filter((t) => t.function?.name !== "write_sql_file" && t.function?.name !== "run_query")
-      : SUPERVISOR_TOOLS;
+    // Supervisor uses SUPERVISOR_TOOLS (in Ask Mode, filter out mutating tools write_sql_file, run_query, and open_file)
+    const availableTools =
+      agentMode === "ask"
+        ? SUPERVISOR_TOOLS.filter(
+            (t) =>
+              t.function?.name !== "write_sql_file" &&
+              t.function?.name !== "run_query" &&
+              t.function?.name !== "open_file"
+          )
+        : SUPERVISOR_TOOLS;
 
     const toolsToPass = supportsTools ? availableTools : null;
 

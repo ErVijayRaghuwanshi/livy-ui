@@ -32,7 +32,7 @@ export default function ContextPicker({ onSelect, onClose, searchFilter = "" }) 
     inputRef.current?.focus();
   }, []);
 
-  const activeDatabase = activeHost?.database || "demo_db";
+  const activeDatabase = activeHost?.database || databases?.[0] || "";
   const discoveredTables = useMemo(() => {
     const list = tables?.[activeDatabase] || [];
     if (list.length > 0) return list;

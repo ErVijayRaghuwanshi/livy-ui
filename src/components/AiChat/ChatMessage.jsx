@@ -25,33 +25,25 @@ import {
 import { marked } from "marked";
 import { useAi } from "../../context/AiContext";
 import { useSqlFiles } from "../../context/SqlFilesContext";
-
-function escapeHtml(str) {
-  if (!str) return "";
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
+import { highlightCode, escapeHtml } from "../../utils/syntaxHighlighter";
 
 /**
  * Configure marked with custom code block renderer that adds:
  * - Language tag header
  * - 1-click ▶ Run Query icon button (for SQL code blocks)
  * - 1-click Copy icon button with encoded data-code attribute
+ * - Rich syntax highlighting (SQL, JSON) matching VS Code Copilot theme
  */
 const customRenderer = {
   code({ text, lang }) {
     const cleanLang = (lang || "").match(/^\S*/)?.[0] || "";
-    const escapedCode = escapeHtml(text);
-    const encodedCode = encodeURIComponent(text);
-
     const isSql =
       !cleanLang ||
-      ["sql", "sparksql", "dorisql", "mysql", "hql"].includes(cleanLang.toLowerCase()) ||
+      ["sql", "sparksql", "dorisql", "mysql", "hql", "hive", "pgsql", "postgres", "tsql"].includes(cleanLang.toLowerCase()) ||
       /^\s*(SELECT|WITH|SHOW|DESCRIBE|EXPLAIN|CREATE|DROP|ALTER|INSERT)\b/i.test(text.trim());
+
+    const highlightedCode = highlightCode(text, cleanLang || (isSql ? "sql" : ""));
+    const encodedCode = encodeURIComponent(text);
 
     return `<div class="code-block-wrapper my-2 rounded border border-(--color-border) overflow-hidden bg-(--color-bg-secondary)">
   <div class="flex items-center justify-between px-2.5 py-1 bg-[#1c1c1c] border-b border-(--color-border) text-[10px] text-[#888888] font-mono">
@@ -64,12 +56,12 @@ const customRenderer = {
       </button>`
           : ""
       }
-      <button type="button" class="copy-code-btn flex items-center justify-center w-5 h-5 rounded hover:bg-(--color-bg-hover) text-[#888888] hover:text-white transition-colors cursor-pointer" data-code="${encodedCode}" title="Copy SQL">
+      <button type="button" class="copy-code-btn flex items-center justify-center w-5 h-5 rounded hover:bg-(--color-bg-hover) text-[#888888] hover:text-white transition-colors cursor-pointer" data-code="${encodedCode}" title="Copy Code">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
       </button>
     </div>
   </div>
-  <pre class="p-2.5 overflow-x-auto text-[11px] font-mono leading-relaxed m-0! bg-transparent!"><code class="language-${cleanLang || "sql"}">${escapedCode}</code></pre>
+  <pre class="p-2.5 overflow-x-auto text-[11px] font-mono leading-relaxed m-0! bg-transparent!"><code class="language-${cleanLang || (isSql ? "sql" : "code")}">${highlightedCode}</code></pre>
 </div>`;
   },
 };

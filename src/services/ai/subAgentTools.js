@@ -138,7 +138,7 @@ export const SCHEMA_ANALYST_TOOLS = [
         properties: {
           database: {
             type: "string",
-            description: "Database name to inspect (e.g. 'demo_db', 'default').",
+            description: "Database name to inspect (e.g. 'default' or catalog database).",
           },
         },
         required: ["database"],
@@ -267,15 +267,22 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
       if (isDoris) {
         try {
           const dbs = await dorisApi.getDorisDatabases(activeHost);
-          return {
-            ok: true,
-            engine: "Apache Doris",
-            databases: Array.isArray(dbs) && dbs.length > 0 ? dbs : ["demo_db"],
-          };
+          if (Array.isArray(dbs) && dbs.length > 0) {
+            return {
+              ok: true,
+              engine: "Apache Doris",
+              databases: dbs,
+            };
+          }
         } catch {
-          const dbs = Array.isArray(schemaContext?.databases) ? schemaContext.databases : ["demo_db"];
-          return { ok: true, engine: "Apache Doris", databases: dbs };
+          // fallback to schemaContext
         }
+        const dbs = Array.isArray(schemaContext?.databases)
+          ? schemaContext.databases
+          : activeHost?.database
+          ? [activeHost.database]
+          : [];
+        return { ok: true, engine: "Apache Doris", databases: dbs };
       } else {
         try {
           if (sessionId != null) {
@@ -284,13 +291,21 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
             return { ok: true, engine: "Apache Spark", databases: dbNames };
           }
         } catch {}
-        const dbs = Array.isArray(schemaContext?.databases) ? schemaContext.databases : ["default"];
+        const dbs = Array.isArray(schemaContext?.databases)
+          ? schemaContext.databases
+          : activeHost?.database
+          ? [activeHost.database]
+          : ["default"];
         return { ok: true, engine: "Apache Spark", databases: dbs };
       }
     }
 
     case "search_tables": {
-      const targetDb = (args.database || "").trim() || (isDoris ? "demo_db" : "default");
+      const activeDb =
+        activeHost?.database ||
+        schemaContext?.databases?.[0] ||
+        (isDoris ? "" : "default");
+      const targetDb = (args.database || "").trim() || activeDb;
       if (isDoris) {
         try {
           const tables = await dorisApi.getDorisTables(targetDb, activeHost);
@@ -318,7 +333,11 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
     }
 
     case "describe_table": {
-      let targetDb = (args.database || "").trim() || activeHost?.database || (isDoris ? "demo_db" : "default");
+      const activeDb =
+        activeHost?.database ||
+        schemaContext?.databases?.[0] ||
+        (isDoris ? "" : "default");
+      let targetDb = (args.database || "").trim() || activeDb;
       let targetTable = (args.table || "").replace(/[`"']/g, "").trim();
       if (targetTable.includes(".")) {
         const parts = targetTable.split(".");
@@ -385,6 +404,13 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
     }
 
     case "run_query": {
+      if (context?.agentMode === "ask") {
+        return {
+          ok: false,
+          action: "refused_in_ask_mode",
+          error: "Autonomous query execution is disabled in Ask Mode. Output SQL in markdown for user review and manual execution.",
+        };
+      }
       const { sql, openInNewTab = false, tabName, newTabName } = args;
       if (!sql) throw new Error("Missing 'sql' argument.");
 
@@ -435,6 +461,13 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
     }
 
     case "write_sql_file": {
+      if (context?.agentMode === "ask") {
+        return {
+          ok: false,
+          action: "refused_in_ask_mode",
+          error: "File editing is disabled in Ask Mode. Switch to Code Mode (⌥M) to allow editing files.",
+        };
+      }
       const { fileName, sql, mode = "replace_current" } = args;
       if (!sql) throw new Error("Missing 'sql' argument.");
 
@@ -526,6 +559,13 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
     }
 
     case "open_file": {
+      if (context?.agentMode === "ask") {
+        return {
+          ok: false,
+          action: "refused_in_ask_mode",
+          error: "Opening new files is disabled in Ask Mode. Provide SQL directly in markdown code blocks.",
+        };
+      }
       const { fileName } = args;
       const files = sqlFiles?.files || [];
       const query = (fileName || "").toLowerCase().trim();
@@ -582,6 +622,13 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
     }
 
     case "execute_sql": {
+      if (context?.agentMode === "ask") {
+        return {
+          ok: false,
+          action: "refused_in_ask_mode",
+          error: "Autonomous SQL execution is disabled in Ask Mode. Provide SQL in markdown.",
+        };
+      }
       const querySql = (args.sql || sqlFiles?.activeFile?.content || "").trim();
       if (!querySql) throw new Error("No SQL statement provided to execute.");
 
@@ -612,7 +659,7 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
           const res = await dorisApi.executeDorisQuery({
             url: activeHost.url,
             cluster: activeHost.cluster || "default_cluster",
-            database: activeHost.database || "demo_db",
+            database: activeHost?.database || schemaContext?.databases?.[0] || "",
             username: activeHost.username || "root",
             password: activeHost.password || "",
             sql: querySql,

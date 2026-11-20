@@ -151,8 +151,8 @@ export function AiProvider({ children, editorRef }) {
     : (sqlFiles?.activeFile?.engine || (sqlFiles?.dorisMode ? "doris" : "spark"));
 
   const activeDatabase = livyContext?.isDoris
-    ? (livyContext?.activeHost?.database || settings["doris.defaultDatabase"] || "demo_db")
-    : (livyContext?.activeHost?.database || "default");
+    ? (livyContext?.activeHost?.database || settings["doris.defaultDatabase"] || schemaContext?.databases?.[0] || "")
+    : (livyContext?.activeHost?.database || schemaContext?.databases?.[0] || "default");
 
   // Fetch models dynamically depending on selected provider
   const refreshModels = useCallback(async () => {
@@ -277,7 +277,10 @@ export function AiProvider({ children, editorRef }) {
         }
       } else if (ctx.type === "table") {
         const tableName = ctx.name || ctx.label;
-        const activeDb = livyContext?.activeHost?.database || "demo_db";
+        const activeDb =
+          livyContext?.activeHost?.database ||
+          schemaContext?.databases?.[0] ||
+          (livyContext?.isDoris ? "" : "default");
         const tableSchema = schemaContext?.schemas?.[activeDb]?.[tableName];
         if (Array.isArray(tableSchema) && tableSchema.length > 0) {
           const cols = tableSchema.map((c) => `${c.name || c.COLUMN_NAME} (${c.type || c.DATA_TYPE})`).join(", ");
@@ -303,7 +306,13 @@ export function AiProvider({ children, editorRef }) {
           }
         }
       } else if (ctx.type === "cluster") {
-        sections.push(`### Pinned Cluster Context:\nEngine: ${activeEngine}\nDatabase: ${livyContext?.activeHost?.database || "demo_db"}\nHost: ${livyContext?.activeHost?.url || "N/A"}`);
+        const activeDb =
+          livyContext?.activeHost?.database ||
+          schemaContext?.databases?.[0] ||
+          (livyContext?.isDoris ? "" : "default");
+        sections.push(
+          `### Pinned Cluster Context:\nEngine: ${activeEngine}\nDatabase: ${activeDb || "N/A"}\nHost: ${livyContext?.activeHost?.url || "N/A"}`
+        );
       }
     }
 

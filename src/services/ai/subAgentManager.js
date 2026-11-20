@@ -40,7 +40,7 @@ export async function executeSubAgent({
   onToolCall,
   signal,
 }) {
-  const { activeEngine = "doris" } = context;
+  const { activeEngine = "doris", agentMode = "action" } = context;
 
   let systemPrompt = "";
   let tools = [];
@@ -52,8 +52,11 @@ export async function executeSubAgent({
       break;
 
     case "sql_specialist":
-      systemPrompt = buildSqlSpecialistPrompt({ activeEngine });
-      tools = SQL_SPECIALIST_TOOLS;
+      systemPrompt = buildSqlSpecialistPrompt({ activeEngine, agentMode });
+      tools =
+        agentMode === "ask"
+          ? SQL_SPECIALIST_TOOLS.filter((t) => t.function?.name !== "write_sql_file")
+          : SQL_SPECIALIST_TOOLS;
       break;
 
     case "cluster_operator":

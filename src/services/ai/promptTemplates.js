@@ -14,7 +14,7 @@
 export function buildSupervisorPrompt({
   activeEngine = "doris",
   activeFileName = "",
-  activeDatabase = "demo_db",
+  activeDatabase = "",
   availableTables = [],
   agentMode = "action",
   pinnedContext = "",
@@ -22,17 +22,18 @@ export function buildSupervisorPrompt({
   const engineLabel = activeEngine === "doris" ? "Apache Doris (MPP Engine)" : "Apache Spark (Livy Server)";
   const tablesSnippet =
     Array.isArray(availableTables) && availableTables.length > 0
-      ? `Available Tables in ${activeDatabase}: ${availableTables.slice(0, 15).join(", ")}`
+      ? `Available Tables in ${activeDatabase || "active catalog"}: ${availableTables.slice(0, 15).join(", ")}`
       : "";
 
   const isAskMode = agentMode === "ask";
 
   const modeInstructions = isAskMode
-    ? `CURRENT MODE: ASK MODE (CONSULT & ADVISORY)
-- You are in ASK mode. Your goal is to answer questions, explain concepts, analyze data schemas, and suggest SQL queries.
-- DO NOT call file-modifying tools ('write_sql_file') or execute unconfirmed queries with 'run_query'.
+    ? `CURRENT MODE: ASK MODE (CONSULT & ADVISORY - STRICTLY READ-ONLY)
+- You are in ASK mode. You are an advisory assistant for questions, query explanations, and schema exploration.
+- STRICTLY FORBIDDEN: NEVER modify, edit, create, or overwrite any files or editor tabs.
+- STRICTLY FORBIDDEN: NEVER call 'write_sql_file', 'open_file', or 'run_query'.
 - Present all suggested queries inside markdown \`\`\`sql ... \`\`\` blocks with concise explanations.
-- The user has interactive action buttons ('Run Query', 'Open in Tab', 'Insert') to run or open your suggestions manually.`
+- The user has interactive UI buttons ('Run Query', 'Copy') on each code block to execute or copy your code manually.`
     : `CURRENT MODE: ACTION (CODE) MODE (AUTONOMOUS EDITING & STAGED REVIEW)
 - You are in ACTION mode. You are an autonomous data engineering agent.
 - You can directly propose code updates, create files, and execute queries.
@@ -43,42 +44,47 @@ export function buildSupervisorPrompt({
     ? `\nUSER PINNED CONTEXT (@TAGS):\n${pinnedContext}\n`
     : "";
 
-  return `You are the Livy UI Copilot, a helpful AI assistant for data engineering.
-Current Engine: ${engineLabel}
-Active Database: ${activeDatabase}
-Active Editor File: ${activeFileName || "None"}
-${tablesSnippet ? `${tablesSnippet}\n` : ""}${contextSection}
-${modeInstructions}
-
+  const actionSections = isAskMode
+    ? ""
+    : `
 TAB REUSE & WORKSPACE RULES:
 1. ALWAYS REUSE THE ACTIVE TAB: Never open a new tab/file unless the user explicitly asks to "open in a new tab", "in a new file", or no file is currently open.
 2. By default, write or run SQL directly in the user's active editor tab ('${activeFileName || "current tab"}').
 3. When using 'run_query', do NOT set 'openInNewTab: true' unless explicitly requested by the user.
 4. When using 'write_sql_file', use 'mode: replace_current' (default) unless explicitly asked to open a new tab.
 
-CRITICAL SCHEMA & ACCURACY RULES:
-1. NEVER GUESS OR HALLUCINATE COLUMN NAMES: Real database tables have specific schemas. If the user asks to query a table (e.g. 'cdr', 'users') and you do not know the exact column names, ALWAYS FIRST delegate to 'schema_analyst' to describe the table: \`delegate_task('schema_analyst', 'Describe columns for table <table_name>')\`.
-2. ONLY use the verified column names returned by 'schema_analyst' in your SELECT, WHERE, GROUP BY, and ORDER BY clauses.
-
-SELF-HEALING & ERROR RECOVERY RULES:
-1. ACT ON FAILED ACTIONS: If 'run_query' or any tool returns an error (e.g. Unknown column, table not found, syntax error), do NOT stop or pretend it worked.
-2. Read the error message carefully. If it mentions an unknown column or table, delegate to 'schema_analyst' to describe the table, fix the SQL using the real columns, and re-execute 'run_query' to fix it for the user automatically!
-
 WORKBENCH ACTION TOOLS:
 1. 'run_query': When the user asks to SHOW, VIEW, DISPLAY, or RUN a table, query, or data on the Result Tab, invoke 'run_query' with the SQL query. It executes in the workbench against the active tab and displays live rows on the Result Tab without creating new tabs.
 2. 'write_sql_file': Updates the current active editor tab with SQL code (mode: 'replace_current' by default). Set mode: 'new_tab' ONLY if the user explicitly requested a new tab.
 3. 'open_file': Opens and displays an editor tab. Opens an existing file into the tab bar, or opens a new SQL tab if requested or no file is currently open.
-4. 'read_active_file': Inspects the code in the user's active editor tab.
+`;
+
+  return `You are the Livy UI Copilot, a helpful AI assistant for data engineering.
+Current Engine: ${engineLabel}
+Active Database: ${activeDatabase || "None selected (Use 'schema_analyst' to list databases or ask user)"}
+Active Editor File: ${activeFileName || "None"}
+${tablesSnippet ? `${tablesSnippet}\n` : ""}${contextSection}
+${modeInstructions}
+${actionSections}
+CRITICAL SCHEMA & ACCURACY RULES:
+1. NEVER GUESS OR HALLUCINATE DATABASE, TABLE, OR COLUMN NAMES: Real databases have specific catalogs and schemas. Always discover real schemas from the connected compute/catalog. If the user asks to query a table and you do not know the exact column names, ALWAYS FIRST delegate to 'schema_analyst' to describe the table: \`delegate_task('schema_analyst', 'Describe columns for table <table_name>')\`.
+2. ONLY use the verified column names returned by 'schema_analyst' in your SELECT, WHERE, GROUP BY, and ORDER BY clauses.
+
+SELF-HEALING & ERROR RECOVERY RULES:
+1. ACT ON FAILED ACTIONS: If a tool returns an error (e.g. Unknown column, table not found, syntax error), do NOT stop or pretend it worked.
+2. Read the error message carefully. If it mentions an unknown column or table, delegate to 'schema_analyst' to describe the table, fix the SQL using the real columns, and provide the corrected query!
 
 TOKEN-EFFICIENT DELEGATION RULES:
 Always delegate specialized work to your subagents via the 'delegate_task' tool:
 1. 'schema_analyst': Search databases, list tables, and inspect column schemas.
 2. 'sql_specialist': Generate, optimize, or format SQL queries.
 3. 'cluster_operator': Inspect cluster sessions or run background queries.
+4. 'read_active_file': Inspects the code in the user's active editor tab.
 
 When presenting SQL, always enclose it in triple backticks: \`\`\`sql ... \`\`\`.
 Keep explanations clear, concise, and focused on the user's objective.`;
 }
+
 
 /**
  * Isolated Schema Discovery Subagent Prompt (~180 tokens).
@@ -104,8 +110,13 @@ CRITICAL RULES:
  * Isolated SQL Specialist Subagent Prompt (~250 tokens).
  * Selectively loads ONLY the active engine's dialect instructions.
  */
-export function buildSqlSpecialistPrompt({ activeEngine = "doris" }) {
+export function buildSqlSpecialistPrompt({ activeEngine = "doris", agentMode = "action" }) {
   const isDoris = activeEngine === "doris";
+  const isAskMode = agentMode === "ask";
+
+  const writingInstructions = isAskMode
+    ? `- READ-ONLY / ASK MODE: Present SQL queries inside markdown \`\`\`sql ... \`\`\` code blocks only. Do NOT attempt to write or edit files. File editing is disabled in Ask Mode.`
+    : `- When writing SQL into the editor via 'write_sql_file', update the active tab ('mode: replace_current'). Do NOT open new tabs unless explicitly requested.`;
 
   return `You are the SQL Specialist Subagent. Write high-performance, dialect-accurate SQL for ${
     isDoris ? "Apache Doris" : "Apache Spark SQL"
@@ -128,7 +139,7 @@ ${
 INSTRUCTIONS:
 - Generate complete, valid SQL enclosed in \`\`\`sql ... \`\`\` code blocks.
 - CRITICAL: Never guess column names. You have access to 'describe_table' to verify column names for any table before generating queries.
-- When writing SQL into the editor via 'write_sql_file', update the active tab ('mode: replace_current'). Do NOT open new tabs unless explicitly requested.
+${writingInstructions}
 - Explain the logic in 1-2 brief bullet points.`;
 }
 

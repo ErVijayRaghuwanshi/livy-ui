@@ -30,18 +30,18 @@ import ContextPicker from "./ContextPicker";
 
 const SUGGESTIONS = [
   {
-    label: "Top 5 Doris Customers",
-    prompt: "Write an Apache Doris aggregation query to find top 5 customers by revenue from orders table, put it in a new file, and run it.",
+    label: "Explore Catalog & Tables",
+    prompt: "Explore the database catalog and list the available tables and their schemas.",
     icon: Database,
   },
   {
-    label: "List Livy Sessions",
-    prompt: "List all active Livy sessions and check their states.",
+    label: "List Compute Sessions",
+    prompt: "List all active Livy / compute sessions and check their states.",
     icon: Cpu,
   },
   {
-    label: "Spark HDFS Parquet Query",
-    prompt: "Write an Apache Spark SQL query to read parquet files directly from HDFS path 'hdfs://namenode/data/analytics/' and summarize counts.",
+    label: "Explain Active Query",
+    prompt: "Explain the active SQL query in my editor tab and suggest any performance optimizations.",
     icon: FileCode,
   },
 ];
