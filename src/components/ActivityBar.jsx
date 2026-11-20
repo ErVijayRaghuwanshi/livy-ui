@@ -96,7 +96,7 @@ export default function ActivityBar({
         </button>
 
         {/* AI Copilot & SQL Agent Tab (Toggles Right Panel) */}
-        <button
+        {/* <button
           onClick={onToggleAiPanel}
           className={`relative flex items-center justify-center w-12 h-12 transition-colors cursor-pointer ${
             isAiPanelOpen
@@ -109,7 +109,7 @@ export default function ActivityBar({
             <span className="absolute left-0 top-0 bottom-0 w-[2px] bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)]" />
           )}
           <Sparkles size={20} />
-        </button>
+        </button> */}
 
         {/* Local Workspace / Git Directory Sync */}
         <button
