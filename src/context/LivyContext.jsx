@@ -124,17 +124,12 @@ export function LivyProvider({ children }) {
   useEffect(() => {
     if (isDoris) return; // Doris compute does not alter or erase Spark session memory
 
-    const savedMap = getItem(STORAGE_KEYS.HOST_SESSIONS, {});
-    if (state.sessionId !== null) {
+    if (state.sessionId !== null && state.sessionId !== undefined) {
+      const savedMap = getItem(STORAGE_KEYS.HOST_SESSIONS, {});
       savedMap[state.activeHostId] = state.sessionId;
       setItem(STORAGE_KEYS.HOST_SESSIONS, savedMap);
       setItem(STORAGE_KEYS.SESSION_ID, state.sessionId);
       setItem("livy-last-spark-session", state.sessionId);
-    } else {
-      delete savedMap[state.activeHostId];
-      setItem(STORAGE_KEYS.HOST_SESSIONS, savedMap);
-      removeItem(STORAGE_KEYS.SESSION_ID);
-      removeItem("livy-last-spark-session");
     }
   }, [state.sessionId, state.activeHostId, isDoris]);
 
@@ -303,7 +298,8 @@ export function LivyProvider({ children }) {
   // Fetch all sessions for current host
   const fetchSessions = useCallback(async () => {
     const currentHost = state.hosts.find((h) => h.id === state.activeHostId) || DEFAULT_HOST;
-    if (currentHost.type === DATA_SOURCE_TYPES.DORIS) {
+    const isDorisHost = currentHost.type === DATA_SOURCE_TYPES.DORIS || currentHost.engine === "doris";
+    if (isDorisHost) {
       dispatch({ type: "SET_SESSIONS", payload: [] });
       dispatch({ type: "SET_SESSIONS_LOADING", payload: false });
       return;
@@ -311,8 +307,22 @@ export function LivyProvider({ children }) {
     dispatch({ type: "SET_SESSIONS_LOADING", payload: true });
     try {
       const data = await livyApi.listSessions();
-      dispatch({ type: "SET_SESSIONS", payload: data.sessions || [] });
+      const sessionList = Array.isArray(data.sessions) ? data.sessions : [];
+      dispatch({ type: "SET_SESSIONS", payload: sessionList });
       dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
+
+      // Automatically recall and attach the remembered session if it exists on Livy
+      const savedMap = getItem(STORAGE_KEYS.HOST_SESSIONS, {});
+      const targetSid = savedMap[currentHost.id] ?? getItem(STORAGE_KEYS.SESSION_ID, null) ?? state.sessionId;
+
+      if (targetSid !== null && targetSid !== undefined) {
+        const matched = sessionList.find(
+          (s) => Number(s.id) === Number(targetSid) || String(s.id) === String(targetSid)
+        );
+        if (matched) {
+          dispatch({ type: "SET_SESSION", payload: matched });
+        }
+      }
     } catch (err) {
       console.error("Failed to fetch sessions:", err.message);
       dispatch({ type: "SET_SESSIONS", payload: [] });
@@ -322,7 +332,7 @@ export function LivyProvider({ children }) {
     } finally {
       dispatch({ type: "SET_SESSIONS_LOADING", payload: false });
     }
-  }, [state.hosts, state.activeHostId]);
+  }, [state.hosts, state.activeHostId, state.sessionId]);
 
   // Attach to an existing session
   const attachSession = useCallback(async (id) => {
@@ -331,6 +341,14 @@ export function LivyProvider({ children }) {
     try {
       const session = await livyApi.getSession(id);
       dispatch({ type: "SET_SESSION", payload: session });
+
+      // Synchronously persist attached session
+      const savedMap = getItem(STORAGE_KEYS.HOST_SESSIONS, {});
+      savedMap[state.activeHostId] = session.id;
+      setItem(STORAGE_KEYS.HOST_SESSIONS, savedMap);
+      setItem(STORAGE_KEYS.SESSION_ID, session.id);
+      setItem("livy-last-spark-session", session.id);
+
       dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
       fetchSessions();
     } catch (err) {
@@ -341,7 +359,7 @@ export function LivyProvider({ children }) {
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
-  }, [fetchSessions]);
+  }, [state.activeHostId, fetchSessions]);
 
   // Start session
   const startSession = useCallback(async (name = "", kind = "sql", customConf = null, customJars = null) => {
@@ -352,6 +370,14 @@ export function LivyProvider({ children }) {
       const jarsToUse = customJars !== null ? customJars : state.sessionJars;
       const session = await livyApi.createSession(confToUse, name, jarsToUse, kind);
       dispatch({ type: "SET_SESSION", payload: session });
+
+      // Synchronously persist newly started session
+      const savedMap = getItem(STORAGE_KEYS.HOST_SESSIONS, {});
+      savedMap[state.activeHostId] = session.id;
+      setItem(STORAGE_KEYS.HOST_SESSIONS, savedMap);
+      setItem(STORAGE_KEYS.SESSION_ID, session.id);
+      setItem("livy-last-spark-session", session.id);
+
       dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
       await fetchSessions();
       return session;
@@ -364,7 +390,7 @@ export function LivyProvider({ children }) {
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
-  }, [state.sessionConf, state.sessionJars, fetchSessions]);
+  }, [state.sessionConf, state.sessionJars, state.activeHostId, fetchSessions]);
 
   // Stop session
   const stopSession = useCallback(async () => {
@@ -373,6 +399,13 @@ export function LivyProvider({ children }) {
     try {
       await livyApi.deleteSession(state.sessionId);
       dispatch({ type: "CLEAR_SESSION" });
+
+      const savedMap = getItem(STORAGE_KEYS.HOST_SESSIONS, {});
+      delete savedMap[state.activeHostId];
+      setItem(STORAGE_KEYS.HOST_SESSIONS, savedMap);
+      removeItem(STORAGE_KEYS.SESSION_ID);
+      removeItem("livy-last-spark-session");
+
       dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
       fetchSessions();
     } catch (err) {
@@ -381,7 +414,7 @@ export function LivyProvider({ children }) {
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
-  }, [state.sessionId, fetchSessions]);
+  }, [state.sessionId, state.activeHostId, fetchSessions]);
 
   // Network offline/online listeners & periodic checker
   useEffect(() => {
@@ -455,8 +488,13 @@ export function LivyProvider({ children }) {
     dispatch({ type: "SET_LOADING", payload: true });
     try {
       await livyApi.deleteSession(id);
-      if (state.sessionId === id) {
+      if (Number(state.sessionId) === Number(id) || String(state.sessionId) === String(id)) {
         dispatch({ type: "CLEAR_SESSION" });
+        const savedMap = getItem(STORAGE_KEYS.HOST_SESSIONS, {});
+        delete savedMap[state.activeHostId];
+        setItem(STORAGE_KEYS.HOST_SESSIONS, savedMap);
+        removeItem(STORAGE_KEYS.SESSION_ID);
+        removeItem("livy-last-spark-session");
       }
       dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
       fetchSessions();
@@ -465,7 +503,7 @@ export function LivyProvider({ children }) {
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
-  }, [state.sessionId, fetchSessions]);
+  }, [state.sessionId, state.activeHostId, fetchSessions]);
 
   const value = {
     ...state,

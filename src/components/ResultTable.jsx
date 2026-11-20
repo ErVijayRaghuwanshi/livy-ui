@@ -1185,7 +1185,7 @@ function JsonTable({ data, sql, elapsed, onClose, onMaximizeToggle, isMaximized,
               onClick={() => setViewDropdownOpen(!viewDropdownOpen)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-(--color-text-primary) border-b-2 border-(--color-accent) bg-(--color-bg-primary)/40 hover:bg-(--color-bg-primary)/60 transition-colors h-full cursor-pointer"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 16 16" aria-hidden="true" focusable="false" className="text-(--color-accent)"><path fill="currentColor" fill-rule="evenodd" d="M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75zm1.5.75v2.5h11V2.5zm0 4v2.5h11V6.5zm0 4v3h11v-3z" clipRule="evenodd"></path></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 16 16" aria-hidden="true" focusable="false" className="text-(--color-accent)"><path fill="currentColor" fillRule="evenodd" d="M1 1.75A.75.75 0 0 1 1.75 1h12.5a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75zm1.5.75v2.5h11V2.5zm0 4v2.5h11V6.5zm0 4v3h11v-3z" clipRule="evenodd"></path></svg>
               {activeWidth >= 380 && <span>Table</span>}
               <ChevronDown size={10} className={`text-(--color-text-muted) transition-transform duration-200 ${viewDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
