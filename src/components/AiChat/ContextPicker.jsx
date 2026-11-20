@@ -16,8 +16,8 @@ import { useLivy } from "../../context/LivyContext";
 
 export default function ContextPicker({ onSelect, onClose, searchFilter = "" }) {
   const { files, activeFile, activeResult } = useSqlFiles();
-  const { tables, schemas } = useSchema();
-  const { activeHost, activeEngine } = useLivy();
+  const { tables = {}, databases = [] } = useSchema();
+  const { activeHost, activeEngine, isDoris } = useLivy();
 
   const [query, setQuery] = useState(searchFilter);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -32,7 +32,10 @@ export default function ContextPicker({ onSelect, onClose, searchFilter = "" }) 
     inputRef.current?.focus();
   }, []);
 
-  const activeDatabase = activeHost?.database || databases?.[0] || "";
+  const activeDatabase = isDoris
+    ? (activeHost?.database || databases?.[0] || "")
+    : (activeHost?.database || databases?.[0] || "default");
+
   const discoveredTables = useMemo(() => {
     const list = tables?.[activeDatabase] || [];
     if (list.length > 0) return list;
@@ -72,7 +75,7 @@ export default function ContextPicker({ onSelect, onClose, searchFilter = "" }) 
       type: "cluster",
       category: "Cluster",
       label: "Cluster & Session Context",
-      description: `${activeEngine === "doris" ? "Doris" : "Spark"} • ${activeDatabase}`,
+      description: `${activeEngine === "doris" ? "Doris" : "Spark"}${activeDatabase ? ` • ${activeDatabase}` : ""}`,
       icon: Cpu,
       color: "text-amber-400",
     });
@@ -100,7 +103,7 @@ export default function ContextPicker({ onSelect, onClose, searchFilter = "" }) 
         category: "Tables",
         label: t,
         name: t,
-        description: `Table in ${activeDatabase}`,
+        description: activeDatabase ? `Table in ${activeDatabase}` : "Catalog table",
         icon: Table,
         color: "text-cyan-400",
       });
