@@ -51,8 +51,6 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
     activeModelLabel,
     setActiveModel,
     availableModels,
-    activeEngine,
-    activeDatabase,
     agentMode,
     setAgentMode,
     attachedContexts,
@@ -96,7 +94,7 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.focus();
-      textareaRef.current.style.height = "46px";
+      textareaRef.current.style.height = "38px";
     }
   }, []);
 
@@ -116,7 +114,7 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
     setInput("");
     setIsContextPickerOpen(false);
     if (textareaRef.current) {
-      textareaRef.current.style.height = "46px";
+      textareaRef.current.style.height = "38px";
     }
   };
 
@@ -147,7 +145,7 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
     const val = e.target.value;
     setInput(val);
     e.target.style.height = "auto";
-    e.target.style.height = `${Math.min(Math.max(e.target.scrollHeight, 46), 130)}px`;
+    e.target.style.height = `${Math.min(Math.max(e.target.scrollHeight, 38), 120)}px`;
 
     // Detect inline @ mention trigger
     const atMatch = val.match(/@([a-zA-Z0-9_\-\.]*)$/);
@@ -173,8 +171,8 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
       ? `Ollama offline at ${hostUrl}...`
       : `API key required in Settings...`
     : agentMode === "ask"
-    ? "Ask questions, explain queries, explore schemas (read-only)..."
-    : "Describe SQL to build, edit files, or execute queries...";
+    ? "Ask anything (read-only)... ⌥M toggles mode"
+    : "Describe SQL or edits to perform... ⌥M toggles mode";
 
   return (
     <div className="flex flex-col h-full bg-(--color-bg-primary) select-none">
@@ -407,11 +405,11 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
         </div>
       )}
 
-      {/* Input Form with Mode Switcher & Context Bar */}
-      <div className="p-2.5 border-t border-(--color-border) bg-(--color-bg-secondary) flex flex-col gap-2 relative">
+      {/* Input Form with Compact Mode & Context Controls */}
+      <div className="p-2 border-t border-(--color-border) bg-(--color-bg-secondary) flex flex-col gap-1.5 relative">
         {/* Floating Context Picker Popover */}
         {isContextPickerOpen && (
-          <div className="absolute bottom-full left-2.5 right-2.5 mb-2 z-50">
+          <div className="absolute bottom-full left-2 right-2 mb-1.5 z-50">
             <ContextPicker
               onSelect={handleSelectContext}
               onClose={() => setIsContextPickerOpen(false)}
@@ -420,89 +418,44 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
           </div>
         )}
 
-        {/* Toolbar: Segmented Mode Switcher & Add Context */}
-        <div className="flex items-center justify-between text-xs select-none">
-          {/* Segmented Mode Switcher */}
-          <div className="flex items-center rounded-lg bg-(--color-bg-primary) border border-(--color-border) p-0.5 shadow-xs">
-            <button
-              type="button"
-              onClick={() => setAgentMode("ask")}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
-                agentMode === "ask"
-                  ? "bg-blue-600/30 text-blue-200 border border-blue-500/40 shadow-xs"
-                  : "text-[#888888] hover:text-[#cccccc]"
-              }`}
-              title="Ask Mode: Q&A, explain queries, explore schemas. Advisory only, does not alter files. (⌥M)"
-            >
-              <MessageSquare size={12} className={agentMode === "ask" ? "text-blue-400" : ""} />
-              <span>Ask</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setAgentMode("action")}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
-                agentMode === "action"
-                  ? "bg-purple-600/30 text-purple-200 border border-purple-500/40 shadow-xs"
-                  : "text-[#888888] hover:text-[#cccccc]"
-              }`}
-              title="Code Mode: Autonomous agent. Writes and edits files with Staged Diff Review (Accept/Reject). (⌥M)"
-            >
-              <Zap size={12} className={agentMode === "action" ? "text-purple-400" : ""} />
-              <span>Code</span>
-            </button>
-          </div>
-
-          {/* Add Context Button */}
-          <button
-            type="button"
-            onClick={() => setIsContextPickerOpen((prev) => !prev)}
-            className="flex items-center gap-1 px-2 py-1 rounded-md bg-(--color-bg-primary) hover:bg-(--color-bg-hover) text-[#aaaaaa] hover:text-white border border-(--color-border) text-[11px] transition-colors cursor-pointer"
-            title="Add context (@): Pin SQL files, tables, editor selection, or query results"
-          >
-            <AtSign size={12} className="text-purple-400" />
-            <span>Add Context</span>
-          </button>
-        </div>
-
-        {/* Ask Mode Action Nudge Banner */}
+        {/* Subtle Ask Mode Action Nudge Banner (only when user asks to edit in Ask Mode) */}
         {agentMode === "ask" &&
           /\b(write|create|save|edit|modify|update|replace|overwrite|insert)\b.*\b(file|sql|script|tab|editor)\b/i.test(
             input
           ) && (
-            <div className="flex items-center justify-between px-2.5 py-1.5 bg-purple-950/50 border border-purple-700/50 rounded-lg text-[11px] text-purple-200 animate-fadeIn">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <Zap size={12} className="text-purple-400 shrink-0" />
-                <span className="truncate">Editing files requires <strong>Code Mode</strong></span>
-              </div>
+            <div className="flex items-center justify-between px-2 py-1 bg-purple-950/40 border border-purple-700/40 rounded text-[10px] text-purple-200 animate-fadeIn">
+              <span className="flex items-center gap-1.5 truncate">
+                <Zap size={11} className="text-purple-400 shrink-0" />
+                <span>Editing files requires <strong>Code Mode</strong></span>
+              </span>
               <button
                 type="button"
                 onClick={() => setAgentMode("action")}
-                className="px-2 py-0.5 rounded bg-purple-600 hover:bg-purple-500 text-white font-medium text-[10px] shrink-0 cursor-pointer transition-colors shadow-xs"
+                className="px-1.5 py-0.5 rounded bg-purple-600 hover:bg-purple-500 text-white font-medium text-[9px] shrink-0 cursor-pointer transition-colors shadow-xs"
               >
-                Switch to Code
+                Switch
               </button>
             </div>
           )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-1.5">
+        <form onSubmit={handleSubmit} className="flex flex-col">
           <div className="flex flex-col bg-(--color-bg-primary) border border-(--color-border) rounded-lg focus-within:border-purple-500/80 focus-within:ring-1 focus-within:ring-purple-500/30 transition-all shadow-sm overflow-hidden">
             {/* Attached Context Chips */}
             {attachedContexts.length > 0 && (
-              <div className="flex items-center gap-1.5 px-2.5 pt-2 flex-wrap border-b border-(--color-border)/40 pb-1.5 bg-(--color-bg-secondary)/30">
+              <div className="flex items-center gap-1 px-2 pt-1.5 pb-1 flex-wrap border-b border-(--color-border)/30 bg-(--color-bg-secondary)/30">
                 {attachedContexts.map((ctx) => (
                   <span
                     key={ctx.id}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-950/60 border border-purple-700/60 text-[10px] text-purple-200 font-mono"
+                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-purple-950/60 border border-purple-700/60 text-[9px] text-purple-200 font-mono"
                   >
-                    <span className="truncate max-w-[140px]">{ctx.label || ctx.name}</span>
+                    <span className="truncate max-w-[120px]">{ctx.label || ctx.name}</span>
                     <button
                       type="button"
                       onClick={() => removeAttachedContext(ctx.id)}
-                      className="hover:text-red-400 transition-colors ml-0.5 cursor-pointer"
+                      className="hover:text-red-400 transition-colors cursor-pointer"
                       title="Remove context"
                     >
-                      <X size={10} />
+                      <X size={9} />
                     </button>
                   </span>
                 ))}
@@ -515,19 +468,56 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               disabled={isStreaming}
-              rows={2}
+              rows={1}
               placeholder={placeholderText}
-              className="w-full bg-transparent text-[#e0e0e0] text-xs px-3 pt-2.5 pb-1 resize-none focus:outline-none placeholder-[#555555] min-h-[46px] max-h-32 leading-relaxed"
+              className="w-full bg-transparent text-[#e0e0e0] text-xs px-2.5 pt-2 pb-1 resize-none focus:outline-none placeholder-[#555555] min-h-[38px] max-h-32 leading-relaxed"
             />
 
-            <div className="flex items-center justify-between px-2.5 pb-2 pt-0.5 select-none">
-              <span className="text-[10px] text-[#666666] flex items-center gap-1">
-                <span>Enter ↵ to send</span>
-                <span className="text-[#444444]">•</span>
-                <span>Type @ for context</span>
-                <span className="text-[#444444]">•</span>
-                <span>⌥M toggles mode</span>
-              </span>
+            {/* Compact Bottom Toolbar inside Input Container */}
+            <div className="flex items-center justify-between px-2 pb-1.5 pt-0.5 select-none">
+              <div className="flex items-center gap-1.5">
+                {/* Compact Mode Pill (Ask vs Code) */}
+                <div className="flex items-center rounded bg-(--color-bg-secondary) border border-(--color-border) p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setAgentMode("ask")}
+                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors cursor-pointer ${
+                      agentMode === "ask"
+                        ? "bg-blue-600/30 text-blue-200 border border-blue-500/40"
+                        : "text-[#777777] hover:text-[#cccccc]"
+                    }`}
+                    title="Ask Mode: Q&A, explain queries, explore schemas (⌥M)"
+                  >
+                    <MessageSquare size={10} className={agentMode === "ask" ? "text-blue-400" : ""} />
+                    <span>Ask</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAgentMode("action")}
+                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors cursor-pointer ${
+                      agentMode === "action"
+                        ? "bg-purple-600/30 text-purple-200 border border-purple-500/40"
+                        : "text-[#777777] hover:text-[#cccccc]"
+                    }`}
+                    title="Code Mode: Writes & edits files with Staged Diff Review (⌥M)"
+                  >
+                    <Zap size={10} className={agentMode === "action" ? "text-purple-400" : ""} />
+                    <span>Code</span>
+                  </button>
+                </div>
+
+                {/* Add Context Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsContextPickerOpen((prev) => !prev)}
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-(--color-bg-secondary) text-[#777777] hover:text-[#cccccc] text-[10px] transition-colors cursor-pointer border border-transparent hover:border-(--color-border)"
+                  title="Add context (@): Pin SQL files, tables, editor selection, or query results"
+                >
+                  <AtSign size={10} className="text-purple-400" />
+                  <span>Context</span>
+                </button>
+              </div>
 
               <div className="flex items-center gap-1 shrink-0">
                 {isStreaming ? (
@@ -535,31 +525,22 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
                     type="button"
                     onClick={stopGeneration}
                     title="Stop generation (Esc)"
-                    className="flex items-center justify-center w-7 h-7 rounded-md bg-red-600 hover:bg-red-500 text-white transition-colors cursor-pointer shadow-sm"
+                    className="flex items-center justify-center w-6 h-6 rounded bg-red-600 hover:bg-red-500 text-white transition-colors cursor-pointer shadow-xs"
                   >
-                    <Square size={12} />
+                    <Square size={10} />
                   </button>
                 ) : (
                   <button
                     type="submit"
                     disabled={!input.trim() || !isOnline}
                     title="Send message (Enter)"
-                    className="flex items-center justify-center w-7 h-7 rounded-md bg-purple-600 hover:bg-purple-500 disabled:bg-[#282828] disabled:text-[#555555] text-white transition-all cursor-pointer disabled:cursor-not-allowed shadow-sm"
+                    className="flex items-center justify-center w-6 h-6 rounded bg-purple-600 hover:bg-purple-500 disabled:bg-[#282828] disabled:text-[#555555] text-white transition-all cursor-pointer disabled:cursor-not-allowed shadow-xs"
                   >
-                    <Send size={12} />
+                    <Send size={11} />
                   </button>
                 )}
               </div>
             </div>
-          </div>
-
-          <div className="flex items-center justify-between text-[10px] text-[#666666] px-1 select-none">
-            <span className="truncate max-w-[200px] text-[#888888] flex items-center gap-1.5">
-              <span>{activeEngine === "doris" ? "🐬 Doris" : "⚡ Spark"}</span>
-              <span className="text-[#444444]">•</span>
-              <span className="text-[#aaaaaa] font-mono">{activeDatabase || (activeEngine === "doris" ? "demo_db" : "default")}</span>
-            </span>
-            <span className="truncate max-w-[160px] font-mono text-[#777777]">{providerLabel}</span>
           </div>
         </form>
       </div>
