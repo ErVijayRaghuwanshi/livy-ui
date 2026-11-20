@@ -363,31 +363,80 @@ export default function ChatMessage({ message }) {
     }
   };
 
+  // Render User Message (VS Code Copilot style: right-aligned bubble with context anchored above)
+  if (isUser) {
+    return (
+      <div className="flex flex-col items-end gap-1 max-w-full my-1 animate-fadeIn select-text">
+        {/* Pinned Context Badges directly above the user bubble */}
+        {Array.isArray(message.contextBadges) && message.contextBadges.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap justify-end mb-0.5">
+            {message.contextBadges.map((badge, idx) => {
+              const isClickable = badge.type === "file";
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleBadgeClick(badge)}
+                  disabled={!isClickable}
+                  className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#1c1c1c] border border-[#383838] text-[10px] text-[#aaaaaa] font-mono transition-colors ${
+                    isClickable
+                      ? "hover:border-purple-500/70 hover:text-white cursor-pointer"
+                      : "cursor-default"
+                  }`}
+                  title={isClickable ? `Click to open ${badge.label} in editor tab` : badge.label}
+                >
+                  <span className="text-purple-400">≡</span>
+                  <span className="truncate max-w-[150px]">{badge.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* User Message Bubble on Right */}
+        <div className="group relative flex items-center gap-1.5 max-w-[85%]">
+          {/* Subtle Hover Action: Copy */}
+          <button
+            onClick={handleCopyFull}
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-[#858585] hover:text-white rounded hover:bg-(--color-bg-hover) cursor-pointer shrink-0"
+            title="Copy message"
+          >
+            {copiedFull ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
+          </button>
+
+          <div className="rounded-2xl bg-[#2b2d30] border border-[#3e4044] px-3.5 py-2 text-white text-xs leading-relaxed shadow-xs break-words whitespace-pre-wrap">
+            {message.content}
+          </div>
+        </div>
+
+        {/* Subtle timestamp */}
+        {message.timestamp && (
+          <span className="text-[9px] text-[#555555] pr-1">
+            {new Date(message.timestamp).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  // Render Assistant Message
   return (
     <div
       onClick={handleContainerClick}
-      className={`flex flex-col gap-2 p-3 rounded-lg text-xs leading-relaxed transition-colors ${
-        isUser
-          ? "bg-(--color-bg-secondary) border border-(--color-border) ml-4"
-          : message.isError
-          ? "bg-red-950/20 border border-red-800/40 text-red-200 mr-2"
-          : "bg-(--color-bg-tertiary)/60 border border-(--color-border) mr-2"
+      className={`flex flex-col gap-2 p-3 rounded-xl text-xs leading-relaxed transition-colors mr-1 my-1 ${
+        message.isError
+          ? "bg-red-950/20 border border-red-800/40 text-red-200"
+          : "bg-(--color-bg-secondary)/60 border border-(--color-border)"
       }`}
     >
       {/* Header */}
       <div className="flex items-center justify-between text-[11px] text-[#858585]">
         <div className="flex items-center gap-1.5 font-medium">
-          {isUser ? (
-            <>
-              <User size={13} className="text-blue-400" />
-              <span className="text-blue-300">You</span>
-            </>
-          ) : (
-            <>
-              <Sparkles size={13} className="text-purple-400" />
-              <span className="text-purple-300 font-semibold">AI Copilot</span>
-            </>
-          )}
+          <Sparkles size={13} className="text-purple-400" />
+          <span className="text-purple-300 font-semibold">AI Copilot</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -405,7 +454,7 @@ export default function ChatMessage({ message }) {
             <button
               onClick={handleCopyFull}
               className="flex items-center gap-1 text-[10px] text-[#858585] hover:text-white transition-colors cursor-pointer px-1 py-0.5 rounded hover:bg-(--color-bg-hover)"
-              title="Copy entire message"
+              title="Copy entire response"
             >
               {copiedFull ? (
                 <>
@@ -423,39 +472,12 @@ export default function ChatMessage({ message }) {
         </div>
       </div>
 
-      {/* Pinned Context Badges for User Messages */}
-      {isUser && Array.isArray(message.contextBadges) && message.contextBadges.length > 0 && (
-        <div className="flex items-center gap-1.5 flex-wrap pt-0.5 pb-1 border-b border-(--color-border)/30">
-          <span className="text-[10px] text-[#888888] font-medium">Context:</span>
-          {message.contextBadges.map((badge, idx) => {
-            const isClickable = badge.type === "file";
-            return (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleBadgeClick(badge)}
-                disabled={!isClickable}
-                className={`px-1.5 py-0.5 rounded bg-purple-950/60 border border-purple-800/40 text-[10px] text-purple-300 font-mono flex items-center gap-1 transition-all ${
-                  isClickable
-                    ? "hover:bg-purple-900/80 hover:border-purple-600 hover:text-white cursor-pointer"
-                    : "cursor-default"
-                }`}
-                title={isClickable ? `Click to open ${badge.label} in editor tab` : badge.label}
-              >
-                {getBadgeIcon(badge.type)}
-                <span>@{badge.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
       {/* Reasoning / Thinking Accordion */}
-      {!isUser && message.reasoning && (
-        <div className="mt-1 border border-purple-800/30 rounded bg-purple-950/20 overflow-hidden text-[11px]">
+      {message.reasoning && (
+        <div className="border border-purple-800/30 rounded-lg bg-purple-950/20 overflow-hidden text-[11px]">
           <button
             onClick={() => setShowReasoning((prev) => !prev)}
-            className="flex items-center justify-between w-full px-2 py-1.5 text-purple-300 hover:bg-purple-900/30 transition-colors cursor-pointer"
+            className="flex items-center justify-between w-full px-2.5 py-1.5 text-purple-300 hover:bg-purple-900/30 transition-colors cursor-pointer"
           >
             <div className="flex items-center gap-1.5 font-mono text-[10px]">
               <Brain size={12} className="text-purple-400 animate-pulse" />
@@ -464,7 +486,7 @@ export default function ChatMessage({ message }) {
             {showReasoning ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           </button>
           {showReasoning && (
-            <div className="p-2 pt-1 border-t border-purple-800/20 text-[#aaaaaa] font-mono whitespace-pre-wrap max-h-48 overflow-y-auto select-text text-[10px]">
+            <div className="p-2.5 pt-1 border-t border-purple-800/20 text-[#aaaaaa] font-mono whitespace-pre-wrap max-h-48 overflow-y-auto select-text text-[10px]">
               {message.reasoning}
             </div>
           )}
@@ -472,7 +494,7 @@ export default function ChatMessage({ message }) {
       )}
 
       {/* Subagent & Tool Execution Badges */}
-      {!isUser && Array.isArray(message.toolResults) && message.toolResults.length > 0 && (
+      {Array.isArray(message.toolResults) && message.toolResults.length > 0 && (
         <div className="flex flex-col gap-1.5 my-1">
           {message.toolResults.map((tr, idx) => (
             <ToolResultItem key={idx} tr={tr} />
@@ -481,14 +503,10 @@ export default function ChatMessage({ message }) {
       )}
 
       {/* Message Content Body */}
-      {isUser ? (
-        <div className="text-white whitespace-pre-wrap break-words">{message.content}</div>
-      ) : (
-        <div
-          className="prose prose-invert max-w-none text-[#cccccc] break-words text-xs [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:pl-4 [&>ol]:pl-4"
-          dangerouslySetInnerHTML={{ __html: parsedHtml }}
-        />
-      )}
+      <div
+        className="prose prose-invert max-w-none text-[#cccccc] break-words text-xs [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:pl-4 [&>ol]:pl-4"
+        dangerouslySetInnerHTML={{ __html: parsedHtml }}
+      />
 
       {/* 1-Click Retry on Error Messages */}
       {message.isError && (

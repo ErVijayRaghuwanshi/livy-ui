@@ -20,6 +20,8 @@ import {
   X,
   ChevronDown,
   Check,
+  Plus,
+  ArrowUp,
 } from "lucide-react";
 import { useAi } from "../../context/AiContext";
 import ChatMessage from "./ChatMessage";
@@ -439,23 +441,32 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
           )}
 
         <form onSubmit={handleSubmit} className="flex flex-col">
-          <div className="flex flex-col bg-(--color-bg-primary) border border-(--color-border) rounded-lg focus-within:border-purple-500/80 focus-within:ring-1 focus-within:ring-purple-500/30 transition-all shadow-sm overflow-hidden">
-            {/* Attached Context Chips */}
+          <div className="flex flex-col bg-(--color-bg-primary) border border-(--color-border) rounded-xl focus-within:border-purple-500/80 focus-within:ring-1 focus-within:ring-purple-500/30 transition-all shadow-sm overflow-hidden">
+            {/* Attached Context Pills (VS Code style) */}
             {attachedContexts.length > 0 && (
-              <div className="flex items-center gap-1 px-2 pt-1.5 pb-1 flex-wrap border-b border-(--color-border)/30 bg-(--color-bg-secondary)/30">
+              <div className="flex items-center gap-1.5 px-2.5 pt-2 pb-1.5 flex-wrap border-b border-(--color-border)/30 bg-(--color-bg-secondary)/20">
+                <button
+                  type="button"
+                  onClick={() => setIsContextPickerOpen(true)}
+                  className="flex items-center justify-center w-5 h-5 rounded hover:bg-(--color-bg-hover) text-[#888888] hover:text-white transition-colors cursor-pointer"
+                  title="Add context (@)"
+                >
+                  <Plus size={12} />
+                </button>
                 {attachedContexts.map((ctx) => (
                   <span
                     key={ctx.id}
-                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-purple-950/60 border border-purple-700/60 text-[9px] text-purple-200 font-mono"
+                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#1e1e1e] border border-[#383838] text-[10px] text-[#cccccc] font-mono shadow-xs"
                   >
-                    <span className="truncate max-w-[120px]">{ctx.label || ctx.name}</span>
+                    <span className="text-purple-400">≡</span>
+                    <span className="truncate max-w-[130px]">{ctx.label || ctx.name}</span>
                     <button
                       type="button"
                       onClick={() => removeAttachedContext(ctx.id)}
-                      className="hover:text-red-400 transition-colors cursor-pointer"
+                      className="hover:text-red-400 transition-colors ml-0.5 cursor-pointer text-[#888888]"
                       title="Remove context"
                     >
-                      <X size={9} />
+                      <X size={10} />
                     </button>
                   </span>
                 ))}
@@ -469,21 +480,31 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
               onKeyDown={handleKeyDown}
               disabled={isStreaming}
               rows={1}
-              placeholder={placeholderText}
-              className="w-full bg-transparent text-[#e0e0e0] text-xs px-2.5 pt-2 pb-1 resize-none focus:outline-none placeholder-[#555555] min-h-[38px] max-h-32 leading-relaxed"
+              placeholder="Chat with Copilot..."
+              className="w-full bg-transparent text-[#e0e0e0] text-xs px-3 pt-2 pb-1 resize-none focus:outline-none placeholder-[#666666] min-h-[38px] max-h-32 leading-relaxed"
             />
 
             {/* Compact Bottom Toolbar inside Input Container */}
-            <div className="flex items-center justify-between px-2 pb-1.5 pt-0.5 select-none">
+            <div className="flex items-center justify-between px-2.5 pb-2 pt-0.5 select-none">
               <div className="flex items-center gap-1.5">
+                {/* Add Context Button (+) */}
+                <button
+                  type="button"
+                  onClick={() => setIsContextPickerOpen((prev) => !prev)}
+                  className="flex items-center justify-center w-6 h-6 rounded-md hover:bg-(--color-bg-secondary) text-[#888888] hover:text-white transition-colors cursor-pointer border border-transparent hover:border-(--color-border)"
+                  title="Add context (@): Pin SQL files, tables, editor selection, or query results"
+                >
+                  <Plus size={14} />
+                </button>
+
                 {/* Compact Mode Pill (Ask vs Code) */}
-                <div className="flex items-center rounded bg-(--color-bg-secondary) border border-(--color-border) p-0.5">
+                <div className="flex items-center rounded-lg bg-(--color-bg-secondary) border border-(--color-border) p-0.5">
                   <button
                     type="button"
                     onClick={() => setAgentMode("ask")}
-                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors cursor-pointer ${
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium transition-all cursor-pointer ${
                       agentMode === "ask"
-                        ? "bg-blue-600/30 text-blue-200 border border-blue-500/40"
+                        ? "bg-blue-600/30 text-blue-200 border border-blue-500/40 shadow-xs"
                         : "text-[#777777] hover:text-[#cccccc]"
                     }`}
                     title="Ask Mode: Q&A, explain queries, explore schemas (⌥M)"
@@ -495,9 +516,9 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
                   <button
                     type="button"
                     onClick={() => setAgentMode("action")}
-                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors cursor-pointer ${
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium transition-all cursor-pointer ${
                       agentMode === "action"
-                        ? "bg-purple-600/30 text-purple-200 border border-purple-500/40"
+                        ? "bg-purple-600/30 text-purple-200 border border-purple-500/40 shadow-xs"
                         : "text-[#777777] hover:text-[#cccccc]"
                     }`}
                     title="Code Mode: Writes & edits files with Staged Diff Review (⌥M)"
@@ -506,17 +527,6 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
                     <span>Code</span>
                   </button>
                 </div>
-
-                {/* Add Context Button */}
-                <button
-                  type="button"
-                  onClick={() => setIsContextPickerOpen((prev) => !prev)}
-                  className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-(--color-bg-secondary) text-[#777777] hover:text-[#cccccc] text-[10px] transition-colors cursor-pointer border border-transparent hover:border-(--color-border)"
-                  title="Add context (@): Pin SQL files, tables, editor selection, or query results"
-                >
-                  <AtSign size={10} className="text-purple-400" />
-                  <span>Context</span>
-                </button>
               </div>
 
               <div className="flex items-center gap-1 shrink-0">
@@ -525,7 +535,7 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
                     type="button"
                     onClick={stopGeneration}
                     title="Stop generation (Esc)"
-                    className="flex items-center justify-center w-6 h-6 rounded bg-red-600 hover:bg-red-500 text-white transition-colors cursor-pointer shadow-xs"
+                    className="flex items-center justify-center w-6 h-6 rounded-md bg-red-600 hover:bg-red-500 text-white transition-colors cursor-pointer shadow-xs"
                   >
                     <Square size={10} />
                   </button>
@@ -534,9 +544,13 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
                     type="submit"
                     disabled={!input.trim() || !isOnline}
                     title="Send message (Enter)"
-                    className="flex items-center justify-center w-6 h-6 rounded bg-purple-600 hover:bg-purple-500 disabled:bg-[#282828] disabled:text-[#555555] text-white transition-all cursor-pointer disabled:cursor-not-allowed shadow-xs"
+                    className={`flex items-center justify-center w-6 h-6 rounded-md transition-all cursor-pointer shadow-xs ${
+                      input.trim() && isOnline
+                        ? "bg-purple-600 hover:bg-purple-500 text-white shadow-purple-900/30"
+                        : "bg-transparent text-[#555555] cursor-not-allowed"
+                    }`}
                   >
-                    <Send size={11} />
+                    <ArrowUp size={13} strokeWidth={2.5} />
                   </button>
                 )}
               </div>
