@@ -106,6 +106,10 @@ export function LivyProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const { settings, updateSetting } = useSettings();
 
+  const activeHost = state.hosts.find((h) => h.id === state.activeHostId) || DEFAULT_HOST;
+  const isDoris = activeHost.type === DATA_SOURCE_TYPES.DORIS || activeHost.engine === "doris";
+  const isSpark = !isDoris;
+
   // Persist hosts
   useEffect(() => {
     setItem(STORAGE_KEYS.HOSTS, state.hosts);
@@ -133,10 +137,6 @@ export function LivyProvider({ children }) {
       removeItem("livy-last-spark-session");
     }
   }, [state.sessionId, state.activeHostId, isDoris]);
-
-  const activeHost = state.hosts.find((h) => h.id === state.activeHostId) || DEFAULT_HOST;
-  const isDoris = activeHost.type === DATA_SOURCE_TYPES.DORIS || activeHost.engine === "doris";
-  const isSpark = !isDoris;
 
   // Add host
   const addHost = useCallback((host) => {
