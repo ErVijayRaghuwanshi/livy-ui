@@ -397,6 +397,30 @@ export function AiProvider({ children, editorRef }) {
       );
       const supportsTools = currentModelObj?.supportsTools ?? true;
 
+      // Check compute reachability live
+      const isDoris = activeEngine === "doris";
+      const isOnline = livyContext?.isOnline ?? (typeof window !== "undefined" ? window.navigator.onLine : true);
+      const isServerReachable = livyContext?.isServerReachable;
+      const activeHost = livyContext?.activeHost || {};
+      const sessionId = livyContext?.sessionId;
+      const sessionState = livyContext?.sessionState;
+
+      const isComputeOffline =
+        !isOnline ||
+        isServerReachable === false ||
+        (!isDoris && (sessionId === null || sessionState === "not_started" || sessionState === "dead" || sessionState === "killed"));
+
+      let offlineReason = "";
+      if (!isOnline) {
+        offlineReason = "Browser is offline";
+      } else if (isServerReachable === false) {
+        offlineReason = `${isDoris ? "Apache Doris FE" : "Livy Server"} at ${activeHost.url || "cluster"} is offline or unreachable`;
+      } else if (!isDoris && sessionId === null) {
+        offlineReason = "No active Spark session attached";
+      } else if (!isDoris && (sessionState === "dead" || sessionState === "killed")) {
+        offlineReason = `Spark session #${sessionId} is ${sessionState}`;
+      }
+
       // Build context bridge
       const runnerContext = {
         sqlFiles,
@@ -406,6 +430,8 @@ export function AiProvider({ children, editorRef }) {
         activeEngine,
         agentMode,
         pinnedContext,
+        isComputeOffline,
+        offlineReason,
       };
 
       // Sliding Context Window: retain only the last 8 messages (4 user + 4 assistant)

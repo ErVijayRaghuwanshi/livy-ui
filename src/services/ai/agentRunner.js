@@ -60,6 +60,8 @@ export async function runAgentConversation({
     activeEngine = "doris",
     agentMode = "action",
     pinnedContext = "",
+    isComputeOffline: contextIsOffline,
+    offlineReason: contextOfflineReason,
   } = context;
 
   const modelConfig = {
@@ -73,8 +75,32 @@ export async function runAgentConversation({
   };
 
   const isDoris = activeEngine === "doris";
+  const activeHost = livyContext?.activeHost || {};
+  const isOnline = livyContext?.isOnline ?? (typeof window !== "undefined" ? window.navigator.onLine : true);
+  const isServerReachable = livyContext?.isServerReachable;
+  const sessionId = livyContext?.sessionId;
+  const sessionState = livyContext?.sessionState;
+
+  const isComputeOffline =
+    contextIsOffline ??
+    (!isOnline ||
+      isServerReachable === false ||
+      (!isDoris && (sessionId === null || sessionState === "not_started" || sessionState === "dead" || sessionState === "killed")));
+
+  const offlineReason =
+    contextOfflineReason ||
+    (!isOnline
+      ? "Browser is offline"
+      : isServerReachable === false
+      ? `${isDoris ? "Apache Doris FE" : "Livy Server"} at ${activeHost.url || "cluster"} is offline or unreachable`
+      : !isDoris && sessionId === null
+      ? "No active Spark session attached"
+      : !isDoris && (sessionState === "dead" || sessionState === "killed")
+      ? `Spark session #${sessionId} is ${sessionState}`
+      : "");
+
   const activeDatabase =
-    livyContext?.activeHost?.database ||
+    activeHost?.database ||
     schemaContext?.databases?.[0] ||
     (isDoris ? "" : "default");
   const tablesMap = schemaContext?.tables || {};
@@ -88,6 +114,9 @@ export async function runAgentConversation({
     availableTables: currentDbTables,
     agentMode,
     pinnedContext,
+    isComputeOffline,
+    offlineReason,
+    activeHost,
   });
 
   const conversationMessages = [
@@ -225,6 +254,33 @@ export async function runAgentConversation({
             subagent: subagentType,
             summary: "Subagent has already gathered this information in the current turn.",
           };
+        } else if (
+          isComputeOffline &&
+          (subagentType === "schema_analyst" || subagentType === "cluster_operator")
+        ) {
+          executedDelegations.add(delegationKey);
+
+          // Fast-fail delegation when compute is offline so subagents don't struggle against a dead server!
+          const cachedTables = currentDbTables.length > 0 ? currentDbTables.join(", ") : null;
+          const hostLabel = activeHost.name || (isDoris ? "Apache Doris" : "Apache Spark");
+          const cachedNote = cachedTables
+            ? `Cached tables in ${activeDatabase}: ${cachedTables}. (Note: Compute cluster is currently offline: ${offlineReason}).`
+            : `Live cluster inspection was skipped: ${hostLabel} (${activeHost.url || "endpoint"}) is currently offline or unreachable (${offlineReason}). Answer the question conceptually.`;
+
+          toolResult = {
+            ok: false,
+            subagent: subagentType,
+            isOffline: true,
+            summary: cachedNote,
+          };
+
+          allToolResults.push({ id: tc.id, name: `Subagent [${subagentType}]`, args, result: toolResult });
+          conversationMessages.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            content: JSON.stringify(toolResult),
+          });
+          continue;
         } else {
           executedDelegations.add(delegationKey);
 

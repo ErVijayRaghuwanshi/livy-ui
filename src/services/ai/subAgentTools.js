@@ -245,6 +245,23 @@ export const CLUSTER_OPERATOR_TOOLS = [
   },
 ];
 
+function isNetworkOrOfflineError(err) {
+  if (!err) return false;
+  const msg = String(err.message || "").toLowerCase();
+  const code = String(err.code || "").toUpperCase();
+  return (
+    msg.includes("network error") ||
+    msg.includes("econnrefused") ||
+    msg.includes("failed to fetch") ||
+    msg.includes("timeout") ||
+    msg.includes("cluster unreachable") ||
+    msg.includes("unreachable") ||
+    code === "ERR_NETWORK" ||
+    code === "ECONNREFUSED" ||
+    code === "ETIMEDOUT"
+  );
+}
+
 /**
  * Executes subagent tool actions directly in the browser environment.
  */
@@ -260,10 +277,41 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
   const isDoris = livyContext?.isDoris || activeEngine === "doris";
   const activeHost = livyContext?.activeHost || {};
   const sessionId = livyContext?.sessionId;
+  const isServerReachable = livyContext?.isServerReachable;
+  const isOnline = livyContext?.isOnline ?? (typeof window !== "undefined" ? window.navigator.onLine : true);
+
+  const isComputeOffline =
+    context?.isComputeOffline ??
+    (!isOnline ||
+      isServerReachable === false ||
+      (!isDoris && (sessionId === null || livyContext?.sessionState === "not_started" || livyContext?.sessionState === "dead" || livyContext?.sessionState === "killed")));
+
   const cleanToolName = (toolName || "").replace(/^[^:]+:/, "").trim();
 
   switch (cleanToolName) {
     case "list_databases": {
+      if (isComputeOffline) {
+        const cached = Array.isArray(schemaContext?.databases) && schemaContext.databases.length > 0
+          ? schemaContext.databases
+          : activeHost?.database
+          ? [activeHost.database]
+          : [];
+        if (cached.length > 0) {
+          return {
+            ok: true,
+            engine: isDoris ? "Apache Doris" : "Apache Spark",
+            databases: cached,
+            cached: true,
+            note: "Loaded from cache (compute cluster is currently offline)",
+          };
+        }
+        return {
+          ok: false,
+          isOffline: true,
+          error: `Cannot list databases: ${isDoris ? "Apache Doris FE" : "Livy Server"} at ${activeHost?.url || "endpoint"} is currently offline or unreachable.`,
+        };
+      }
+
       if (isDoris) {
         try {
           const dbs = await dorisApi.getDorisDatabases(activeHost);
@@ -274,8 +322,14 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
               databases: dbs,
             };
           }
-        } catch {
-          // fallback to schemaContext
+        } catch (err) {
+          if (isNetworkOrOfflineError(err)) {
+            return {
+              ok: false,
+              isOffline: true,
+              error: `Failed to connect to Apache Doris at ${activeHost?.url || "endpoint"}: ${err.message}. Compute is offline.`,
+            };
+          }
         }
         const dbs = Array.isArray(schemaContext?.databases)
           ? schemaContext.databases
@@ -290,7 +344,15 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
             const dbNames = rows.map((r) => r.databaseName || r.namespace || Object.values(r)[0]);
             return { ok: true, engine: "Apache Spark", databases: dbNames };
           }
-        } catch {}
+        } catch (err) {
+          if (isNetworkOrOfflineError(err)) {
+            return {
+              ok: false,
+              isOffline: true,
+              error: `Failed to connect to Spark Livy at ${activeHost?.url || "endpoint"}: ${err.message}. Compute is offline.`,
+            };
+          }
+        }
         const dbs = Array.isArray(schemaContext?.databases)
           ? schemaContext.databases
           : activeHost?.database
@@ -306,6 +368,27 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
         schemaContext?.databases?.[0] ||
         (isDoris ? "" : "default");
       const targetDb = (args.database || "").trim() || activeDb;
+
+      if (isComputeOffline) {
+        const tablesMap = schemaContext?.tables || {};
+        const cached = tablesMap[targetDb];
+        if (Array.isArray(cached) && cached.length > 0) {
+          return {
+            ok: true,
+            engine: isDoris ? "Apache Doris" : "Apache Spark",
+            database: targetDb,
+            tables: cached,
+            cached: true,
+            note: "Loaded from cache (compute cluster is currently offline)",
+          };
+        }
+        return {
+          ok: false,
+          isOffline: true,
+          error: `Cannot search tables in '${targetDb}': ${isDoris ? "Apache Doris FE" : "Livy Server"} at ${activeHost?.url || "endpoint"} is currently offline or unreachable.`,
+        };
+      }
+
       if (isDoris) {
         try {
           const tables = await dorisApi.getDorisTables(targetDb, activeHost);
@@ -315,7 +398,14 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
             database: targetDb,
             tables: (tables || []).map((t) => (typeof t === "string" ? t : t.name || String(t))),
           };
-        } catch {
+        } catch (err) {
+          if (isNetworkOrOfflineError(err)) {
+            return {
+              ok: false,
+              isOffline: true,
+              error: `Failed to connect to Apache Doris at ${activeHost?.url || "endpoint"}: ${err.message}. Compute is offline.`,
+            };
+          }
           const tablesMap = schemaContext?.tables || {};
           return { ok: true, engine: "Apache Doris", database: targetDb, tables: tablesMap[targetDb] || [] };
         }
@@ -326,7 +416,15 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
             const tblNames = rows.map((r) => r.tableName || Object.values(r)[0]);
             return { ok: true, engine: "Apache Spark", database: targetDb, tables: tblNames };
           }
-        } catch {}
+        } catch (err) {
+          if (isNetworkOrOfflineError(err)) {
+            return {
+              ok: false,
+              isOffline: true,
+              error: `Failed to connect to Spark Livy at ${activeHost?.url || "endpoint"}: ${err.message}. Compute is offline.`,
+            };
+          }
+        }
         const tablesMap = schemaContext?.tables || {};
         return { ok: true, engine: "Apache Spark", database: targetDb, tables: tablesMap[targetDb] || [] };
       }
@@ -346,6 +444,32 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
       }
       if (!targetTable) throw new Error("Missing 'table' argument.");
 
+      const colKey = `${targetDb}.${targetTable}`;
+
+      if (isComputeOffline) {
+        const cachedCols = schemaContext?.columns?.[colKey] || schemaContext?.columns?.[targetTable];
+        if (Array.isArray(cachedCols) && cachedCols.length > 0) {
+          return {
+            ok: true,
+            engine: isDoris ? "Apache Doris" : "Apache Spark",
+            database: targetDb,
+            table: targetTable,
+            columns: cachedCols.map((c) => ({
+              name: c.name || c.col_name || String(c),
+              type: c.type || c.data_type || "varchar",
+              key: c.key || "",
+            })),
+            cached: true,
+            note: "Loaded from cache (compute cluster is currently offline)",
+          };
+        }
+        return {
+          ok: false,
+          isOffline: true,
+          error: `Cannot describe table '${targetDb}.${targetTable}': ${isDoris ? "Apache Doris FE" : "Livy Server"} at ${activeHost?.url || "endpoint"} is offline or unreachable.`,
+        };
+      }
+
       if (isDoris) {
         try {
           const cols = await dorisApi.getDorisColumns(targetDb, targetTable, activeHost);
@@ -363,11 +487,17 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
             };
           }
         } catch (err) {
+          if (isNetworkOrOfflineError(err)) {
+            return {
+              ok: false,
+              isOffline: true,
+              error: `Failed to connect to Apache Doris at ${activeHost?.url || "endpoint"}: ${err.message}. Compute is offline.`,
+            };
+          }
           console.warn(`[describe_table] dorisApi.getDorisColumns error for ${targetDb}.${targetTable}:`, err);
         }
 
         // Fallback to schemaContext cache if available
-        const colKey = `${targetDb}.${targetTable}`;
         const cachedCols = schemaContext?.columns?.[colKey] || schemaContext?.columns?.[targetTable];
         if (Array.isArray(cachedCols) && cachedCols.length > 0) {
           return {
@@ -404,11 +534,17 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
             }
           }
         } catch (err) {
+          if (isNetworkOrOfflineError(err)) {
+            return {
+              ok: false,
+              isOffline: true,
+              error: `Failed to connect to Spark Livy at ${activeHost?.url || "endpoint"}: ${err.message}. Compute is offline.`,
+            };
+          }
           console.warn(`[describe_table] Spark DESCRIBE error for ${targetDb}.${targetTable}:`, err);
         }
 
         // Fallback to schemaContext cache if available
-        const colKey = `${targetDb}.${targetTable}`;
         const cachedCols = schemaContext?.columns?.[colKey] || schemaContext?.columns?.[targetTable];
         if (Array.isArray(cachedCols) && cachedCols.length > 0) {
           return {
@@ -423,7 +559,10 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
           };
         }
 
-        return { ok: false, error: `Could not retrieve columns for table '${targetDb}.${targetTable}'. Ensure a Spark session is attached or inspect in Schema Explorer.` };
+        const tablesMap = schemaContext?.tables || {};
+        const availableInDb = tablesMap[targetDb] || Object.values(tablesMap)[0] || [];
+        const tablesHint = availableInDb.length > 0 ? ` Available tables in '${targetDb}': ${availableInDb.join(", ")}.` : "";
+        return { ok: false, error: `Table '${targetTable}' not found in database '${targetDb}'.${tablesHint}` };
       }
     }
 
@@ -437,6 +576,14 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
       }
       const { sql, openInNewTab = false, tabName, newTabName } = args;
       if (!sql) throw new Error("Missing 'sql' argument.");
+
+      if (isComputeOffline) {
+        return {
+          ok: false,
+          isOffline: true,
+          error: `Cannot run query: ${isDoris ? "Apache Doris FE" : "Spark Livy"} at ${activeHost?.url || "endpoint"} is currently offline or unreachable.`,
+        };
+      }
 
       const hasActiveSqlFile =
         Boolean(sqlFiles?.activeFile) &&
@@ -653,6 +800,14 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
       const querySql = (args.sql || sqlFiles?.activeFile?.content || "").trim();
       if (!querySql) throw new Error("No SQL statement provided to execute.");
 
+      if (isComputeOffline) {
+        return {
+          ok: false,
+          isOffline: true,
+          error: `Cannot execute query: ${isDoris ? "Apache Doris FE" : "Spark Livy"} at ${activeHost?.url || "endpoint"} is currently offline or unreachable.`,
+        };
+      }
+
       // If editorRef is available, trigger workbench run so user's Result Tab updates live
       if (editorRef?.current?.runSql) {
         return await editorRef.current.runSql(querySql);
@@ -787,6 +942,13 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
     }
 
     case "list_active_sessions": {
+      if (isComputeOffline) {
+        return {
+          ok: false,
+          isOffline: true,
+          error: `Cannot list sessions: Livy server at ${activeHost?.url || "endpoint"} is currently offline or unreachable.`,
+        };
+      }
       try {
         const data = await livyApi.listSessions();
         const sessions = (data.sessions || []).map((s) => ({

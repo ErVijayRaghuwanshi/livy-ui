@@ -41,7 +41,7 @@ const initialState = {
   error: null,
   loading: false,
   isOnline: typeof window !== "undefined" ? window.navigator.onLine : true,
-  isServerReachable: isInitialDoris ? true : null,
+  isServerReachable: null,
 };
 
 function reducer(state, action) {
@@ -70,7 +70,7 @@ function reducer(state, action) {
         sessionState: isDorisHost
           ? SESSION_STATES.IDLE
           : (recalledSessionId !== null ? SESSION_STATES.IDLE : SESSION_STATES.NOT_STARTED),
-        isServerReachable: isDorisHost ? true : state.isServerReachable,
+        isServerReachable: null,
         appId: null,
         error: null,
       };
@@ -194,7 +194,6 @@ export function LivyProvider({ children }) {
 
     if (isDorisHost) {
       dispatch({ type: "SET_SESSION_STATE", payload: SESSION_STATES.IDLE });
-      dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
     }
   }, [state.hosts]);
 

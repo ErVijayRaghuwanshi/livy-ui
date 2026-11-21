@@ -18,14 +18,38 @@ export function buildSupervisorPrompt({
   availableTables = [],
   agentMode = "action",
   pinnedContext = "",
+  isComputeOffline = false,
+  offlineReason = "",
+  activeHost = {},
 }) {
   const engineLabel = activeEngine === "doris" ? "Apache Doris (MPP Engine)" : "Apache Spark (Livy Server)";
+  const hostUrl = activeHost?.url || (activeEngine === "doris" ? "http://localhost:8030" : "http://localhost:8998");
+  const hostName = activeHost?.name || (activeEngine === "doris" ? "Apache Doris FE" : "Spark Livy");
+
   const tablesSnippet =
     Array.isArray(availableTables) && availableTables.length > 0
       ? `Available Tables in ${activeDatabase || "active catalog"}: ${availableTables.slice(0, 15).join(", ")}`
       : "";
 
   const isAskMode = agentMode === "ask";
+
+  const offlineSection = isComputeOffline
+    ? `
+⚠️ COMPUTE CLUSTER STATUS: OFFLINE / UNREACHABLE
+- Connected Host: ${hostName} (${hostUrl})
+- Status: ${offlineReason || "Compute is offline or unreachable"}
+- CRITICAL OFFLINE RULES:
+  1. DO NOT delegate tasks to 'schema_analyst' or 'cluster_operator' to inspect live databases, tables, or sessions while the compute is offline.
+  2. DO NOT run queries ('run_query') against an offline cluster.
+  3. When the user asks conceptual, educational, or general questions (e.g. "what is demo_db?", "explain this query", "how to write SQL for X"):
+     - Answer immediately and conceptually using your expert data engineering knowledge without live cluster inspection.
+     - Mention politely that ${hostName} is currently offline/unreachable so live inspection was skipped.
+  4. If cached tables exist in context, you may reference them with a note that they are from local cache.
+`
+    : `
+COMPUTE CLUSTER STATUS: ONLINE
+- Connected Host: ${hostName} (${hostUrl})
+`;
 
   const modeInstructions = isAskMode
     ? `CURRENT MODE: ASK MODE (CONSULT & ADVISORY - STRICTLY READ-ONLY)
@@ -63,7 +87,7 @@ WORKBENCH ACTION TOOLS:
 Current Engine: ${engineLabel}
 Active Database: ${activeDatabase || "None selected (Use 'schema_analyst' to list databases or ask user)"}
 Active Editor File: ${activeFileName || "None"}
-${tablesSnippet ? `${tablesSnippet}\n` : ""}${contextSection}
+${tablesSnippet ? `${tablesSnippet}\n` : ""}${contextSection}${offlineSection}
 ${modeInstructions}
 ${actionSections}
 CRITICAL SCHEMA & ACCURACY RULES:
@@ -100,6 +124,8 @@ Your mission:
 2. Inspect column definitions using 'describe_table' ONLY when the user or task explicitly needs column details.
 3. STRICT SCHEMA HONESTY & ANTI-HALLUCINATION:
    - NEVER EVER invent, assume, or guess column names or data types!
+   - If a tool reports that the compute cluster is offline or unreachable, report HONESTLY that the cluster is offline.
+   - STRICTLY FORBIDDEN: NEVER claim that a database "does not exist", "contains no tables", or that "no databases were found" if the tool failed due to a network error or offline compute!
    - If you only searched or listed tables ('search_tables'), output ONLY the table names:
      * \`<table_name>\`
    - DO NOT list any columns for a table UNLESS you explicitly called 'describe_table' for that specific table in this turn.
