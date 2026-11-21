@@ -36,9 +36,11 @@ import {
   Layers,
   Cpu,
   Bot,
+  Download,
 } from "lucide-react";
 import { useSettings, DEFAULT_SETTINGS } from "../context/SettingsContext";
 import { useLivy } from "../context/LivyContext";
+import { usePwaInstall } from "../hooks/usePwaInstall";
 import { v4 as uuidv4 } from "uuid";
 import { COMMON_CONF_KEYS, SPARK_PRESETS, DATA_SOURCE_TYPES } from "../utils/constants";
 import { testDorisConnection } from "../services/dorisApi";
@@ -77,6 +79,8 @@ export default function SettingsView({
     setSessionConf,
     loading: livyLoading,
   } = useLivy();
+
+  const { canInstall, isStandalone, installApp } = usePwaInstall();
 
   const [mode, setMode] = useState("ui"); // 'ui' | 'json'
   const [searchQuery, setSearchQuery] = useState("");
@@ -207,6 +211,15 @@ export default function SettingsView({
           toggleTheme();
         }
       },
+    },
+    {
+      key: "workbench.pwaApp",
+      category: "workbench",
+      categoryLabel: "Workbench",
+      title: "Progressive Web App & Offline",
+      description: "Install Livy UI as an independent desktop application on your device and access queries offline with local caching.",
+      type: "pwaManager",
+      commonlyUsed: true,
     },
     {
       key: "editor.fontSize",
@@ -715,7 +728,8 @@ export default function SettingsView({
       def.type === "sessionManager" ||
       def.type === "hostManager" ||
       def.type === "dorisManager" ||
-      def.type === "aiManager"
+      def.type === "aiManager" ||
+      def.type === "pwaManager"
     ) {
       return false;
     }
@@ -943,14 +957,16 @@ export default function SettingsView({
                             <span>Reset</span>
                           </button>
                         )}
-                        <button
-                          onClick={() => setMode("json")}
-                          className="flex items-center gap-1 text-[11px] text-[#6e6e6e] hover:text-[#cccccc] transition-colors cursor-pointer"
-                          title={`Edit ${def.key} in settings.json`}
-                        >
-                          <Code size={11} />
-                          <span>settings.json</span>
-                        </button>
+                        {def.type !== "pwaManager" && (
+                          <button
+                            onClick={() => setMode("json")}
+                            className="flex items-center gap-1 text-[11px] text-[#6e6e6e] hover:text-[#cccccc] transition-colors cursor-pointer"
+                            title={`Edit ${def.key} in settings.json`}
+                          >
+                            <Code size={11} />
+                            <span>settings.json</span>
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -1610,6 +1626,73 @@ export default function SettingsView({
 
                       {/* AI & Copilot Manager Section */}
                       {def.type === "aiManager" && <AiSettingsManager />}
+
+                      {/* Progressive Web App (PWA) & Offline Manager */}
+                      {def.type === "pwaManager" && (
+                        <div className="pt-1 max-w-2xl space-y-3">
+                          <div className="p-4 rounded-xl border border-[#333333] bg-[#252526] space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className={`p-2.5 rounded-lg shrink-0 ${
+                                    isStandalone
+                                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                      : "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                                  }`}
+                                >
+                                  <Download size={20} />
+                                </div>
+                                <div>
+                                  <div className="text-xs font-semibold text-white">
+                                    {isStandalone
+                                      ? "Desktop App Active (Standalone Mode)"
+                                      : canInstall
+                                      ? "Desktop App Ready to Install"
+                                      : "Progressive Web App (PWA)"}
+                                  </div>
+                                  <div className="text-[11px] text-[#858585] mt-0.5">
+                                    {isStandalone
+                                      ? "Livy UI is installed and running as an independent desktop window."
+                                      : canInstall
+                                      ? "Install Livy UI to your macOS Dock or Windows Start Menu for a dedicated distraction-free workspace."
+                                      : "Static assets, offline SQL editing, and worker scripts are cached for offline resilience."}
+                                  </div>
+                                </div>
+                              </div>
+                              {canInstall && !isStandalone && (
+                                <button
+                                  onClick={installApp}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors cursor-pointer shadow-sm shrink-0"
+                                >
+                                  <Download size={13} />
+                                  <span>Install App</span>
+                                </button>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-[#333333] text-[11px]">
+                              <div className="p-2.5 rounded bg-[#1e1e1e] border border-[#2b2b2b]">
+                                <span className="text-[#858585] block">App Environment:</span>
+                                <span className="text-white font-medium mt-0.5 block">
+                                  {isStandalone ? "Standalone Desktop" : "Web Browser"}
+                                </span>
+                              </div>
+                              <div className="p-2.5 rounded bg-[#1e1e1e] border border-[#2b2b2b]">
+                                <span className="text-[#858585] block">Offline Support:</span>
+                                <span className="text-emerald-400 font-medium mt-0.5 block">
+                                  ServiceWorker Active
+                                </span>
+                              </div>
+                              <div className="p-2.5 rounded bg-[#1e1e1e] border border-[#2b2b2b]">
+                                <span className="text-[#858585] block">Theme Color:</span>
+                                <span className="text-white font-medium mt-0.5 block">
+                                  #0f172a (Synchronized)
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Full Host Manager Section */}
                       {def.type === "hostManager" && (

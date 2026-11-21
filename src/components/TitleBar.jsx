@@ -1,10 +1,12 @@
-import { Zap, Search, Sparkles } from "lucide-react";
+import { Zap, Search, Sparkles, Download } from "lucide-react";
 import { useLivy } from "../context/LivyContext";
+import { usePwaInstall } from "../hooks/usePwaInstall";
 
 const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 
 export default function TitleBar({ onOpenCommandPalette, onOpenComputePanel, isAiPanelOpen, onToggleAiPanel }) {
   const { activeHost, sessionState, isDoris } = useLivy();
+  const { canInstall, isStandalone, installApp } = usePwaInstall();
 
   const stateColors = {
     not_started: "bg-gray-500",
@@ -53,6 +55,17 @@ export default function TitleBar({ onOpenCommandPalette, onOpenComputePanel, isA
 
       {/* Right: Quick compute switcher & AI Copilot toggle */}
       <div className="flex items-center gap-2 z-10">
+        {canInstall && !isStandalone && (
+          <button
+            onClick={installApp}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 hover:text-white text-[11px] font-medium transition-all cursor-pointer shadow-xs"
+            title="Install Livy UI as a standalone desktop app"
+          >
+            <Download size={12} className="text-blue-400" />
+            <span className="hidden sm:inline">Install App</span>
+          </button>
+        )}
+
         <button
           onClick={onToggleAiPanel}
           className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] transition-all cursor-pointer ${

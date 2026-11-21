@@ -21,6 +21,7 @@ import WorkspaceModal from "./components/WorkspaceModal";
 import { useSettings } from "./context/SettingsContext";
 import { AiProvider } from "./context/AiContext";
 import AiChatPanel from "./components/AiChat/AiChatPanel";
+import PwaUpdateNotifier from "./components/PwaUpdateNotifier";
 
 const SIDEBAR_CACHE_KEY = "livy-ui-explorer-collapsed";
 const THEME_CACHE_KEY = "livy-ui-theme";
@@ -636,6 +637,7 @@ export default function App() {
     <AiProvider editorRef={editorRef}>
       <div className="flex flex-col h-screen overflow-hidden bg-(--color-bg-workbench)">
         <ToastContainer />
+        <PwaUpdateNotifier />
         <KeyboardShortcuts isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
         <QueryHistory
           isOpen={showHistory}

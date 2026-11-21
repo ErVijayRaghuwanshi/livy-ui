@@ -2,39 +2,86 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     
     <!-- Primary Meta Tags -->
-    <title>Livy SQL UI - Web-based SQL Editor for Apache Spark</title>
-    <meta name="title" content="Livy SQL UI - Web-based SQL Editor for Apache Spark" />
-    <meta name="description" content="Modern, feature-rich SQL editor for Apache Spark via Apache Livy. Execute queries, manage sessions, explore schemas, and visualize results with an intuitive interface." />
-    <meta name="keywords" content="Apache Spark, Apache Livy, SQL Editor, Spark SQL, Data Analytics, Big Data, SQL IDE, Web SQL Editor" />
+    <title>Livy UI - Web SQL Editor & AI Workbench for Apache Spark & Apache Doris</title>
+    <meta name="title" content="Livy UI - Web SQL Editor & AI Workbench for Apache Spark & Apache Doris" />
+    <meta name="description" content="Modern, high-performance web-based SQL editor and AI workbench for Apache Spark (via Apache Livy) and Apache Doris. Features AI Copilot, interactive schema explorer, visual diffs, and offline PWA capability." />
+    <meta name="keywords" content="Apache Spark, Apache Livy, Apache Doris, Doris SQL, Spark SQL, AI SQL Editor, Data Engineering, Web SQL IDE, DeepAgents, Copilot, Big Data Analytics, PWA SQL Editor" />
     <meta name="author" content="Er Vijay Raghuwanshi" />
     <meta name="robots" content="index, follow" />
     
-    <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Favicon & Touch Icons -->
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
+    <link rel="apple-touch-icon" sizes="192x192" href="%BASE_URL%pwa-192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="%BASE_URL%pwa-512.png" />
     
-    <!-- Theme Color -->
-    <meta name="theme-color" content="#3b82f6" />
-    <meta name="msapplication-TileColor" content="#3b82f6" />
+    <!-- Theme & App Colors -->
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="msapplication-TileColor" content="#0f172a" />
     
-    <!-- Open Graph / Facebook -->
+    <!-- iOS / Safari Web App Tags -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Livy UI" />
+    
+    <!-- Open Graph / Facebook / LinkedIn / Slack -->
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Livy UI" />
     <meta property="og:url" content="https://ervijayraghuwanshi.github.io/livy-ui/" />
-    <meta property="og:title" content="Livy SQL UI - Web-based SQL Editor for Apache Spark" />
-    <meta property="og:description" content="Modern, feature-rich SQL editor for Apache Spark via Apache Livy. Execute queries, manage sessions, explore schemas, and visualize results." />
-    <meta property="og:image" content="https://ervijayraghuwanshi.github.io/livy-ui/favicon.svg" />
+    <meta property="og:title" content="Livy UI - Web SQL Editor & AI Workbench for Apache Spark & Apache Doris" />
+    <meta property="og:description" content="Modern, high-performance web-based SQL editor and AI workbench for Apache Spark and Apache Doris. Execute queries, manage sessions, inspect schemas, and interact with an AI Copilot." />
+    <meta property="og:image" content="https://ervijayraghuwanshi.github.io/livy-ui/livy-ui.png" />
+    <meta property="og:image:secure_url" content="https://ervijayraghuwanshi.github.io/livy-ui/livy-ui.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1551" />
+    <meta property="og:image:height" content="1837" />
+    <meta property="og:image:alt" content="Livy UI - Modern Web SQL Editor & AI Workbench" />
     
-    <!-- Twitter -->
-    <meta property="twitter:card" content="https://ervijayraghuwanshi.github.io/livy-ui/livy-ui.png" />
-    <meta property="twitter:url" content="https://ervijayraghuwanshi.github.io/livy-ui/" />
-    <meta property="twitter:title" content="Livy SQL UI - Web-based SQL Editor for Apache Spark" />
-    <meta property="twitter:description" content="Modern, feature-rich SQL editor for Apache Spark via Apache Livy. Execute queries, manage sessions, explore schemas, and visualize results." />
-    <meta property="twitter:image" content="https://ervijayraghuwanshi.github.io/livy-ui/livy-ui.png" />
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://ervijayraghuwanshi.github.io/livy-ui/" />
+    <meta name="twitter:title" content="Livy UI - Web SQL Editor & AI Workbench for Apache Spark & Apache Doris" />
+    <meta name="twitter:description" content="Modern, high-performance web-based SQL editor and AI workbench for Apache Spark and Apache Doris. Features AI Copilot and offline PWA capability." />
+    <meta name="twitter:image" content="https://ervijayraghuwanshi.github.io/livy-ui/livy-ui.png" />
+    <meta name="twitter:image:alt" content="Livy UI - Web SQL Editor & AI Workbench" />
     
     <!-- Canonical URL -->
     <link rel="canonical" href="https://ervijayraghuwanshi.github.io/livy-ui/" />
+
+    <!-- Google Structured Data (Schema.org JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Livy UI",
+      "url": "https://ervijayraghuwanshi.github.io/livy-ui/",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "All",
+      "browserRequirements": "Requires JavaScript. Requires HTML5.",
+      "description": "Modern web-based SQL editor and AI workbench for Apache Spark (via Apache Livy) and Apache Doris.",
+      "author": {
+        "@type": "Person",
+        "name": "Er Vijay Raghuwanshi",
+        "url": "https://github.com/ErVijayRaghuwanshi"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "featureList": [
+        "Apache Spark interactive SQL queries via Apache Livy",
+        "Apache Doris MPP analytical queries via Frontend HTTP API",
+        "AI DeepAgents Copilot with Ollama, Gemini, and OpenAI",
+        "Interactive Schema Explorer & Autocomplete",
+        "Visual Diff Code Staging and Tab Management",
+        "Offline-capable Progressive Web App (PWA)"
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>
