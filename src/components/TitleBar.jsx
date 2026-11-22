@@ -55,7 +55,7 @@ export default function TitleBar({ onOpenCommandPalette, onOpenComputePanel, isA
 
       {/* Right: Quick compute switcher & AI Copilot toggle */}
       <div className="flex items-center gap-2 z-10">
-        {canInstall && !isStandalone && (
+        {/* {canInstall && !isStandalone && (
           <button
             onClick={installApp}
             className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 hover:text-white text-[11px] font-medium transition-all cursor-pointer shadow-xs"
@@ -64,7 +64,7 @@ export default function TitleBar({ onOpenCommandPalette, onOpenComputePanel, isA
             <Download size={12} className="text-blue-400" />
             <span className="hidden sm:inline">Install App</span>
           </button>
-        )}
+        )} */}
 
         <button
           onClick={onToggleAiPanel}
