@@ -119,7 +119,7 @@ export default function App() {
   // Right-side AI Copilot panel state & width
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(() => {
     const saved = localStorage.getItem("livy-ai-panel-open");
-    return saved !== null ? saved === "true" : true;
+    return saved !== null ? saved === "true" : false;
   });
   const [aiPanelWidth, setAiPanelWidth] = useState(() => {
     const saved = localStorage.getItem("livy-ai-panel-width");

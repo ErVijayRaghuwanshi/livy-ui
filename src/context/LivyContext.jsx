@@ -327,7 +327,17 @@ export function LivyProvider({ children }) {
           (s) => Number(s.id) === Number(targetSid) || String(s.id) === String(targetSid)
         );
         if (matched) {
-          dispatch({ type: "SET_SESSION", payload: matched });
+          // If the list session shows busy or starting, verify with live getSession to avoid stale list cache
+          if (matched.state === SESSION_STATES.BUSY || matched.state === SESSION_STATES.STARTING) {
+            try {
+              const liveSession = await livyApi.getSession(matched.id);
+              dispatch({ type: "SET_SESSION", payload: liveSession });
+            } catch {
+              dispatch({ type: "SET_SESSION", payload: matched });
+            }
+          } else {
+            dispatch({ type: "SET_SESSION", payload: matched });
+          }
         } else if (sessionList.length > 0) {
           // If remembered session is gone, attach to latest live session on Livy
           const activeSessions = sessionList.filter(
@@ -481,8 +491,18 @@ export function LivyProvider({ children }) {
   useEffect(() => {
     checkServerReachability();
     fetchSessions();
-    if (!isDoris && state.sessionId !== null) {
-      refreshSession(state.sessionId);
+    const currentHost = state.hosts.find((h) => h.id === state.activeHostId) || DEFAULT_HOST;
+    const isDorisHost = currentHost.type === DATA_SOURCE_TYPES.DORIS || currentHost.engine === "doris";
+    if (!isDorisHost) {
+      const savedHostSessions = getItem(STORAGE_KEYS.HOST_SESSIONS, {});
+      const sid =
+        savedHostSessions[state.activeHostId] ??
+        getItem(STORAGE_KEYS.SESSION_ID, null) ??
+        getItem("livy-last-spark-session", null) ??
+        state.sessionId;
+      if (sid !== null && sid !== undefined) {
+        refreshSession(sid);
+      }
     }
   }, [state.activeHostId, isDoris]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -513,6 +533,25 @@ export function LivyProvider({ children }) {
 
     return () => clearInterval(interval);
   }, [state.sessionState, state.sessionId, isDoris, fetchSessions]);
+
+  // Unstick or force refresh session status directly from Livy
+  const unstickSession = useCallback(async (targetSessionId = null) => {
+    const sid = targetSessionId !== null ? targetSessionId : state.sessionId;
+    if (sid === null || sid === undefined) return { success: false, error: "No session selected" };
+    dispatch({ type: "SET_LOADING", payload: true });
+    try {
+      const session = await livyApi.getSession(sid);
+      dispatch({ type: "SET_SESSION", payload: session });
+      dispatch({ type: "SET_SERVER_REACHABLE", payload: true });
+      await fetchSessions();
+      return { success: true, state: session.state };
+    } catch (err) {
+      dispatch({ type: "SET_ERROR", payload: err.message });
+      return { success: false, error: err.message };
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
+  }, [state.sessionId, fetchSessions]);
 
   // Kill any session by ID
   const killSession = useCallback(async (id) => {
@@ -553,6 +592,7 @@ export function LivyProvider({ children }) {
     refreshSession,
     fetchSessions,
     attachSession,
+    unstickSession,
     setSessionConf,
     setSessionJars,
     checkServerReachability,

@@ -19,6 +19,9 @@ import {
   Terminal,
   Settings2,
   Boxes,
+  Eye,
+  EyeOff,
+  Lock,
 } from "lucide-react";
 import { useLivy } from "../context/LivyContext";
 import { useSettings } from "../context/SettingsContext";
@@ -38,6 +41,7 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
     removeHost,
     updateHost,
     sessionId,
+    sessionState,
     sessions,
     sessionsLoading,
     fetchSessions,
@@ -45,6 +49,7 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
     killSession,
     attachSession,
     refreshSession,
+    unstickSession,
     isDoris,
     isSpark,
     isServerReachable,
@@ -72,6 +77,7 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
   const [newDatabase, setNewDatabase] = useState("demo_db");
   const [newUsername, setNewUsername] = useState("root");
   const [newPassword, setNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // Spark Create Session Form State
   const [showCreateSession, setShowCreateSession] = useState(false);
@@ -232,6 +238,8 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
     setShowAddForm(false);
     setNewName("");
     setNewUrl(newEngine === DATA_SOURCE_TYPES.DORIS ? "http://localhost:8030" : "http://localhost:8998");
+    setNewPassword("");
+    setShowPassword(false);
     addToast("success", `Added ${hostPayload.name}`, null, "Compute");
   };
 
@@ -456,40 +464,63 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
                         </div>
                       </div>
 
-                      {/* Dedicated Database Row (for Doris) */}
+                      {/* Dedicated Database & Credentials Row (for Doris) */}
                       {isDoris && (
-                        <div className="flex items-center justify-between gap-2 mb-2 px-2 py-1 bg-(--color-bg-primary)/40 rounded-md border border-(--color-border)/30 text-[10px]">
-                          <span className="text-(--color-text-muted) font-medium shrink-0">Database:</span>
-                          <select
-                            value={currentDorisDb}
-                            onChange={(e) => handleSelectDorisDatabase(e.target.value)}
-                            className="text-[10px] font-mono bg-transparent text-cyan-300 outline-none cursor-pointer truncate max-w-[140px] text-right font-medium"
-                            title="Active Doris Database"
-                          >
-                            {databases.length > 0 ? (
-                              databases.map((db) => (
-                                <option
-                                  key={db.name || db}
-                                  value={db.name || db}
-                                  className="bg-(--color-bg-secondary) text-(--color-text-primary)"
-                                >
-                                  {db.name || db}
-                                </option>
-                              ))
-                            ) : (
-                              <>
-                                <option value="demo_db" className="bg-(--color-bg-secondary) text-(--color-text-primary)">
-                                  demo_db
-                                </option>
-                                <option
-                                  value="information_schema"
-                                  className="bg-(--color-bg-secondary) text-(--color-text-primary)"
-                                >
-                                  info_schema
-                                </option>
-                              </>
+                        <div className="space-y-1.5 mb-2">
+                          <div className="flex items-center justify-between gap-2 px-2 py-1 bg-(--color-bg-primary)/40 rounded-md border border-(--color-border)/30 text-[10px]">
+                            <span className="text-(--color-text-muted) font-medium shrink-0">Database:</span>
+                            <select
+                              value={currentDorisDb}
+                              onChange={(e) => handleSelectDorisDatabase(e.target.value)}
+                              className="text-[10px] font-mono bg-transparent text-cyan-300 outline-none cursor-pointer truncate max-w-[140px] text-right font-medium"
+                              title="Active Doris Database"
+                            >
+                              {databases.length > 0 ? (
+                                databases.map((db) => (
+                                  <option
+                                    key={db.name || db}
+                                    value={db.name || db}
+                                    className="bg-(--color-bg-secondary) text-(--color-text-primary)"
+                                  >
+                                    {db.name || db}
+                                  </option>
+                                ))
+                              ) : (
+                                <>
+                                  <option value="demo_db" className="bg-(--color-bg-secondary) text-(--color-text-primary)">
+                                    demo_db
+                                  </option>
+                                  <option
+                                    value="information_schema"
+                                    className="bg-(--color-bg-secondary) text-(--color-text-primary)"
+                                  >
+                                    info_schema
+                                  </option>
+                                </>
+                              )}
+                            </select>
+                          </div>
+
+                          <div className="flex items-center justify-between px-1.5 text-[9px] text-(--color-text-muted)">
+                            <div className="flex items-center gap-1.5 font-mono">
+                              <span>User: <strong className="text-(--color-text-primary)">{host.username || "root"}</strong></span>
+                              <span className="text-(--color-border)">•</span>
+                              <span className="flex items-center gap-0.5 text-cyan-400/90 font-sans">
+                                <Lock size={9} />
+                                {host.password ? "Password set" : "No password"}
+                              </span>
+                            </div>
+                            {setShowConnectionModal && (
+                              <button
+                                type="button"
+                                onClick={() => setShowConnectionModal(true)}
+                                className="text-cyan-400 hover:underline cursor-pointer"
+                                title="Edit Doris host credentials in Settings"
+                              >
+                                Edit
+                              </button>
                             )}
-                          </select>
+                          </div>
                         </div>
                       )}
 
@@ -580,21 +611,50 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
                   />
 
                   {isDoris && (
-                    <div className="grid grid-cols-2 gap-1 text-[10px]">
-                      <input
-                        type="text"
-                        placeholder="Database (demo_db)"
-                        value={newDatabase}
-                        onChange={(e) => setNewDatabase(e.target.value)}
-                        className="px-1.5 py-0.5 rounded bg-(--color-bg-secondary) border border-(--color-border) text-white outline-none"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Username (root)"
-                        value={newUsername}
-                        onChange={(e) => setNewUsername(e.target.value)}
-                        className="px-1.5 py-0.5 rounded bg-(--color-bg-secondary) border border-(--color-border) text-white outline-none"
-                      />
+                    <div className="space-y-1.5 pt-0.5">
+                      <div className="grid grid-cols-2 gap-1 text-[10px]">
+                        <div>
+                          <label className="block text-[9px] text-(--color-text-muted) mb-0.5 font-medium">Database</label>
+                          <input
+                            type="text"
+                            placeholder="demo_db"
+                            value={newDatabase}
+                            onChange={(e) => setNewDatabase(e.target.value)}
+                            className="w-full px-1.5 py-0.5 rounded bg-(--color-bg-secondary) border border-(--color-border) text-white outline-none text-[10px]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] text-(--color-text-muted) mb-0.5 font-medium">Username</label>
+                          <input
+                            type="text"
+                            placeholder="root"
+                            value={newUsername}
+                            onChange={(e) => setNewUsername(e.target.value)}
+                            className="w-full px-1.5 py-0.5 rounded bg-(--color-bg-secondary) border border-(--color-border) text-white outline-none text-[10px]"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[9px] text-(--color-text-muted) mb-0.5 font-medium">Password</label>
+                        <div className="relative flex items-center">
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            placeholder="Password (leave empty if none)"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="w-full px-1.5 py-0.5 pr-6 rounded bg-(--color-bg-secondary) border border-(--color-border) text-white outline-none text-[10px]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-1 text-(--color-text-muted) hover:text-white p-0.5 cursor-pointer"
+                            title={showPassword ? "Hide password" : "Show password"}
+                          >
+                            {showPassword ? <EyeOff size={11} /> : <Eye size={11} />}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -757,7 +817,27 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
                                 Attach
                               </button>
                             ) : (
-                              <span className="text-[9px] text-amber-400 font-semibold">Active</span>
+                              <div className="flex items-center gap-1">
+                                <span className="text-[9px] text-amber-400 font-semibold">Active</span>
+                                <button
+                                  type="button"
+                                  onClick={() => unstickSession ? unstickSession(s.id) : refreshSession(s.id)}
+                                  className="p-1 rounded text-(--color-text-muted) hover:text-amber-400 hover:bg-(--color-bg-secondary) transition-colors cursor-pointer"
+                                  title="Sync / Refresh session status from Livy"
+                                >
+                                  <RefreshCw size={10} className={s.state === "busy" || s.state === "starting" ? "animate-spin text-amber-400" : ""} />
+                                </button>
+                                {(s.state === "busy" || sessionState === "busy") && (
+                                  <button
+                                    type="button"
+                                    onClick={() => unstickSession ? unstickSession(s.id) : refreshSession(s.id)}
+                                    className="px-1 py-0.2 text-[8px] font-semibold rounded bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 transition-colors cursor-pointer"
+                                    title="Session appears busy. Click to unstick/sync state."
+                                  >
+                                    Unstick
+                                  </button>
+                                )}
+                              </div>
                             )}
                             <button
                               onClick={() => killSession(s.id)}

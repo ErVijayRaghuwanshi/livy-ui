@@ -53,7 +53,7 @@ export default function StatusBar({
   onToggleSqlValidation,
   onGotoLine,
 }) {
-  const { activeHost, sessionId, sessionState, isOnline, isServerReachable, isDoris, isSpark } = useLivy();
+  const { activeHost, sessionId, sessionState, isOnline, isServerReachable, isDoris, isSpark, refreshSession, unstickSession } = useLivy();
   const { activeResult, activeFile, autoSave, toggleAutoSave } = useSqlFiles();
   const { settings } = useSettings();
 
@@ -76,14 +76,26 @@ export default function StatusBar({
             </span>
           </div>
         ) : (
-          <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => sessionId !== null && (unstickSession ? unstickSession(sessionId) : refreshSession(sessionId))}
+            className="flex items-center gap-1.5 hover:text-(--color-text-primary) transition-colors cursor-pointer group"
+            title={
+              sessionId !== null
+                ? `Session #${sessionId} (${stateLabels[sessionState] || sessionState}) · Click to sync/unstick status from Livy`
+                : "No active Spark session"
+            }
+          >
             <span className={`w-1.5 h-1.5 rounded-full ${stateColors[sessionState] || "bg-gray-500"}`} />
-            <span>
+            <span className="group-hover:underline">
               {sessionId !== null ? `Session #${sessionId}` : "No Session"}
               {" · "}
               {stateLabels[sessionState] || sessionState}
             </span>
-          </div>
+            {sessionState === SESSION_STATES.BUSY && (
+              <span className="text-[9px] px-1 py-0.2 rounded bg-blue-500/20 text-blue-300 font-medium">Sync</span>
+            )}
+          </button>
         )}
 
         {/* Host */}

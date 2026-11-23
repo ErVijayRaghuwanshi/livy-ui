@@ -2093,7 +2093,7 @@ const SqlEditor = forwardRef(function SqlEditor({
     !running &&
     (isDoris
       ? isServerReachable !== false
-      : sessionState === SESSION_STATES.IDLE &&
+      : (sessionState === SESSION_STATES.IDLE || sessionState === SESSION_STATES.BUSY) &&
         sessionId !== null &&
         (isServerReachable === true || (isOnline && isServerReachable === null)));
 
@@ -3247,6 +3247,10 @@ const SqlEditor = forwardRef(function SqlEditor({
         if (isSpark && sessionId !== null) {
           refreshSession?.(sessionId)?.catch?.(() => {});
           fetchSessions?.()?.catch?.(() => {});
+          setTimeout(() => {
+            refreshSession?.(sessionId)?.catch?.(() => {});
+            fetchSessions?.()?.catch?.(() => {});
+          }, 400);
         }
         // Record in query history
         if (finalStatus) {
