@@ -67,7 +67,7 @@ export default function AiSettingsManager() {
     <div className="flex flex-col gap-5 max-w-3xl pt-1">
       {/* 1. Provider Tabs */}
       <div className="flex flex-col gap-2">
-        <label className="text-xs font-semibold text-[#e0e0e0] uppercase tracking-wider">
+        <label className="text-xs font-semibold text-(--color-text-primary) uppercase tracking-wider">
           AI Provider
         </label>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -77,8 +77,8 @@ export default function AiSettingsManager() {
             onClick={() => setProvider("ollama")}
             className={`flex flex-col gap-1 p-3 rounded-lg border text-left transition-all cursor-pointer ${
               provider === "ollama"
-                ? "bg-purple-950/30 border-purple-500 text-white shadow-xs"
-                : "bg-[#252526] border-[#333] hover:border-[#444] text-[#888888] hover:text-white"
+                ? "bg-purple-950/30 border-purple-500 text-purple-200 shadow-xs"
+                : "bg-(--color-bg-secondary) border-(--color-border) hover:border-(--color-border-subtle) text-(--color-text-muted) hover:text-(--color-text-primary)"
             }`}
           >
             <div className="flex items-center justify-between">
@@ -87,7 +87,7 @@ export default function AiSettingsManager() {
               </span>
               {provider === "ollama" && <span className="w-2 h-2 rounded-full bg-purple-400" />}
             </div>
-            <span className="text-[11px] text-[#888888]">
+            <span className="text-[11px] text-(--color-text-muted)">
               Local, private, on-device (zero token cost)
             </span>
           </button>
@@ -98,8 +98,8 @@ export default function AiSettingsManager() {
             onClick={() => setProvider("gemini")}
             className={`flex flex-col gap-1 p-3 rounded-lg border text-left transition-all cursor-pointer ${
               provider === "gemini"
-                ? "bg-blue-950/30 border-blue-500 text-white shadow-xs"
-                : "bg-[#252526] border-[#333] hover:border-[#444] text-[#888888] hover:text-white"
+                ? "bg-blue-950/30 border-blue-500 text-blue-200 shadow-xs"
+                : "bg-(--color-bg-secondary) border-(--color-border) hover:border-(--color-border-subtle) text-(--color-text-muted) hover:text-(--color-text-primary)"
             }`}
           >
             <div className="flex items-center justify-between">
@@ -109,7 +109,7 @@ export default function AiSettingsManager() {
               </span>
               {provider === "gemini" && <span className="w-2 h-2 rounded-full bg-blue-400" />}
             </div>
-            <span className="text-[11px] text-[#888888]">
+            <span className="text-[11px] text-(--color-text-muted)">
               Gemini 3.8 / 2.5 Flash (free cloud API key)
             </span>
           </button>
@@ -120,8 +120,8 @@ export default function AiSettingsManager() {
             onClick={() => setProvider("openai")}
             className={`flex flex-col gap-1 p-3 rounded-lg border text-left transition-all cursor-pointer ${
               provider === "openai"
-                ? "bg-emerald-950/30 border-emerald-500 text-white shadow-xs"
-                : "bg-[#252526] border-[#333] hover:border-[#444] text-[#888888] hover:text-white"
+                ? "bg-emerald-950/30 border-emerald-500 text-emerald-200 shadow-xs"
+                : "bg-(--color-bg-secondary) border-(--color-border) hover:border-(--color-border-subtle) text-(--color-text-muted) hover:text-(--color-text-primary)"
             }`}
           >
             <div className="flex items-center justify-between">
@@ -130,7 +130,7 @@ export default function AiSettingsManager() {
               </span>
               {provider === "openai" && <span className="w-2 h-2 rounded-full bg-emerald-400" />}
             </div>
-            <span className="text-[11px] text-[#888888]">
+            <span className="text-[11px] text-(--color-text-muted)">
               GPT-4o / GPT-4o Mini / o3-mini
             </span>
           </button>
@@ -141,8 +141,8 @@ export default function AiSettingsManager() {
             onClick={() => setProvider("custom")}
             className={`flex flex-col gap-1 p-3 rounded-lg border text-left transition-all cursor-pointer ${
               provider === "custom"
-                ? "bg-zinc-800 border-zinc-500 text-white shadow-xs"
-                : "bg-[#252526] border-[#333] hover:border-[#444] text-[#888888] hover:text-white"
+                ? "bg-zinc-800 border-zinc-500 text-zinc-200 shadow-xs"
+                : "bg-(--color-bg-secondary) border-(--color-border) hover:border-(--color-border-subtle) text-(--color-text-muted) hover:text-(--color-text-primary)"
             }`}
           >
             <div className="flex items-center justify-between">
@@ -151,7 +151,7 @@ export default function AiSettingsManager() {
               </span>
               {provider === "custom" && <span className="w-2 h-2 rounded-full bg-zinc-400" />}
             </div>
-            <span className="text-[11px] text-[#888888]">
+            <span className="text-[11px] text-(--color-text-muted)">
               vLLM, Groq, OpenRouter, or local server
             </span>
           </button>
@@ -159,7 +159,7 @@ export default function AiSettingsManager() {
       </div>
 
       {/* 2. Status Banner */}
-      <div className="flex items-center justify-between p-3 rounded-lg bg-[#252526] border border-[#333] text-xs">
+      <div className="flex items-center justify-between p-3 rounded-lg bg-(--color-bg-secondary) border border-(--color-border) text-xs">
         <div className="flex items-center gap-2.5">
           <span
             className={`w-2.5 h-2.5 rounded-full shrink-0 ${
@@ -170,14 +170,14 @@ export default function AiSettingsManager() {
           />
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-white">
+              <span className="font-semibold text-(--color-text-primary)">
                 {isOnline ? "Connected & Ready" : "Configuration Required"}
               </span>
-              <span className="text-[10px] text-[#888888] font-mono">
+              <span className="text-[10px] text-(--color-text-muted) font-mono">
                 ({provider.toUpperCase()})
               </span>
             </div>
-            <p className="text-[11px] text-[#888888] mt-0.5">
+            <p className="text-[11px] text-(--color-text-muted) mt-0.5">
               {provider === "ollama"
                 ? isOnline
                   ? `${availableModels.length} local models detected at ${hostUrl}`
@@ -199,7 +199,7 @@ export default function AiSettingsManager() {
           type="button"
           onClick={refreshModels}
           disabled={isCheckingHealth}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#2b2b2b] hover:bg-[#333] text-[#cccccc] hover:text-white border border-[#444] transition-colors cursor-pointer text-xs"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-(--color-bg-primary) hover:bg-(--color-bg-tertiary) text-(--color-text-secondary) hover:text-(--color-text-primary) border border-(--color-border) transition-colors cursor-pointer text-xs"
         >
           <RefreshCw size={12} className={isCheckingHealth ? "animate-spin text-purple-400" : ""} />
           <span>{isCheckingHealth ? "Checking..." : "Refresh Models"}</span>
@@ -210,7 +210,7 @@ export default function AiSettingsManager() {
 
       {/* A. Ollama Specific Settings */}
       {provider === "ollama" && (
-        <div className="flex flex-col gap-3 p-4 rounded-lg bg-[#202022] border border-purple-900/30">
+        <div className="flex flex-col gap-3 p-4 rounded-lg bg-(--color-bg-secondary) border border-purple-900/30">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-purple-300">Ollama Host URL</label>
             <div className="flex items-center gap-2">
@@ -219,7 +219,7 @@ export default function AiSettingsManager() {
                 placeholder="http://localhost:11434"
                 value={tempHost}
                 onChange={(e) => setTempHost(e.target.value)}
-                className="flex-1 bg-[#181818] text-white px-3 py-1.5 rounded border border-[#3c3c3c] focus:outline-none focus:border-purple-500 font-mono text-xs"
+                className="flex-1 bg-(--color-bg-primary) text-(--color-text-primary) px-3 py-1.5 rounded border border-(--color-border) focus:outline-none focus:border-purple-500 font-mono text-xs"
               />
               <button
                 type="button"
@@ -229,19 +229,19 @@ export default function AiSettingsManager() {
                 Save & Test
               </button>
             </div>
-            <span className="text-[11px] text-[#888888]">
+            <span className="text-[11px] text-(--color-text-muted)">
               Connects directly from browser via client-side fetch. Default: http://localhost:11434
             </span>
           </div>
 
           {/* Model Selection */}
-          <div className="flex flex-col gap-1.5 pt-2 border-t border-[#333]">
-            <label className="text-xs font-semibold text-white">Active Ollama Model</label>
+          <div className="flex flex-col gap-1.5 pt-2 border-t border-(--color-border)">
+            <label className="text-xs font-semibold text-(--color-text-primary)">Active Ollama Model</label>
             <select
               value={activeModel}
               onChange={(e) => setActiveModel(e.target.value)}
               disabled={availableModels.length === 0}
-              className="w-full bg-[#181818] text-white px-3 py-2 rounded border border-[#3c3c3c] focus:outline-none focus:border-purple-500 font-mono text-xs cursor-pointer"
+              className="w-full bg-(--color-bg-primary) text-(--color-text-primary) px-3 py-2 rounded border border-(--color-border) focus:outline-none focus:border-purple-500 font-mono text-xs cursor-pointer"
             >
               {availableModels.length > 0 ? (
                 availableModels.map((m) => {
@@ -279,13 +279,13 @@ export default function AiSettingsManager() {
                 </span>
               )}
               {currentModelObj?.size && (
-                <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700 font-mono">
+                <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-(--color-bg-tertiary) text-(--color-text-secondary) border border-(--color-border) font-mono">
                   <HardDrive size={11} />
                   <span>{formatBytes(currentModelObj.size)}</span>
                 </span>
               )}
               {currentModelObj?.details?.quantization_level && (
-                <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700 font-mono">
+                <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-(--color-bg-tertiary) text-(--color-text-muted) border border-(--color-border) font-mono">
                   <Layers size={11} />
                   <span>{currentModelObj.details.quantization_level}</span>
                 </span>
@@ -293,10 +293,10 @@ export default function AiSettingsManager() {
             </div>
 
             {/* Terminal Command Tip */}
-            <div className="flex items-start gap-2 p-2.5 rounded bg-[#181818] border border-[#333] text-[11px] text-[#888888] mt-1 font-mono">
+            <div className="flex items-start gap-2 p-2.5 rounded bg-(--color-bg-primary) border border-(--color-border) text-[11px] text-(--color-text-muted) mt-1 font-mono">
               <Terminal size={13} className="text-purple-400 shrink-0 mt-0.5" />
               <div className="flex flex-col gap-0.5">
-                <span className="text-[#aaaaaa]">Pull recommended tool-capable models in your terminal:</span>
+                <span className="text-(--color-text-secondary)">Pull recommended tool-capable models in your terminal:</span>
                 <span className="text-purple-300 select-all font-semibold">ollama run nemotron-3-nano:4b</span>
                 <span className="text-purple-300 select-all font-semibold">ollama pull qwen2.5-coder</span>
               </div>
@@ -307,7 +307,7 @@ export default function AiSettingsManager() {
 
       {/* B. Google GenAI Specific Settings */}
       {provider === "gemini" && (
-        <div className="flex flex-col gap-3 p-4 rounded-lg bg-[#202022] border border-blue-900/30">
+        <div className="flex flex-col gap-3 p-4 rounded-lg bg-(--color-bg-secondary) border border-blue-900/30">
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-blue-300">
@@ -330,29 +330,29 @@ export default function AiSettingsManager() {
                 placeholder="AIzaSy..."
                 value={geminiApiKey}
                 onChange={(e) => setGeminiApiKey(e.target.value)}
-                className="w-full bg-[#181818] text-white px-3 py-1.5 pr-8 rounded border border-[#3c3c3c] focus:outline-none focus:border-blue-500 font-mono text-xs"
+                className="w-full bg-(--color-bg-primary) text-(--color-text-primary) px-3 py-1.5 pr-8 rounded border border-(--color-border) focus:outline-none focus:border-blue-500 font-mono text-xs"
               />
               <button
                 type="button"
                 onClick={() => setShowKeyPassword((prev) => !prev)}
-                className="absolute right-2 text-[#888888] hover:text-white cursor-pointer"
+                className="absolute right-2 text-(--color-text-muted) hover:text-(--color-text-primary) cursor-pointer"
                 title={showKeyPassword ? "Hide API Key" : "Show API Key"}
               >
                 {showKeyPassword ? <EyeOff size={13} /> : <Eye size={13} />}
               </button>
             </div>
-            <span className="text-[11px] text-[#888888]">
+            <span className="text-[11px] text-(--color-text-muted)">
               Key is stored client-side in browser localStorage only. Never sent to any intermediate server.
             </span>
           </div>
 
           {/* Model Selection */}
-          <div className="flex flex-col gap-1.5 pt-2 border-t border-[#333]">
-            <label className="text-xs font-semibold text-white">Gemini Model</label>
+          <div className="flex flex-col gap-1.5 pt-2 border-t border-(--color-border)">
+            <label className="text-xs font-semibold text-(--color-text-primary)">Gemini Model</label>
             <select
               value={activeModel}
               onChange={(e) => setActiveModel(e.target.value)}
-              className="w-full bg-[#181818] text-white px-3 py-2 rounded border border-[#3c3c3c] focus:outline-none focus:border-blue-500 font-mono text-xs cursor-pointer"
+              className="w-full bg-(--color-bg-primary) text-(--color-text-primary) px-3 py-2 rounded border border-(--color-border) focus:outline-none focus:border-blue-500 font-mono text-xs cursor-pointer"
             >
               {availableModels.map((m) => {
                 const val = m.id || m.model || m.name;
@@ -364,7 +364,7 @@ export default function AiSettingsManager() {
                 );
               })}
             </select>
-            <span className="text-[11px] text-[#888888]">
+            <span className="text-[11px] text-(--color-text-muted)">
               Supports multi-subagent task delegation, function calling, and cryptographic thought signatures.
             </span>
           </div>
@@ -373,7 +373,7 @@ export default function AiSettingsManager() {
 
       {/* C. OpenAI Specific Settings */}
       {provider === "openai" && (
-        <div className="flex flex-col gap-3 p-4 rounded-lg bg-[#202022] border border-emerald-900/30">
+        <div className="flex flex-col gap-3 p-4 rounded-lg bg-(--color-bg-secondary) border border-emerald-900/30">
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-emerald-300">OpenAI API Key</label>
@@ -394,29 +394,29 @@ export default function AiSettingsManager() {
                 placeholder="sk-..."
                 value={openaiApiKey}
                 onChange={(e) => setOpenaiApiKey(e.target.value)}
-                className="w-full bg-[#181818] text-white px-3 py-1.5 pr-8 rounded border border-[#3c3c3c] focus:outline-none focus:border-emerald-500 font-mono text-xs"
+                className="w-full bg-(--color-bg-primary) text-(--color-text-primary) px-3 py-1.5 pr-8 rounded border border-(--color-border) focus:outline-none focus:border-emerald-500 font-mono text-xs"
               />
               <button
                 type="button"
                 onClick={() => setShowKeyPassword((prev) => !prev)}
-                className="absolute right-2 text-[#888888] hover:text-white cursor-pointer"
+                className="absolute right-2 text-(--color-text-muted) hover:text-(--color-text-primary) cursor-pointer"
                 title={showKeyPassword ? "Hide API Key" : "Show API Key"}
               >
                 {showKeyPassword ? <EyeOff size={13} /> : <Eye size={13} />}
               </button>
             </div>
-            <span className="text-[11px] text-[#888888]">
+            <span className="text-[11px] text-(--color-text-muted)">
               Key is stored client-side in browser localStorage only.
             </span>
           </div>
 
           {/* Model Selection */}
-          <div className="flex flex-col gap-1.5 pt-2 border-t border-[#333]">
-            <label className="text-xs font-semibold text-white">OpenAI Model</label>
+          <div className="flex flex-col gap-1.5 pt-2 border-t border-(--color-border)">
+            <label className="text-xs font-semibold text-(--color-text-primary)">OpenAI Model</label>
             <select
               value={activeModel}
               onChange={(e) => setActiveModel(e.target.value)}
-              className="w-full bg-[#181818] text-white px-3 py-2 rounded border border-[#3c3c3c] focus:outline-none focus:border-emerald-500 font-mono text-xs cursor-pointer"
+              className="w-full bg-(--color-bg-primary) text-(--color-text-primary) px-3 py-2 rounded border border-(--color-border) focus:outline-none focus:border-emerald-500 font-mono text-xs cursor-pointer"
             >
               {availableModels.map((m) => {
                 const val = m.id || m.model || m.name;
@@ -434,7 +434,7 @@ export default function AiSettingsManager() {
 
       {/* D. Custom API Specific Settings */}
       {provider === "custom" && (
-        <div className="flex flex-col gap-3 p-4 rounded-lg bg-[#202022] border border-zinc-700">
+        <div className="flex flex-col gap-3 p-4 rounded-lg bg-(--color-bg-secondary) border border-(--color-border)">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-zinc-300">Custom Base URL</label>
             <input
@@ -442,9 +442,9 @@ export default function AiSettingsManager() {
               placeholder="http://localhost:8000/v1"
               value={customUrl}
               onChange={(e) => updateSetting("ai.customUrl", e.target.value)}
-              className="w-full bg-[#181818] text-white px-3 py-1.5 rounded border border-[#3c3c3c] focus:outline-none focus:border-zinc-500 font-mono text-xs"
+              className="w-full bg-(--color-bg-primary) text-(--color-text-primary) px-3 py-1.5 rounded border border-(--color-border) focus:outline-none focus:border-zinc-500 font-mono text-xs"
             />
-            <span className="text-[11px] text-[#888888]">
+            <span className="text-[11px] text-(--color-text-muted)">
               OpenAI-compatible /chat/completions base endpoint.
             </span>
           </div>
@@ -458,7 +458,7 @@ export default function AiSettingsManager() {
               placeholder="Bearer token or API key"
               value={customApiKey}
               onChange={(e) => updateSetting("ai.customApiKey", e.target.value)}
-              className="w-full bg-[#181818] text-white px-3 py-1.5 rounded border border-[#3c3c3c] focus:outline-none focus:border-zinc-500 font-mono text-xs"
+              className="w-full bg-(--color-bg-primary) text-(--color-text-primary) px-3 py-1.5 rounded border border-(--color-border) focus:outline-none focus:border-zinc-500 font-mono text-xs"
             />
           </div>
         </div>

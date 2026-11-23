@@ -3683,8 +3683,12 @@ const SqlEditor = forwardRef(function SqlEditor({
                 },
                 padding: { top: 8 },
                 renderLineHighlight: "all",
-                bracketPairColorization: { enabled: true },
-                guides: { bracketPairs: true },
+                bracketPairColorization: {
+                  enabled: settings["editor.bracketPairColorization.enabled"] ?? true,
+                },
+                guides: {
+                  bracketPairs: settings["editor.bracketPairColorization.enabled"] ?? true,
+                },
               }}
             />
           )}

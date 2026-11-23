@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS = {
   "editor.formatOnSave": false,
   "editor.renderWhitespace": "selection",
   "editor.acceptSuggestionOnEnter": "smart",
+  "editor.bracketPairColorization.enabled": true,
   "editor.sqlValidation.enabled": true,
   "editor.sqlValidation.dialect": "spark",
 
@@ -124,6 +125,54 @@ export function SettingsProvider({ children }) {
     }
   }, []);
 
+  // Export settings bundle as a downloadable JSON file
+  const exportSettings = useCallback((customBundle = {}) => {
+    try {
+      const payload = {
+        app: "Livy UI",
+        version: 2,
+        exportedAt: new Date().toISOString(),
+        settings,
+        ...customBundle,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `livy-ui-settings-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return { success: true };
+    } catch (err) {
+      console.error("[Settings] Export error:", err);
+      return { success: false, error: err.message };
+    }
+  }, [settings]);
+
+  // Import settings from JSON string or parsed object
+  const importSettings = useCallback((importedData) => {
+    try {
+      const data = typeof importedData === "string" ? JSON.parse(importedData) : importedData;
+      if (!data || typeof data !== "object") throw new Error("Invalid settings file format");
+
+      const incomingSettings = data.settings || data;
+      const validSettings = {};
+      Object.keys(DEFAULT_SETTINGS).forEach((k) => {
+        if (k in incomingSettings) {
+          validSettings[k] = incomingSettings[k];
+        }
+      });
+
+      updateAllSettings(validSettings);
+      return { success: true, count: Object.keys(validSettings).length, raw: data };
+    } catch (err) {
+      console.error("[Settings] Import error:", err);
+      return { success: false, error: err.message };
+    }
+  }, [updateAllSettings]);
+
   return (
     <SettingsContext.Provider
       value={{
@@ -132,6 +181,8 @@ export function SettingsProvider({ children }) {
         updateAllSettings,
         resetToDefaults,
         resetSetting,
+        exportSettings,
+        importSettings,
       }}
     >
       {children}

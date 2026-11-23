@@ -41,10 +41,10 @@ export default function SettingsModal({
     >
       <div
         ref={modalContainerRef}
-        className={`flex flex-col bg-[#181818] text-[#cccccc] shadow-2xl overflow-hidden transition-all duration-200 ${
+        className={`flex flex-col bg-(--color-bg-workbench) text-(--color-text-primary) shadow-2xl overflow-hidden transition-all duration-200 ${
           isMaximized
             ? "w-full h-full rounded-none border-none"
-            : "w-[90vw] max-w-[1120px] h-[82vh] max-h-[850px] rounded-xl border border-[#2b2b2b]"
+            : "w-[90vw] max-w-[1120px] h-[82vh] max-h-[850px] rounded-xl border border-(--color-border)"
         }`}
       >
         <SettingsView

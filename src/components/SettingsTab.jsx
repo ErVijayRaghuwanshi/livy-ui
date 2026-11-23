@@ -8,7 +8,7 @@ export default function SettingsTab({
   initialCategory = "commonlyUsed",
 }) {
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden bg-[#181818]">
+    <div className="flex flex-col h-full w-full overflow-hidden bg-(--color-bg-workbench)">
       <SettingsView
         isModal={false}
         onOpenAsModal={onOpenAsModal}
