@@ -667,6 +667,8 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
         }
       }
 
+      editorRef?.current?.openResultPanel?.();
+
       if (editorRef?.current?.runSql) {
         const runRes = await editorRef.current.runSql(sql);
         if (runRes && !runRes.ok) {
@@ -872,6 +874,7 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
       }
 
       // If editorRef is available, trigger workbench run so user's Result Tab updates live
+      editorRef?.current?.openResultPanel?.();
       if (editorRef?.current?.runSql) {
         return await editorRef.current.runSql(querySql);
       }

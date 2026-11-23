@@ -168,6 +168,10 @@ export default function App() {
   const sidebarTabsRef = useRef(null);
   const prevResultHeight = useRef(DEFAULT_RESULT_HEIGHT);
 
+  const handleOpenResultPanel = useCallback(() => {
+    setResultHeight((h) => (h > 0 ? h : prevResultHeight.current || DEFAULT_RESULT_HEIGHT));
+  }, []);
+
   const handleInsertAtCursor = useCallback((text) => {
     if (editorRef.current?.insertText) {
       editorRef.current.insertText(text);
@@ -177,6 +181,7 @@ export default function App() {
   }, [addFile]);
 
   const handleRunSqlFromSidebar = useCallback(async (sql) => {
+    handleOpenResultPanel();
     if (editorRef.current?.runSql) {
       editorRef.current.runSql(sql);
     } else {
@@ -185,7 +190,7 @@ export default function App() {
         editorRef.current?.runSql?.(sql);
       }, 150);
     }
-  }, [addFile]);
+  }, [addFile, handleOpenResultPanel]);
 
   const handleFocusSchemaSearch = useCallback(() => {
     setSidebarCollapsed(false);
@@ -226,6 +231,13 @@ export default function App() {
   const toggleTheme = useCallback(() => {
     setTheme((t) => (t === "dark" ? "light" : "dark"));
   }, []);
+
+  // When a query result arrives or starts running (from Editor, AI Copilot, or Sidebar), ensure results panel is open
+  useEffect(() => {
+    if (activeResult && resultHeight === 0) {
+      setResultHeight(prevResultHeight.current || DEFAULT_RESULT_HEIGHT);
+    }
+  }, [activeResult?.id, activeResult?.status, activeResult?.startTime]);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -274,13 +286,6 @@ export default function App() {
         });
         return;
       }
-
-  // When a query result arrives or starts running (e.g. from AI Copilot), ensure results panel is open
-  useEffect(() => {
-    if (activeResult && resultHeight === 0) {
-      setResultHeight(prevResultHeight.current || DEFAULT_RESULT_HEIGHT);
-    }
-  }, [activeResult?.id, activeResult?.status]);
 
       // Ctrl+Enter / Cmd+Enter — run SQL
       if (ctrl && !e.altKey && !e.shiftKey && e.key === "Enter") {
@@ -809,6 +814,7 @@ export default function App() {
                         return prevResultHeight.current || DEFAULT_RESULT_HEIGHT;
                       });
                     }}
+                    onOpenResultPanel={handleOpenResultPanel}
                     onNewTab={addFile}
                     onCloseTab={() => {
                       requestCloseFile(activeTabId);

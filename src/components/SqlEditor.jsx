@@ -1679,6 +1679,7 @@ const SqlEditor = forwardRef(function SqlEditor({
   onFocusFileSearch,
   onToggleSidebar,
   onToggleResultPanel,
+  onOpenResultPanel,
   onNewTab,
   onCloseTab,
   onToggleQueryHistory,
@@ -1882,6 +1883,8 @@ const SqlEditor = forwardRef(function SqlEditor({
   const handleValidateRef = useRef(null);
   const toggleSqlValidationRef = useRef(null);
   const toggleWordWrapRef = useRef(null);
+  const onOpenResultPanelRef = useRef(onOpenResultPanel);
+  onOpenResultPanelRef.current = onOpenResultPanel;
 
   // SQL Static Validation state & refs
   const lastSyntaxErrorsRef = useRef([]);
@@ -3032,6 +3035,9 @@ const SqlEditor = forwardRef(function SqlEditor({
   const handleRunSql = async (sqlOverride, startLine, endLine) => {
     if (!canRun) return { ok: false, status: "blocked", error: "Compute engine is not ready or currently busy." };
 
+    // Reveal result table panel immediately if it was closed
+    onOpenResultPanelRef.current?.();
+
     const fileName = activeFileRef.current?.name || "";
     const isSqlFile = isSqlFileName(fileName);
     if (!isSqlFile) {
@@ -3331,6 +3337,7 @@ const SqlEditor = forwardRef(function SqlEditor({
     run: handleRun,
     cancel: handleCancel,
     runSql: (sql) => handleRunSql(sql),
+    openResultPanel: () => onOpenResultPanelRef.current?.(),
     format: handleFormat,
     isRunning: () => running,
     canRun: () => canRun,
