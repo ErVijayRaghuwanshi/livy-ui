@@ -16,6 +16,7 @@ import {
   Terminal,
   ShieldCheck,
   Zap,
+  Brain,
 } from "lucide-react";
 import { useAi } from "../../context/AiContext";
 import { useSettings } from "../../context/SettingsContext";
@@ -39,6 +40,8 @@ export default function AiSettingsManager() {
     setGeminiApiKey,
     openaiApiKey,
     setOpenaiApiKey,
+    ollamaThinking,
+    setOllamaThinking,
     isOnline,
     isCheckingHealth,
     refreshModels,
@@ -290,6 +293,82 @@ export default function AiSettingsManager() {
                   <span>{currentModelObj.details.quantization_level}</span>
                 </span>
               )}
+            </div>
+
+            {/* Thinking / Reasoning Process Control */}
+            <div className="flex flex-col gap-1.5 pt-2 border-t border-(--color-border)">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-(--color-text-primary) flex items-center gap-1.5">
+                  <Brain size={13} className="text-purple-400" />
+                  <span>Thinking / Reasoning Process</span>
+                </label>
+                <span className="text-[10px] text-purple-300 font-mono font-medium">
+                  {ollamaThinking === "disabled"
+                    ? "⚡ Disabled (Fastest)"
+                    : ollamaThinking === "enabled"
+                    ? "🧠 Enabled (Show CoT)"
+                    : "⚙️ Model Default"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => setOllamaThinking("disabled")}
+                  className={`flex flex-col items-center justify-center p-2 rounded-lg border text-center transition-all cursor-pointer ${
+                    ollamaThinking === "disabled"
+                      ? "bg-purple-950/40 border-purple-500 text-purple-200 shadow-xs"
+                      : "bg-(--color-bg-primary) border-(--color-border) text-(--color-text-muted) hover:text-(--color-text-primary)"
+                  }`}
+                >
+                  <div className="flex items-center gap-1 text-xs font-semibold">
+                    <Zap size={11} className={ollamaThinking === "disabled" ? "text-amber-400" : ""} />
+                    <span>Disabled</span>
+                  </div>
+                  <span className="text-[9px] text-(--color-text-muted) mt-0.5">
+                    Fastest & direct
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setOllamaThinking("enabled")}
+                  className={`flex flex-col items-center justify-center p-2 rounded-lg border text-center transition-all cursor-pointer ${
+                    ollamaThinking === "enabled"
+                      ? "bg-purple-950/40 border-purple-500 text-purple-200 shadow-xs"
+                      : "bg-(--color-bg-primary) border-(--color-border) text-(--color-text-muted) hover:text-(--color-text-primary)"
+                  }`}
+                >
+                  <div className="flex items-center gap-1 text-xs font-semibold">
+                    <Brain size={11} className={ollamaThinking === "enabled" ? "text-purple-400" : ""} />
+                    <span>Enabled</span>
+                  </div>
+                  <span className="text-[9px] text-(--color-text-muted) mt-0.5">
+                    Full thought process
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setOllamaThinking("auto")}
+                  className={`flex flex-col items-center justify-center p-2 rounded-lg border text-center transition-all cursor-pointer ${
+                    ollamaThinking === "auto"
+                      ? "bg-purple-950/40 border-purple-500 text-purple-200 shadow-xs"
+                      : "bg-(--color-bg-primary) border-(--color-border) text-(--color-text-muted) hover:text-(--color-text-primary)"
+                  }`}
+                >
+                  <div className="flex items-center gap-1 text-xs font-semibold">
+                    <span>Model Default</span>
+                  </div>
+                  <span className="text-[9px] text-(--color-text-muted) mt-0.5">
+                    Ollama standard
+                  </span>
+                </button>
+              </div>
+
+              <span className="text-[11px] text-(--color-text-muted) mt-0.5">
+                Passes <code className="text-purple-300 font-mono text-[10px]">think: false</code> and <code className="text-purple-300 font-mono text-[10px]">reasoning_effort: &apos;none&apos;</code> to bypass internal chain-of-thought loops (DeepSeek-R1, QwQ, Nemotron).
+              </span>
             </div>
 
             {/* Terminal Command Tip */}

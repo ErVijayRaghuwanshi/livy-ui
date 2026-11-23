@@ -138,6 +138,7 @@ export async function streamOllamaChat({
   model,
   messages = [],
   tools = null,
+  ollamaThinking = "disabled",
   onChunk,
   onReasoningChunk,
   signal,
@@ -151,6 +152,15 @@ export async function streamOllamaChat({
 
   if (Array.isArray(tools) && tools.length > 0) {
     bodyPayload.tools = tools;
+  }
+
+  // Thinking / Reasoning control for Ollama
+  if (ollamaThinking === "disabled" || ollamaThinking === false) {
+    bodyPayload.think = false;
+    bodyPayload.reasoning_effort = "none";
+  } else if (ollamaThinking === "enabled" || ollamaThinking === true) {
+    bodyPayload.think = true;
+    bodyPayload.reasoning_effort = "medium";
   }
 
   const response = await fetch(`${base}/v1/chat/completions`, {

@@ -40,6 +40,8 @@ export function AiProvider({ children, editorRef }) {
   const openaiApiKey = settings["ai.openaiApiKey"] || "";
   const customUrl = settings["ai.customUrl"] || "http://localhost:8000/v1";
   const customApiKey = settings["ai.customApiKey"] || "";
+  const ollamaThinking = settings["ai.ollamaThinking"] || "disabled";
+  const setOllamaThinking = (val) => updateSetting("ai.ollamaThinking", val);
 
   // Dynamic model lists per provider
   const [ollamaModels, setOllamaModels] = useState([]);
@@ -479,6 +481,7 @@ export function AiProvider({ children, editorRef }) {
           supportsTools,
           history: historyPayload,
           context: runnerContext,
+          ollamaThinking,
           onChunk: (chunk) => {
             accumulatedText += chunk;
             setStreamingContent((prev) => prev + chunk);
@@ -555,6 +558,7 @@ export function AiProvider({ children, editorRef }) {
       openaiApiKey,
       customUrl,
       customApiKey,
+      ollamaThinking,
     ]
   );
 
@@ -701,6 +705,8 @@ export function AiProvider({ children, editorRef }) {
     streamingContent,
     streamingReasoning,
     activeTool,
+    ollamaThinking,
+    setOllamaThinking,
     sendMessage,
     retryLastMessage,
     stopGeneration,

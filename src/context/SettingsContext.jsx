@@ -43,6 +43,7 @@ export const DEFAULT_SETTINGS = {
   "ai.agentMode": "action", // "action" (Code Mode with Review) | "ask" (Advisory / Q&A)
   "ai.hostUrl": "http://localhost:11434",
   "ai.defaultModel": "nemotron-3-nano:4b",
+  "ai.ollamaThinking": "disabled", // "disabled" (fastest) | "enabled" | "auto"
   "ai.geminiApiKey": "",
   "ai.geminiModel": "gemini-3.8-flash",
   "ai.openaiApiKey": "",

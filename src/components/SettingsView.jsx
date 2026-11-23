@@ -500,6 +500,20 @@ export default function SettingsView({
         keywords: "ollama gemini openai custom api key host url model vllm groq openrouter token",
       },
       {
+        key: "ai.ollamaThinking",
+        category: "ai",
+        categoryLabel: "AI & Copilot",
+        title: "Ollama Thinking / Reasoning Mode",
+        description: "Controls whether Ollama reasoning models (e.g. DeepSeek-R1, QwQ, Nemotron) run their chain-of-thought thinking process. Set to Disabled to drastically speed up response times and bypass thinking tokens.",
+        type: "select",
+        commonlyUsed: true,
+        options: [
+          { label: "Disabled (Fastest - Direct response without thinking)", value: "disabled" },
+          { label: "Enabled (Show full Thought Process)", value: "enabled" },
+          { label: "Model Default (Let Ollama model decide)", value: "auto" },
+        ],
+      },
+      {
         key: "ai.agentMode",
         category: "ai",
         categoryLabel: "AI & Copilot",

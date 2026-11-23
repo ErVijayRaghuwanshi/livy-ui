@@ -250,6 +250,7 @@ export async function streamUnifiedChat({
   model,
   messages = [],
   tools = null,
+  ollamaThinking = "disabled",
   onChunk,
   onReasoningChunk,
   signal,
@@ -277,6 +278,21 @@ export async function streamUnifiedChat({
 
   if (Array.isArray(tools) && tools.length > 0) {
     bodyPayload.tools = tools;
+  }
+
+  // Thinking / Reasoning control for Ollama, vLLM, and OpenAI-compatible models
+  if (provider === "ollama" || provider === "custom") {
+    if (ollamaThinking === "disabled" || ollamaThinking === false) {
+      bodyPayload.think = false;
+      bodyPayload.reasoning_effort = "none";
+    } else if (ollamaThinking === "enabled" || ollamaThinking === true) {
+      bodyPayload.think = true;
+      bodyPayload.reasoning_effort = "medium";
+    }
+  } else if (provider === "openai") {
+    if (ollamaThinking === "disabled" || ollamaThinking === false) {
+      bodyPayload.reasoning_effort = "low";
+    }
   }
 
   const response = await fetch(config.url, {
@@ -314,6 +330,7 @@ export async function streamUnifiedChat({
   let accumulatedToolCalls = [];
   let capturedThoughtSig = null;
   let accumulatedExtraContent = null;
+  let inThinkBlock = false;
   let buffer = "";
 
   while (true) {
@@ -354,14 +371,48 @@ export async function streamUnifiedChat({
           // Thinking / reasoning tokens
           if (delta.reasoning_content || delta.reasoning) {
             const rChunk = delta.reasoning_content || delta.reasoning;
-            fullReasoning += rChunk;
-            onReasoningChunk?.(rChunk);
+            if (ollamaThinking !== "disabled" && ollamaThinking !== false) {
+              fullReasoning += rChunk;
+              onReasoningChunk?.(rChunk);
+            }
           }
 
-          // Content tokens
+          // Content tokens (with handling for inline <think> tags from models like DeepSeek-R1)
           if (delta.content) {
-            fullContent += delta.content;
-            onChunk?.(delta.content);
+            let contentChunk = delta.content;
+
+            if (contentChunk.includes("<think>")) {
+              inThinkBlock = true;
+              const parts = contentChunk.split("<think>");
+              if (parts[0]) {
+                fullContent += parts[0];
+                onChunk?.(parts[0]);
+              }
+              contentChunk = parts.slice(1).join("<think>");
+            }
+
+            if (inThinkBlock) {
+              if (contentChunk.includes("</think>")) {
+                inThinkBlock = false;
+                const parts = contentChunk.split("</think>");
+                if (parts[0] && ollamaThinking !== "disabled" && ollamaThinking !== false) {
+                  fullReasoning += parts[0];
+                  onReasoningChunk?.(parts[0]);
+                }
+                if (parts[1]) {
+                  fullContent += parts[1];
+                  onChunk?.(parts[1]);
+                }
+              } else {
+                if (ollamaThinking !== "disabled" && ollamaThinking !== false) {
+                  fullReasoning += contentChunk;
+                  onReasoningChunk?.(contentChunk);
+                }
+              }
+            } else {
+              fullContent += contentChunk;
+              onChunk?.(contentChunk);
+            }
           }
 
           // Capture Gemini extra_content at delta or choice level
@@ -464,6 +515,17 @@ export async function streamUnifiedChat({
         ...(accumulatedExtraContent.google || {}),
         thought_signature: accumulatedExtraContent.google?.thought_signature || fallbackSig,
       };
+    }
+  }
+
+  // Final safety cleanup of any stray <think> tags in fullContent
+  if (fullContent.includes("<think>")) {
+    const thinkMatch = fullContent.match(/<think>([\s\S]*?)<\/think>/);
+    if (thinkMatch) {
+      if (!fullReasoning && ollamaThinking !== "disabled" && ollamaThinking !== false) {
+        fullReasoning = thinkMatch[1].trim();
+      }
+      fullContent = fullContent.replace(/<think>[\s\S]*?<\/think>\s*/g, "").trim();
     }
   }
 

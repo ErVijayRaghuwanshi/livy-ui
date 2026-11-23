@@ -47,6 +47,7 @@ export async function runAgentConversation({
   supportsTools = true,
   history = [],
   context = {},
+  ollamaThinking = "disabled",
   onChunk,
   onReasoningChunk,
   onToolCall,
@@ -72,6 +73,7 @@ export async function runAgentConversation({
     customUrl,
     customApiKey,
     model,
+    ollamaThinking,
   };
 
   const isDoris = activeEngine === "doris";
