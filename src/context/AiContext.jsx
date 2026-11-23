@@ -434,14 +434,34 @@ export function AiProvider({ children, editorRef }) {
         offlineReason,
       };
 
-      // Sliding Context Window: retain only the last 8 messages (4 user + 4 assistant)
-      const historyPayload = messages
-        .filter((m) => m.id !== "welcome" && !m.isError)
-        .slice(-8)
+      // Anchor + Sliding Window Conversation History:
+      // Preserves the Genesis Turn (Turn 1 user input & initial assistant response)
+      // plus the most recent N messages so the agent never loses initial context or question.
+      const validHistory = messages
+        .filter((m) => m.id !== "welcome" && !m.isError && m.content)
         .map((m) => ({
           role: m.role,
           content: m.content,
         }));
+
+      let historyPayload = [];
+      const MAX_HISTORY = 16; // Retains 8 full turns comfortably within token limits
+
+      if (validHistory.length <= MAX_HISTORY) {
+        historyPayload = validHistory;
+      } else {
+        // 1. Preserve Genesis Turn (first user query + first assistant response)
+        const anchorHead = validHistory.slice(0, 2);
+        // 2. Preserve Recent Turns (tail: last 13 messages)
+        const recentTail = validHistory.slice(-(MAX_HISTORY - 3));
+        // 3. Inform the agent of the omitted middle messages
+        const omittedCount = validHistory.length - 2 - recentTail.length;
+        const bridgeNotice = {
+          role: "system",
+          content: `[Note: ${omittedCount} intermediate conversation messages omitted for brevity. First conversation turn (genesis) and recent context are preserved above and below.]`,
+        };
+        historyPayload = [...anchorHead, bridgeNotice, ...recentTail];
+      }
 
       let accumulatedText = "";
       let accumulatedReasoning = "";

@@ -103,15 +103,11 @@ export async function runAgentConversation({
     activeHost?.database ||
     schemaContext?.databases?.[0] ||
     (isDoris ? "" : "default");
-  const tablesMap = schemaContext?.tables || {};
-  const currentDbTables = activeDatabase ? (tablesMap[activeDatabase] || []) : [];
-
-  // Lean supervisor prompt with active database & discovered tables awareness (~250 tokens)
+  // Lean supervisor prompt with engine, active DB, file, and online/offline status (~150 tokens)
   const systemPrompt = buildSupervisorPrompt({
     activeEngine,
     activeFileName: sqlFiles?.activeFile?.name,
     activeDatabase,
-    availableTables: currentDbTables,
     agentMode,
     pinnedContext,
     isComputeOffline,
@@ -261,7 +257,8 @@ export async function runAgentConversation({
           executedDelegations.add(delegationKey);
 
           // Fast-fail delegation when compute is offline so subagents don't struggle against a dead server!
-          const cachedTables = currentDbTables.length > 0 ? currentDbTables.join(", ") : null;
+          const cachedDbTables = activeDatabase && schemaContext?.tables?.[activeDatabase];
+          const cachedTables = Array.isArray(cachedDbTables) && cachedDbTables.length > 0 ? cachedDbTables.join(", ") : null;
           const hostLabel = activeHost.name || (isDoris ? "Apache Doris" : "Apache Spark");
           const cachedNote = cachedTables
             ? `Cached tables in ${activeDatabase}: ${cachedTables}. (Note: Compute cluster is currently offline: ${offlineReason}).`

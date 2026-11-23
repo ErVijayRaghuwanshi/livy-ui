@@ -7,8 +7,55 @@ import * as livyApi from "../livyApi";
 
 /**
  * Supervisor tool specifications (what the Main Agent can see).
+ * Designed for both small local models (Ollama 3B/7B) and frontier models.
+ * Exposes direct, intuitive catalog and workbench tools alongside optional multi-agent delegation.
  */
 export const SUPERVISOR_TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "list_databases",
+      description: "Lists all database and schema names in the catalog or connected compute engine.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_tables",
+      description: "Lists table names inside a database. If database is omitted, lists tables in the currently active database.",
+      parameters: {
+        type: "object",
+        properties: {
+          database: {
+            type: "string",
+            description: "Optional database name to inspect. Defaults to currently active database.",
+          },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "describe_table",
+      description: "Returns column definitions, data types, and primary keys for a specific table to ensure accurate SQL writing.",
+      parameters: {
+        type: "object",
+        properties: {
+          table: {
+            type: "string",
+            description: "Table name to inspect (e.g. 'users', 'orders'). Can include database prefix like 'demo_db.users'.",
+          },
+          database: {
+            type: "string",
+            description: "Optional database name containing the table. Defaults to currently active database.",
+          },
+        },
+        required: ["table"],
+      },
+    },
+  },
   {
     type: "function",
     function: {
@@ -33,30 +80,6 @@ export const SUPERVISOR_TOOLS = [
           },
         },
         required: ["sql"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "delegate_task",
-      description:
-        "Delegates a specialized subtask to an isolated subagent with Context Quarantine. The subagent executes in its own isolated context and returns ONLY a concise summary, keeping the main chat lean.",
-      parameters: {
-        type: "object",
-        properties: {
-          subagent: {
-            type: "string",
-            enum: ["schema_analyst", "sql_specialist", "cluster_operator"],
-            description:
-              "The specialized subagent: 'schema_analyst' (for databases, tables, columns), 'sql_specialist' (for writing/optimizing queries), 'cluster_operator' (for execution & cluster status).",
-          },
-          task: {
-            type: "string",
-            description: "Clear, specific prompt or question for the subagent.",
-          },
-        },
-        required: ["subagent", "task"],
       },
     },
   },
@@ -114,6 +137,38 @@ export const SUPERVISOR_TOOLS = [
       parameters: { type: "object", properties: {} },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "list_sessions",
+      description: "Lists all Apache Livy Spark sessions and their statuses (idle, starting, busy, dead).",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delegate_task",
+      description:
+        "Delegates a complex, multi-step subtask to an isolated subagent with Context Quarantine. Optional: for deep analysis or multi-agent planning.",
+      parameters: {
+        type: "object",
+        properties: {
+          subagent: {
+            type: "string",
+            enum: ["schema_analyst", "sql_specialist", "cluster_operator"],
+            description:
+              "The specialized subagent: 'schema_analyst' (for databases, tables, columns), 'sql_specialist' (for writing/optimizing queries), 'cluster_operator' (for execution & cluster status).",
+          },
+          task: {
+            type: "string",
+            description: "Clear, specific prompt or question for the subagent.",
+          },
+        },
+        required: ["subagent", "task"],
+      },
+    },
+  },
 ];
 
 /**
@@ -131,17 +186,16 @@ export const SCHEMA_ANALYST_TOOLS = [
   {
     type: "function",
     function: {
-      name: "search_tables",
-      description: "Lists table names inside a specific database.",
+      name: "list_tables",
+      description: "Lists table names inside a database. If database is omitted, lists tables in active database.",
       parameters: {
         type: "object",
         properties: {
           database: {
             type: "string",
-            description: "Database name to inspect (e.g. 'default' or catalog database).",
+            description: "Database name to inspect (e.g. 'demo_db' or catalog database).",
           },
         },
-        required: ["database"],
       },
     },
   },
@@ -162,7 +216,7 @@ export const SCHEMA_ANALYST_TOOLS = [
             description: "Table name to inspect.",
           },
         },
-        required: ["database", "table"],
+        required: ["table"],
       },
     },
   },
@@ -224,8 +278,8 @@ export const CLUSTER_OPERATOR_TOOLS = [
   {
     type: "function",
     function: {
-      name: "execute_sql",
-      description: "Executes a SQL query against the active engine (Doris or Spark) and returns a brief summary.",
+      name: "run_query",
+      description: "Executes a SQL query against the active engine (Doris or Spark) and displays results.",
       parameters: {
         type: "object",
         properties: {
@@ -238,7 +292,7 @@ export const CLUSTER_OPERATOR_TOOLS = [
   {
     type: "function",
     function: {
-      name: "list_active_sessions",
+      name: "list_sessions",
       description: "Lists all current Apache Livy Spark sessions and their statuses.",
       parameters: { type: "object", properties: {} },
     },
@@ -289,7 +343,9 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
   const cleanToolName = (toolName || "").replace(/^[^:]+:/, "").trim();
 
   switch (cleanToolName) {
-    case "list_databases": {
+    case "list_databases":
+    case "show_databases":
+    case "get_databases": {
       if (isComputeOffline) {
         const cached = Array.isArray(schemaContext?.databases) && schemaContext.databases.length > 0
           ? schemaContext.databases
@@ -362,7 +418,10 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
       }
     }
 
-    case "search_tables": {
+    case "list_tables":
+    case "search_tables":
+    case "show_tables":
+    case "get_tables": {
       const activeDb =
         activeHost?.database ||
         schemaContext?.databases?.[0] ||
@@ -430,7 +489,11 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
       }
     }
 
-    case "describe_table": {
+    case "describe_table":
+    case "describe":
+    case "desc_table":
+    case "get_table_schema":
+    case "get_schema": {
       const activeDb =
         activeHost?.database ||
         schemaContext?.databases?.[0] ||
@@ -941,7 +1004,9 @@ export async function executeSubAgentTool(toolName, args = {}, context = {}) {
       }
     }
 
-    case "list_active_sessions": {
+    case "list_sessions":
+    case "list_active_sessions":
+    case "get_sessions": {
       if (isComputeOffline) {
         return {
           ok: false,
