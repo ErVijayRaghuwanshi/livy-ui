@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Check,
   Search,
+  Info,
 } from "lucide-react";
 import { useSettings, DEFAULT_SETTINGS } from "../context/SettingsContext";
 import { useLivy } from "../context/LivyContext";
@@ -30,6 +31,7 @@ import SparkSessionSection from "./Settings/sections/SparkSessionSection";
 import SparkConfSection from "./Settings/sections/SparkConfSection";
 import DorisManagerSection from "./Settings/sections/DorisManagerSection";
 import PwaManagerSection from "./Settings/sections/PwaManagerSection";
+import AboutHistorySection from "./Settings/sections/AboutHistorySection";
 import AiSettingsManager from "./AiChat/AiSettingsManager";
 
 export default function SettingsView({
@@ -166,6 +168,7 @@ export default function SettingsView({
       { id: "ai", label: "AI & Copilot", icon: Bot },
       { id: "connection", label: "Connection & Hosts", icon: Server },
       { id: "history", label: "Execution & History", icon: History },
+      { id: "about", label: "About & History", icon: Info },
     ],
     []
   );
@@ -199,6 +202,30 @@ export default function SettingsView({
         description: "Install Livy UI as an independent desktop application on your device and access queries offline with local caching.",
         type: "pwaManager",
         commonlyUsed: true,
+      },
+      {
+        key: "workbench.queryToasts",
+        category: "workbench",
+        categoryLabel: "Workbench",
+        title: "Query Toast Notifications",
+        description: "Show non-intrusive toast notifications when a SQL query succeeds or fails, even while the tab is focused.",
+        type: "boolean",
+      },
+      {
+        key: "workbench.soundFeedback",
+        category: "workbench",
+        categoryLabel: "Workbench",
+        title: "Query Sound Effects",
+        description: "Play a subtle Web Audio chime when a query completes successfully or fails.",
+        type: "boolean",
+      },
+      {
+        key: "workbench.hapticFeedback",
+        category: "workbench",
+        categoryLabel: "Workbench",
+        title: "Query Haptic Feedback",
+        description: "Trigger subtle device vibration on supported mobile/PWA devices when a query succeeds or fails.",
+        type: "boolean",
       },
       {
         key: "editor.fontSize",
@@ -514,6 +541,26 @@ export default function SettingsView({
         ],
       },
       {
+        key: "ai.memoryMode",
+        category: "ai",
+        categoryLabel: "AI & Copilot",
+        title: "Conversation Memory Retrieval",
+        description: "Controls how older conversation turns are retrieved. Hybrid Vector Memory uses IndexedDB + BM25 search alongside recent turns; Sliding Window keeps only Turn 1 and the last 13 messages.",
+        type: "select",
+        options: [
+          { label: "Hybrid Vector Memory (IndexedDB + BM25)", value: "hybrid-vector" },
+          { label: "Sliding Window (Turn 1 Anchor + Recent)", value: "sliding-window" },
+        ],
+      },
+      {
+        key: "ai.semanticEmbeddings",
+        category: "ai",
+        categoryLabel: "AI & Copilot",
+        title: "In-Browser Semantic Embeddings (Opt-In)",
+        description: "When enabled, lazy-loads a quantized ~23 MB model (all-MiniLM-L6-v2) in a Web Worker for semantic vector search across Ollama & Gemini. Disabled by default so zero extra cache is loaded.",
+        type: "boolean",
+      },
+      {
         key: "ai.agentMode",
         category: "ai",
         categoryLabel: "AI & Copilot",
@@ -568,6 +615,15 @@ export default function SettingsView({
         title: "Auto-Format SQL On Run",
         description: "Automatically format SQL query code when submitting for execution.",
         type: "boolean",
+      },
+      {
+        key: "about.info",
+        category: "about",
+        categoryLabel: "About & History",
+        title: "Author & History of Livy UI",
+        description: "Learn about the creator, repository, and release timeline of Livy UI from its initial Spark SQL release to Dual-Engine & AI Copilot.",
+        type: "aboutHistory",
+        keywords: "author vijay raghuwanshi history changelog version release github about",
       },
     ],
     [theme, toggleTheme, updateSetting]
@@ -695,7 +751,8 @@ export default function SettingsView({
         def.type === "hostManager" ||
         def.type === "dorisManager" ||
         def.type === "aiManager" ||
-        def.type === "pwaManager"
+        def.type === "pwaManager" ||
+        def.type === "aboutHistory"
       ) {
         return false;
       }
@@ -933,6 +990,9 @@ export default function SettingsView({
                         installApp={installApp}
                       />
                     )}
+
+                    {/* Author & Project History */}
+                    {def.type === "aboutHistory" && <AboutHistorySection />}
 
                     {/* Full Host Manager */}
                     {def.type === "hostManager" && (

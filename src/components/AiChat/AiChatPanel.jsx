@@ -24,7 +24,7 @@ import {
   ArrowDown,
 } from "lucide-react";
 import { useAi } from "../../context/AiContext";
-import ChatMessage from "./ChatMessage";
+import ChatMessage, { renderMarkdownHtml } from "./ChatMessage";
 import ContextPicker from "./ContextPicker";
 
 export default function AiChatPanel({ onClose, onOpenSettings }) {
@@ -48,9 +48,11 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
     streamingContent,
     streamingReasoning,
     activeTool,
+    ollamaThinking,
     sendMessage,
     stopGeneration,
     clearChat,
+    handleActionCard,
     isOnline,
   } = useAi();
 
@@ -62,6 +64,7 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
   const scrollContainerRef = useRef(null);
   const textareaRef = useRef(null);
   const modelDropdownRef = useRef(null);
+  const isUserScrolledUpRef = useRef(false);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
 
   // Close model dropdown on click outside
@@ -84,19 +87,28 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
     }
   }, []);
 
-  // Detect user scroll position to show floating scroll-to-bottom button
+  // Detect user scroll position to pause auto-scroll when reading above and show floating scroll-to-bottom button
   const handleScroll = (e) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    setShowScrollBottom(scrollHeight - scrollTop - clientHeight > 100);
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const isScrolledUp = distanceFromBottom > 60;
+    isUserScrolledUpRef.current = isScrolledUp;
+    setShowScrollBottom(distanceFromBottom > 100);
   };
 
-  // Auto-scroll to bottom
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  // Auto-scroll to bottom (only when user hasn't manually scrolled up)
+  const scrollToBottom = (force = false) => {
+    if (force) {
+      isUserScrolledUpRef.current = false;
+      setShowScrollBottom(false);
+    }
+    messagesEndRef.current?.scrollIntoView({ behavior: force ? "smooth" : "auto" });
   };
 
   useEffect(() => {
-    scrollToBottom();
+    if (!isUserScrolledUpRef.current) {
+      scrollToBottom(false);
+    }
   }, [messages, streamingContent, streamingReasoning, activeTool, isWarmingUp]);
 
   const handleSubmit = (e) => {
@@ -105,6 +117,7 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
     const textToSend = input;
     setInput("");
     setIsContextPickerOpen(false);
+    isUserScrolledUpRef.current = false;
     if (textareaRef.current) {
       textareaRef.current.style.height = "38px";
       textareaRef.current.focus();
@@ -337,11 +350,13 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
           <div className="flex flex-col gap-2 p-3 rounded-lg bg-(--color-bg-tertiary)/60 border border-(--color-border) text-xs leading-relaxed mr-2 animate-fadeIn">
             <div className="flex items-center gap-1.5 font-medium text-[11px] text-[#858585]">
               <Sparkles size={13} className="text-purple-400 animate-spin" />
-              <span className="text-purple-300 font-medium">Thinking...</span>
+              <span className="text-purple-300 font-medium">
+                {provider === "ollama" && ollamaThinking === "disabled" ? "Generating..." : "Thinking..."}
+              </span>
             </div>
 
-            {/* Streaming Reasoning / Thinking */}
-            {streamingReasoning && (
+            {/* Streaming Reasoning / Thinking (hidden if disabled for Ollama) */}
+            {streamingReasoning && !(provider === "ollama" && ollamaThinking === "disabled") && (
               <div className="border border-purple-800/30 rounded bg-purple-950/20 p-2 text-[#aaaaaa] font-mono text-[10px] whitespace-pre-wrap max-h-36 overflow-y-auto">
                 <div className="flex items-center gap-1 text-purple-400 mb-1 font-semibold">
                   <Brain size={11} className="animate-pulse" />
@@ -370,10 +385,33 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
               </div>
             )}
 
-            {/* Streaming Content */}
+            {/* Streaming Content (Real-time Markdown Rendering with interactive Run/Copy) */}
             {streamingContent && (
-              <div className="text-[#cccccc] whitespace-pre-wrap font-sans text-xs">
-                {streamingContent}
+              <div
+                className="chat-markdown select-text text-xs"
+                onClick={(e) => {
+                  const runBtn = e.target.closest(".run-code-btn");
+                  if (runBtn) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const encoded = runBtn.getAttribute("data-code");
+                    if (encoded) {
+                      handleActionCard("run", decodeURIComponent(encoded));
+                    }
+                    return;
+                  }
+                  const copyBtn = e.target.closest(".copy-code-btn");
+                  if (copyBtn) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const encoded = copyBtn.getAttribute("data-code");
+                    if (encoded) {
+                      navigator.clipboard.writeText(decodeURIComponent(encoded));
+                    }
+                  }
+                }}
+              >
+                <div dangerouslySetInnerHTML={{ __html: renderMarkdownHtml(streamingContent) }} />
                 <span className="inline-block w-1.5 h-3 ml-0.5 bg-purple-400 animate-pulse align-middle" />
               </div>
             )}
@@ -386,7 +424,7 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
         {showScrollBottom && (
           <button
             type="button"
-            onClick={scrollToBottom}
+            onClick={() => scrollToBottom(true)}
             className="sticky bottom-2 ml-auto mr-2 w-7 h-7 rounded-full bg-[#252525] border border-[#3e3e3e] shadow-xl flex items-center justify-center text-[#aaaaaa] hover:text-white transition-all cursor-pointer z-30 hover:bg-[#333333] animate-fadeIn"
             title="Scroll to bottom"
           >
@@ -467,7 +505,7 @@ export default function AiChatPanel({ onClose, onOpenSettings }) {
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               rows={1}
-              placeholder={isStreaming ? "Thinking... (Esc to stop)" : "Chat with Copilot..."}
+              placeholder={isStreaming ? `${provider === "ollama" && ollamaThinking === "disabled" ? "Generating..." : "Thinking..."} (Esc to stop)` : "Chat with Copilot..."}
               className="w-full bg-transparent text-[#e0e0e0] text-xs px-3 pt-2 pb-1 resize-none focus:outline-none placeholder-[#666666] min-h-[38px] max-h-32 leading-relaxed"
             />
 

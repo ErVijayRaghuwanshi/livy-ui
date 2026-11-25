@@ -108,10 +108,12 @@ initialBrowserFiles.forEach((f) => {
 
 const initialState = {
   files: initialBrowserFiles,
-  openFiles: Array.isArray(storedOpenFiles) ? storedOpenFiles : [initialBrowserFiles[0].id],
-  activeTabId: (Array.isArray(storedOpenFiles) && storedOpenFiles.length === 0)
-    ? null
-    : getItem(STORAGE_KEYS.ACTIVE_TAB, initialBrowserFiles[0]?.id || null),
+  openFiles: Array.isArray(storedOpenFiles) ? storedOpenFiles : [],
+  activeTabId: Array.isArray(storedOpenFiles)
+    ? storedOpenFiles.length === 0
+      ? null
+      : getItem(STORAGE_KEYS.ACTIVE_TAB, storedOpenFiles[0] || null)
+    : null,
   results: {},
   dirtyFiles: initialDirtyFiles,
   closedTabsHistory: [],

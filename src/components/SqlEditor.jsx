@@ -23,6 +23,7 @@ import { addHistoryEntry } from "./QueryHistory";
 import { useSettings } from "../context/SettingsContext";
 import { v4 as uuidv4 } from "uuid";
 import { validateSql } from "../services/sqlValidator";
+import { triggerQueryFeedback } from "../utils/feedback";
 import expand, { extract } from "emmet";
 
 // Configure Monaco to use local files instead of CDN
@@ -3271,23 +3272,43 @@ const SqlEditor = forwardRef(function SqlEditor({
       }
     }
 
-    // Notify if tab is not focused
+    // Haptic & Sound feedback + Toast notification on query completion
+    const elapsed = formatElapsedShort(performance.now() - startTime);
+    if (finalStatus === "ok" || finalStatus === "error") {
+      triggerQueryFeedback(finalStatus, settingsRef.current);
+    }
+
+    const showQueryToasts = settingsRef.current?.["workbench.queryToasts"] !== false;
     if (!document.hasFocus()) {
-      const elapsed = formatElapsedShort(performance.now() - startTime);
+      if (finalStatus === "ok") {
+        addToast("ok", activeFile?.name || "Query", elapsed);
+      } else if (finalStatus === "error") {
+        addToast("error", finalError?.substring(0, 80) || "Unknown error", elapsed);
+      } else if (finalStatus === "cancelled") {
+        addToast("cancelled", activeFile?.name || "Query", elapsed);
+      }
+    } else if (showQueryToasts) {
+      // When user is actively focused on the UI, only show toast on failure/cancellation (not on success)
+      if (finalStatus === "error") {
+        addToast("error", finalError?.substring(0, 80) || "Unknown error", elapsed);
+      } else if (finalStatus === "cancelled") {
+        addToast("cancelled", activeFile?.name || "Query", elapsed);
+      }
+    }
+
+    // Update page title & browser notification if tab is not focused
+    if (!document.hasFocus()) {
       let notifTitle = "";
       let notifBody = "";
       if (finalStatus === "ok") {
-        addToast("ok", activeFile?.name || "Query", elapsed);
         document.title = `✅ Query done — ${ORIGINAL_TITLE}`;
         notifTitle = "✅ Query completed";
         notifBody = `${activeFile?.name || "Query"} finished in ${elapsed}`;
       } else if (finalStatus === "error") {
-        addToast("error", finalError?.substring(0, 80) || "Unknown error", elapsed);
         document.title = `❌ Query failed — ${ORIGINAL_TITLE}`;
         notifTitle = "❌ Query failed";
         notifBody = finalError?.substring(0, 120) || "Unknown error";
       } else if (finalStatus === "cancelled") {
-        addToast("cancelled", activeFile?.name || "Query", elapsed);
         document.title = `⚠️ Cancelled — ${ORIGINAL_TITLE}`;
         notifTitle = "⚠️ Query cancelled";
         notifBody = activeFile?.name || "Query";

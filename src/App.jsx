@@ -83,11 +83,11 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem(SIDEBAR_CACHE_KEY);
     if (saved !== null) return JSON.parse(saved);
-    // Default to collapsed on mobile (< 768px)
-    return typeof window !== 'undefined' && window.innerWidth < 768 ? true : false;
+    // First-time users start with a clean workspace (left sidebar collapsed)
+    return true;
   });
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_CACHE_KEY) || "dark");
-  const [resultHeight, setResultHeight] = useState(DEFAULT_RESULT_HEIGHT);
+  const [resultHeight, setResultHeight] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showHistory, setShowHistory] = useState(false);

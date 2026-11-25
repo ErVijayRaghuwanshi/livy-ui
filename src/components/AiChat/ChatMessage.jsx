@@ -314,18 +314,31 @@ function extractSuggestions(text) {
     const match2 = trimmed.match(/^(?:\d+[\.\)]|\*|-)\s+(?:(?:\*\*([^*]+)\*\*)|([^:\n]{5,120}))\??$/);
     if (match2) {
       const rawText = (match2[1] || match2[2] || "").trim();
-      // Clean up common conversational prefixes
-      const cleaned = rawText.replace(/^(?:Do you want to|Would you like to|Can you|Do you have a|Would you like me to)\s+/i, "");
+      // Clean up common conversational prefixes and trailing question marks
+      const cleaned = rawText
+        .replace(/^(?:Do you want to|Would you like to|Would you like me to|Can you|Do you have a|Should I|Shall I)\s+/i, "")
+        .replace(/\?+$/, "")
+        .trim();
       if (cleaned.length >= 5 && !cleaned.toLowerCase().startsWith("http")) {
-        const labelText = cleaned.length > 50 ? cleaned.slice(0, 48).trim() + "..." : cleaned;
+        const capitalized = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+        const labelText = capitalized.length > 50 ? capitalized.slice(0, 48).trim() + "..." : capitalized;
         suggestions.push({
-          label: labelText.charAt(0).toUpperCase() + labelText.slice(1),
-          prompt: rawText.endsWith("?") ? rawText : `${rawText}?`,
+          label: labelText,
+          prompt: capitalized,
         });
       }
     }
   }
   return suggestions.slice(0, 4);
+}
+
+export function renderMarkdownHtml(content) {
+  if (!content) return "";
+  try {
+    return marked.parse(content, { breaks: true, gfm: true });
+  } catch {
+    return escapeHtml(content);
+  }
 }
 
 export default function ChatMessage({ message }) {
@@ -371,14 +384,7 @@ export default function ChatMessage({ message }) {
   };
 
   // Parse markdown for non-user messages
-  const parsedHtml = useMemo(() => {
-    if (!message.content) return "";
-    try {
-      return marked.parse(message.content, { breaks: true, gfm: true });
-    } catch {
-      return escapeHtml(message.content);
-    }
-  }, [message.content]);
+  const parsedHtml = useMemo(() => renderMarkdownHtml(message.content), [message.content]);
 
   // Copy full message content
   const handleCopyFull = () => {

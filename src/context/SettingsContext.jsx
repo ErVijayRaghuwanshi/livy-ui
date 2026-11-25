@@ -44,6 +44,8 @@ export const DEFAULT_SETTINGS = {
   "ai.hostUrl": "http://localhost:11434",
   "ai.defaultModel": "nemotron-3-nano:4b",
   "ai.ollamaThinking": "disabled", // "disabled" (fastest) | "enabled" | "auto"
+  "ai.memoryMode": "hybrid-vector", // "hybrid-vector" (IndexedDB BM25 + optional embeddings) | "sliding-window"
+  "ai.semanticEmbeddings": false, // Opt-in ~23 MB in-browser model (lazy-loaded only when enabled)
   "ai.geminiApiKey": "",
   "ai.geminiModel": "gemini-3.8-flash",
   "ai.openaiApiKey": "",
@@ -65,6 +67,9 @@ export const DEFAULT_SETTINGS = {
   // Execution & History Limits
   "query.historyLimit": 50,
   "query.autoFormatOnRun": false,
+  "workbench.soundFeedback": true,
+  "workbench.hapticFeedback": true,
+  "workbench.queryToasts": true,
 };
 
 const SettingsContext = createContext(null);

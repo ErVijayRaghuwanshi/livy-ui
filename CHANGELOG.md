@@ -4,6 +4,28 @@ All notable changes to the Livy SQL Editor project will be documented in this fi
 
 ## [Unreleased]
 
+## [v4.0.0] - 2026-11-26
+### Added
+* **Client-Side Browser Vector Memory (`vectorStore.js`)**: IndexedDB-backed conversation memory (`livy-ui-vector-memory`) with zero-download BM25 keyword retrieval by default, Turn 1 positional anchor, and recent turn buffer.
+* **Opt-In Lazy-Loaded Semantic Embeddings**: Optional Web Worker (`Xenova/all-MiniLM-L6-v2`, ~23 MB) controlled via `ai.semanticEmbeddings` (disabled by default) for unified 384-dim cosine similarity across Ollama, Google Gemini, and OpenAI.
+* **Native Ollama Thinking Control**: Added `ai.ollamaThinking` (`disabled` | `enabled` | `auto`) using Ollama's native `/api/chat` endpoint (`think: false`) to suppress unwanted thinking tokens.
+* **Query Feedback Alerts**: Added Web Audio API success/error chimes (`workbench.soundFeedback`), mobile/PWA vibration (`workbench.hapticFeedback`), and out-of-focus success toasts (`workbench.queryToasts`).
+* **About & History in Settings**: Dedicated **About & History** section displaying author metadata and release timeline.
+
+### Changed
+* **First-Time Welcome Workspace**: New users start cleanly with the Welcome Screen in the editor and the left sidebar, right AI Copilot, and Result Table collapsed.
+* **Real-Time Interactive Streaming Markdown**: Streaming responses render markdown live and allow clicking **Run Query** / **Copy** on rendered SQL blocks while streaming, without locking scroll when reading above.
+* **Simplified Direct AI Tools**: Exposed flat catalog tools (`list_databases`, `list_tables`, `describe_table`, `list_sessions`) directly to the supervisor for small local models and removed automatic table injection from the base system prompt.
+
+### Fixed
+* Copilot welcome message on initial load and after clearing chat.
+* Auto-reveal of the Result Table when running queries from the Editor, Sidebar, or AI Copilot.
+* Removed trailing `?` appended to clicked chat suggestion chips.
+
+[Details in Release Notes](release-notes/v4.0.0.md)
+
+---
+
 ## [v3.1.0] - 2026-11-18
 ### Added
 * **Multi-Provider AI Copilot (`⌘⇧A` / `Ctrl+Shift+A`)**: Autonomous AI Copilot supporting local **Ollama** models (Gemma 2, Llama 3, Qwen 2.5, DeepSeek) with zero telemetry, **Google GenAI** (Gemini 2.5 Flash, Gemini 1.5 Pro, Flash-Lite), and **OpenAI** (GPT-4o, GPT-4o-mini, o1).

@@ -17,6 +17,8 @@ import {
 } from "../services/ai/llmProvider";
 import { runAgentConversation } from "../services/ai/agentRunner";
 import { executeSubAgentTool } from "../services/ai/subAgentTools";
+import { upsertMessageVector, searchMemory, clearMemory } from "../services/ai/vectorStore";
+import { generateEmbedding, SEMANTIC_EMBEDDING_MODEL } from "../services/ai/embeddingClient";
 import { useSqlFiles } from "./SqlFilesContext";
 import { useLivy } from "./LivyContext";
 import { useSchema } from "./SchemaContext";
@@ -25,6 +27,17 @@ import { v4 as uuidv4 } from "uuid";
 
 const AiContext = createContext(null);
 const STORAGE_KEY_CHAT_HISTORY = "livy_ai_chat_history";
+
+function createWelcomeMessage(activeEngine = "doris", activeDatabase = "") {
+  const engineLabel = activeEngine === "doris" ? "Apache Doris" : "Apache Spark";
+  const dbText = activeDatabase ? ` in \`${activeDatabase}\`` : "";
+  return {
+    id: "welcome",
+    role: "assistant",
+    content: `Hello! I'm your **Livy UI Copilot** for **${engineLabel}**${dbText}.\n\nAsk me to explore schemas, write or optimize SQL queries, explain your active editor tab, or run queries directly in your workbench. Use \`@\` to attach files, tables, or cluster context.`,
+    timestamp: new Date().toISOString(),
+  };
+}
 
 export function AiProvider({ children, editorRef }) {
   const { settings, updateSetting } = useSettings();
@@ -42,6 +55,8 @@ export function AiProvider({ children, editorRef }) {
   const customApiKey = settings["ai.customApiKey"] || "";
   const ollamaThinking = settings["ai.ollamaThinking"] || "disabled";
   const setOllamaThinking = (val) => updateSetting("ai.ollamaThinking", val);
+  const memoryMode = settings["ai.memoryMode"] || "hybrid-vector";
+  const semanticEmbeddings = Boolean(settings["ai.semanticEmbeddings"]);
 
   // Dynamic model lists per provider
   const [ollamaModels, setOllamaModels] = useState([]);
@@ -157,11 +172,18 @@ export function AiProvider({ children, editorRef }) {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          return parsed.filter((m) => m && m.id !== "welcome");
+          const nonWelcome = parsed.filter((m) => m && m.id !== "welcome");
+          if (nonWelcome.length > 0) return nonWelcome;
         }
       }
     } catch {}
-    return [];
+    const initialEngine = livyContext?.isDoris
+      ? "doris"
+      : (sqlFiles?.activeFile?.engine || (sqlFiles?.dorisMode ? "doris" : "spark"));
+    const initialDb = livyContext?.isDoris
+      ? (livyContext?.activeHost?.database || settings["doris.defaultDatabase"] || schemaContext?.databases?.[0] || "")
+      : (livyContext?.activeHost?.database || schemaContext?.databases?.[0] || "default");
+    return [createWelcomeMessage(initialEngine, initialDb)];
   });
 
   const [isStreaming, setIsStreaming] = useState(false);
@@ -288,15 +310,16 @@ export function AiProvider({ children, editorRef }) {
   // Clear chat history
   const clearChat = useCallback(() => {
     stopGeneration();
-    setMessages([]);
+    setMessages([createWelcomeMessage(activeEngine, activeDatabase)]);
     try {
       localStorage.removeItem(STORAGE_KEY_CHAT_HISTORY);
     } catch {}
+    clearMemory().catch(() => {});
     setStreamingContent("");
     setStreamingReasoning("");
     setActiveTool(null);
     setIsWarmingUp(false);
-  }, [stopGeneration]);
+  }, [stopGeneration, activeEngine, activeDatabase]);
 
   // Resolves attached context chips into formatted prompt text
   const resolveContextPayload = useCallback((contextsToResolve) => {
@@ -436,27 +459,65 @@ export function AiProvider({ children, editorRef }) {
         offlineReason,
       };
 
-      // Anchor + Sliding Window Conversation History:
-      // Preserves the Genesis Turn (Turn 1 user input & initial assistant response)
-      // plus the most recent N messages so the agent never loses initial context or question.
-      const validHistory = messages
-        .filter((m) => m.id !== "welcome" && !m.isError && m.content)
-        .map((m) => ({
-          role: m.role,
-          content: m.content,
-        }));
+      // Hybrid Vector Memory or Anchor + Sliding Window Conversation History
+      const validRawMessages = messages.filter((m) => m.id !== "welcome" && !m.isError && m.content);
+      const validHistory = validRawMessages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
 
       let historyPayload = [];
-      const MAX_HISTORY = 16; // Retains 8 full turns comfortably within token limits
+      const MAX_HISTORY = 16;
 
-      if (validHistory.length <= MAX_HISTORY) {
+      if (memoryMode === "hybrid-vector" && validRawMessages.length > 8) {
+        const anchorHead = validRawMessages.slice(0, 2);
+        const recentTail = validRawMessages.slice(-6);
+        const excludeIds = new Set([...anchorHead, ...recentTail].map((m) => m.id));
+
+        let retrievedDocs = [];
+        try {
+          const queryEmbedding = semanticEmbeddings
+            ? await generateEmbedding(userText, true)
+            : null;
+          retrievedDocs = await searchMemory(userText, {
+            topK: 4,
+            excludeIds,
+            queryEmbedding,
+            embeddingModel: semanticEmbeddings ? SEMANTIC_EMBEDDING_MODEL : null,
+          });
+        } catch {
+          retrievedDocs = [];
+        }
+
+        const toMsg = (m) => ({ role: m.role, content: m.content });
+        if (retrievedDocs.length > 0) {
+          const retrievedContext = retrievedDocs
+            .map((d) => `[Turn ${d.turnIndex + 1} - ${d.role}]: ${String(d.content).slice(0, 600)}`)
+            .join("\n---\n");
+          historyPayload = [
+            ...anchorHead.map(toMsg),
+            {
+              role: "system",
+              content: `[Relevant Earlier Conversation Context retrieved from browser memory]:\n${retrievedContext}`,
+            },
+            ...recentTail.map(toMsg),
+          ];
+        } else {
+          const omittedCount = validRawMessages.length - anchorHead.length - recentTail.length;
+          historyPayload = [
+            ...anchorHead.map(toMsg),
+            {
+              role: "system",
+              content: `[Note: ${omittedCount} intermediate conversation messages omitted for brevity. First conversation turn and recent context are preserved.]`,
+            },
+            ...recentTail.map(toMsg),
+          ];
+        }
+      } else if (validHistory.length <= MAX_HISTORY) {
         historyPayload = validHistory;
       } else {
-        // 1. Preserve Genesis Turn (first user query + first assistant response)
         const anchorHead = validHistory.slice(0, 2);
-        // 2. Preserve Recent Turns (tail: last 13 messages)
         const recentTail = validHistory.slice(-(MAX_HISTORY - 3));
-        // 3. Inform the agent of the omitted middle messages
         const omittedCount = validHistory.length - 2 - recentTail.length;
         const bridgeNotice = {
           role: "system",
@@ -510,6 +571,41 @@ export function AiProvider({ children, editorRef }) {
         };
 
         setMessages((prev) => [...prev, assistantMessage]);
+
+        // Index completed turn into browser IndexedDB vector store asynchronously (zero streaming latency)
+        const turnBaseIndex = validRawMessages.length;
+        (async () => {
+          try {
+            const [uEmb, aEmb] = semanticEmbeddings
+              ? await Promise.all([
+                  generateEmbedding(userMessage.content, true),
+                  generateEmbedding(assistantMessage.content, true),
+                ])
+              : [null, null];
+            await upsertMessageVector({
+              id: userMessage.id,
+              turnIndex: turnBaseIndex,
+              role: "user",
+              content: userMessage.content,
+              timestamp: userMessage.timestamp,
+              embedding: uEmb,
+              embeddingModel: uEmb ? SEMANTIC_EMBEDDING_MODEL : null,
+            });
+            if (assistantMessage.content) {
+              await upsertMessageVector({
+                id: assistantMessage.id,
+                turnIndex: turnBaseIndex + 1,
+                role: "assistant",
+                content: assistantMessage.content,
+                timestamp: assistantMessage.timestamp,
+                embedding: aEmb,
+                embeddingModel: aEmb ? SEMANTIC_EMBEDDING_MODEL : null,
+              });
+            }
+          } catch {
+            // Non-fatal background indexing error
+          }
+        })();
       } catch (err) {
         if (err.name === "AbortError") {
           console.log("[AiContext] User aborted generation");
@@ -559,6 +655,8 @@ export function AiProvider({ children, editorRef }) {
       customUrl,
       customApiKey,
       ollamaThinking,
+      memoryMode,
+      semanticEmbeddings,
     ]
   );
 

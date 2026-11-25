@@ -207,7 +207,8 @@ export function getProviderConfig({
     default: {
       const base = cleanHostUrl(hostUrl || "http://localhost:11434");
       return {
-        url: `${base}/v1/chat/completions`,
+        url: `${base}/api/chat`,
+        isNativeOllama: true,
         headers: {
           "Content-Type": "application/json",
         },
@@ -270,9 +271,37 @@ export async function streamUnifiedChat({
     );
   }
 
+  const formattedMessages = config.isNativeOllama
+    ? messages.map((m) => {
+        if (Array.isArray(m.tool_calls)) {
+          return {
+            ...m,
+            tool_calls: m.tool_calls.map((tc) => {
+              let parsedArgs = tc.function?.arguments;
+              if (typeof parsedArgs === "string") {
+                try {
+                  parsedArgs = JSON.parse(parsedArgs || "{}");
+                } catch {
+                  parsedArgs = {};
+                }
+              }
+              return {
+                ...tc,
+                function: {
+                  ...tc.function,
+                  arguments: parsedArgs || {},
+                },
+              };
+            }),
+          };
+        }
+        return m;
+      })
+    : messages;
+
   const bodyPayload = {
     model: model || config.defaultModel,
-    messages,
+    messages: formattedMessages,
     stream: true,
   };
 
@@ -281,7 +310,13 @@ export async function streamUnifiedChat({
   }
 
   // Thinking / Reasoning control for Ollama, vLLM, and OpenAI-compatible models
-  if (provider === "ollama" || provider === "custom") {
+  if (config.isNativeOllama) {
+    if (ollamaThinking === "disabled" || ollamaThinking === false) {
+      bodyPayload.think = false;
+    } else if (ollamaThinking === "enabled" || ollamaThinking === true) {
+      bodyPayload.think = true;
+    }
+  } else if (provider === "custom") {
     if (ollamaThinking === "disabled" || ollamaThinking === false) {
       bodyPayload.think = false;
       bodyPayload.reasoning_effort = "none";
@@ -299,7 +334,7 @@ export async function streamUnifiedChat({
     method: "POST",
     headers: {
       ...config.headers,
-      Accept: "text/event-stream",
+      Accept: config.isNativeOllama ? "application/x-ndjson, application/json" : "text/event-stream",
     },
     body: JSON.stringify(bodyPayload),
     signal,
@@ -346,10 +381,68 @@ export async function streamUnifiedChat({
       if (!trimmed || trimmed.startsWith(":")) continue;
       if (trimmed === "data: [DONE]") continue;
 
-      if (trimmed.startsWith("data: ")) {
-        const jsonStr = trimmed.slice(6);
+      const jsonStr = trimmed.startsWith("data: ") ? trimmed.slice(6) : config.isNativeOllama ? trimmed : null;
+      if (jsonStr) {
         try {
           const parsed = JSON.parse(jsonStr);
+
+          // Native Ollama /api/chat NDJSON response format
+          if (config.isNativeOllama && parsed.message) {
+            const msg = parsed.message;
+            if (msg.thinking) {
+              if (ollamaThinking !== "disabled" && ollamaThinking !== false) {
+                fullReasoning += msg.thinking;
+                onReasoningChunk?.(msg.thinking);
+              }
+            }
+            if (msg.content) {
+              let contentChunk = msg.content;
+              if (contentChunk.includes("<think>")) {
+                inThinkBlock = true;
+                const parts = contentChunk.split("<think>");
+                if (parts[0]) {
+                  fullContent += parts[0];
+                  onChunk?.(parts[0]);
+                }
+                contentChunk = parts.slice(1).join("<think>");
+              }
+              if (inThinkBlock) {
+                if (contentChunk.includes("</think>")) {
+                  inThinkBlock = false;
+                  const parts = contentChunk.split("</think>");
+                  if (parts[0] && ollamaThinking !== "disabled" && ollamaThinking !== false) {
+                    fullReasoning += parts[0];
+                    onReasoningChunk?.(parts[0]);
+                  }
+                  if (parts[1]) {
+                    fullContent += parts[1];
+                    onChunk?.(parts[1]);
+                  }
+                } else if (ollamaThinking !== "disabled" && ollamaThinking !== false) {
+                  fullReasoning += contentChunk;
+                  onReasoningChunk?.(contentChunk);
+                }
+              } else {
+                fullContent += contentChunk;
+                onChunk?.(contentChunk);
+              }
+            }
+            if (Array.isArray(msg.tool_calls)) {
+              for (const tc of msg.tool_calls) {
+                const idx = accumulatedToolCalls.length;
+                const rawArgs = tc.function?.arguments;
+                accumulatedToolCalls.push({
+                  id: tc.id || `call_${idx}_${Date.now()}`,
+                  type: tc.type || "function",
+                  function: {
+                    name: tc.function?.name || "",
+                    arguments: typeof rawArgs === "string" ? rawArgs : JSON.stringify(rawArgs || {}),
+                  },
+                });
+              }
+            }
+            continue;
+          }
 
           // Extract thought signature at top payload level
           const topSig = extractThoughtSignature(parsed);
