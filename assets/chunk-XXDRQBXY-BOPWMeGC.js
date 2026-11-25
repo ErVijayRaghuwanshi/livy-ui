@@ -1,1 +1,0 @@
-import{c as a,bb as o}from"./index-za_g-Zto.js";var b=a((t,e)=>{let n;return e==="sandbox"&&(n=o("#i"+t)),(e==="sandbox"?o(n.nodes()[0].contentDocument.body):o("body")).select(`[id="${t}"]`)},"getDiagramElement");export{b as g};
