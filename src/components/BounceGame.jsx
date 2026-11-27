@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Volume2, VolumeX, RotateCcw, X, Keyboard, Gamepad2 } from 'lucide-react';
+import { Volume2, VolumeX, RotateCcw, X, Keyboard, Gamepad2, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, CornerDownLeft } from 'lucide-react';
+import { useViewport } from '../hooks/useViewport';
 
 // ==========================================
 // AUDIO SYNTHESIZER (Web Audio API)
@@ -273,6 +274,8 @@ export default function BounceGame({ onClose, theme: editorTheme }) {
 
   const [scale, setScale] = useState(1.8);
   const parentContainerRef = useRef(null);
+  const touchStartRef = useRef(null);
+  const { isTouch, isMobile } = useViewport();
 
   const handleGoToMenu = () => {
     setGameState('MENU');
@@ -302,16 +305,20 @@ export default function BounceGame({ onClose, theme: editorTheme }) {
       if (!parentContainerRef.current) return;
       const { clientWidth, clientHeight } = parentContainerRef.current;
       
+      // Reserve vertical space for header & touch/keyboard controls
+      const reservedHeight = (isTouch || clientWidth < 768) ? 165 : 90;
+      const availableHeight = Math.max(160, clientHeight - reservedHeight);
+
       // The game screen inner frame: width is 312px, height is around 220px
       const designWidth = 330;
       const designHeight = 250;
 
       const scaleX = clientWidth / designWidth;
-      const scaleY = clientHeight / designHeight;
+      const scaleY = availableHeight / designHeight;
       
-      // Calculate the best scale factor to fit while leaving 5% margins
+      // Calculate the best scale factor to fit while leaving margins
       const finalScale = Math.min(scaleX, scaleY) * 0.92;
-      setScale(Math.max(1, finalScale));
+      setScale(Math.max(0.72, Math.min(finalScale, 2.2)));
     };
 
     const observer = new ResizeObserver(() => updateScale());
@@ -319,7 +326,7 @@ export default function BounceGame({ onClose, theme: editorTheme }) {
     updateScale(); // Initial call
 
     return () => observer.disconnect();
-  }, []);
+  }, [isTouch]);
 
   const toggleMute = () => {
     const nextMuted = !muted;
@@ -982,31 +989,75 @@ export default function BounceGame({ onClose, theme: editorTheme }) {
     return () => cancelAnimationFrame(animId);
   }, [gameState, theme, ballType, currentLevelIdx]);
 
+  const handleLcdTouchStart = (e) => {
+    if (e.touches.length > 0) {
+      touchStartRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+      };
+    }
+  };
+
+  const handleLcdTouchEnd = (e) => {
+    if (!touchStartRef.current || e.changedTouches.length === 0) return;
+    const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
+    const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
+    touchStartRef.current = null;
+
+    if (Math.abs(dx) < 20 && Math.abs(dy) < 20) return;
+
+    const isMenuState = ['MENU', 'LEVEL_SELECT', 'BALL_SKINS', 'LCD_COLOR'].includes(gameState);
+    if (isMenuState) {
+      if (Math.abs(dy) > Math.abs(dx)) {
+        pressPhoneKey(dy < 0 ? 'up' : 'down', 'down');
+      }
+      return;
+    }
+
+    if (gameState === 'PLAYING') {
+      if (dy < -25 && Math.abs(dy) >= Math.abs(dx) * 0.8) {
+        engineRef.current.keys.Up = true;
+        setTimeout(() => {
+          engineRef.current.keys.Up = false;
+        }, 200);
+      } else if (Math.abs(dx) > 25) {
+        const dirKey = dx < 0 ? 'Left' : 'Right';
+        engineRef.current.keys[dirKey] = true;
+        setTimeout(() => {
+          engineRef.current.keys[dirKey] = false;
+        }, 220);
+      }
+    }
+  };
+
   const activeThemeColors = SCREEN_THEMES[theme];
   const listItems = getMenuList();
+
+  const showTouchControls = isTouch || isMobile;
 
   return (
     <div 
       ref={parentContainerRef}
       onClick={() => synth.init()}
-      className="w-full h-full bg-slate-950 flex flex-col items-center justify-center overflow-hidden relative select-none"
+      className="w-full h-full bg-slate-950 flex flex-col items-center justify-between py-3 sm:py-4 overflow-hidden relative select-none"
     >
-      {/* Floating high-tech Close button in the top-right corner */}
-      <button 
-        onClick={onClose}
-        className="absolute top-4 right-4 p-2 rounded-full bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-all cursor-pointer shadow-lg z-50 hover:scale-105 active:scale-95"
-        title="Exit Game"
-      >
-        <X size={18} />
-      </button>
-
-      {/* Retro Header overlay */}
-      <div className="absolute top-4 left-6 flex items-center gap-2 text-xs font-semibold text-slate-400 tracking-wider">
-        <Gamepad2 size={16} className="text-emerald-500 animate-pulse" />
-        <span>LIVY RETRO BOUNCE ARCADE</span>
+      {/* Top Header Bar */}
+      <div className="w-full flex items-center justify-between px-4 sm:px-6 shrink-0 z-40">
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 tracking-wider">
+          <Gamepad2 size={16} className="text-emerald-500 animate-pulse" />
+          <span className="truncate">LIVY RETRO BOUNCE ARCADE</span>
+        </div>
+        <button 
+          onClick={onClose}
+          className="p-2 rounded-full bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-all cursor-pointer shadow-lg hover:scale-105 active:scale-95"
+          title="Exit Game"
+        >
+          <X size={18} />
+        </button>
       </div>
 
       {/* Main retro scaled game envelope */}
+      <div className="flex-1 flex items-center justify-center w-full min-h-0">
       <div 
         style={{
           transform: `scale(${scale})`,
@@ -1043,7 +1094,11 @@ export default function BounceGame({ onClose, theme: editorTheme }) {
           </div>
 
           {/* ACTIVE LCD DISPLAY PANEL */}
-          <div className="relative overflow-hidden w-full aspect-[300/180] bg-black/10 rounded border border-black/20">
+          <div
+            onTouchStart={handleLcdTouchStart}
+            onTouchEnd={handleLcdTouchEnd}
+            className="relative overflow-hidden w-full aspect-[300/180] bg-black/10 rounded border border-black/20 touch-none"
+          >
             
             {gameState === 'PLAYING' ? (
               <canvas
@@ -1209,19 +1264,115 @@ export default function BounceGame({ onClose, theme: editorTheme }) {
 
         </div>
       </div>
-
-      {/* Keyboard Controls Bar at the bottom */}
-      <div className="absolute bottom-6 flex flex-col items-center gap-1.5 opacity-80 max-w-[420px] px-6 text-center select-none">
-        <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 font-mono tracking-tight">
-          <Keyboard size={12} className="text-slate-500" />
-          <span>CONTROLS:</span>
-        </div>
-        <p className="text-[10px] text-slate-500 font-mono leading-snug">
-          Menu: <span className="text-slate-400">▲/▼ [W/S]</span> • Select: <span className="text-slate-400">[Space/Enter]</span><br />
-          Ball: <span className="text-slate-400">◀/▶ [A/D]</span> • Jump: <span className="text-slate-400">[Space/W]</span> • Back: <span className="text-slate-400">[Esc]</span><br />
-          Cheats: <span className="text-slate-400">[#] Skip Level</span> • <span className="text-slate-400">[*] Mute Tone</span> • <span className="text-slate-400">[R] Reset Level</span>
-        </p>
       </div>
+
+      {/* On-Screen Touch Controls (for touchscreens / mobile) OR Keyboard Hints */}
+      {showTouchControls ? (
+        <div className="w-full max-w-[440px] px-4 pb-2 flex items-center justify-between gap-3 shrink-0 z-40 touch-none select-none">
+          {/* Left / Right D-Pad */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.currentTarget.setPointerCapture?.(e.pointerId);
+                synth.init();
+                pressPhoneKey(['MENU', 'LEVEL_SELECT', 'BALL_SKINS', 'LCD_COLOR'].includes(gameState) ? 'up' : 'left', 'down');
+              }}
+              onPointerUp={() => pressPhoneKey('left', 'up')}
+              onPointerCancel={() => pressPhoneKey('left', 'up')}
+              className="w-14 h-12 rounded-xl bg-slate-900/90 active:bg-emerald-600/40 border border-slate-700 active:border-emerald-400 text-slate-200 flex items-center justify-center shadow-lg touch-none"
+              aria-label="Move Left"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <button
+              type="button"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.currentTarget.setPointerCapture?.(e.pointerId);
+                synth.init();
+                pressPhoneKey(['MENU', 'LEVEL_SELECT', 'BALL_SKINS', 'LCD_COLOR'].includes(gameState) ? 'down' : 'right', 'down');
+              }}
+              onPointerUp={() => pressPhoneKey('right', 'up')}
+              onPointerCancel={() => pressPhoneKey('right', 'up')}
+              className="w-14 h-12 rounded-xl bg-slate-900/90 active:bg-emerald-600/40 border border-slate-700 active:border-emerald-400 text-slate-200 flex items-center justify-center shadow-lg touch-none"
+              aria-label="Move Right"
+            >
+              <ArrowRight size={20} />
+            </button>
+          </div>
+
+          {/* Center utility buttons */}
+          <div className="flex items-center gap-1.5">
+            {gameState === 'PLAYING' && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  loadLevel(currentLevelIdx);
+                }}
+                className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-700 text-slate-300 active:bg-slate-800"
+                title="Reset Level"
+                aria-label="Reset Level"
+              >
+                <RotateCcw size={15} />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (gameState !== 'MENU') handleGoToMenu();
+                else onClose();
+              }}
+              className="px-2.5 py-2 rounded-lg bg-slate-900/90 border border-slate-700 text-[10px] font-mono font-bold text-slate-300 active:bg-slate-800"
+            >
+              {gameState === 'MENU' ? 'EXIT' : 'MENU'}
+            </button>
+          </div>
+
+          {/* Jump / Select Action Button */}
+          <button
+            type="button"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.currentTarget.setPointerCapture?.(e.pointerId);
+              synth.init();
+              const isMenuState = ['MENU', 'LEVEL_SELECT', 'BALL_SKINS', 'LCD_COLOR'].includes(gameState);
+              pressPhoneKey(isMenuState ? 'select' : 'up', 'down');
+            }}
+            onPointerUp={() => pressPhoneKey('up', 'up')}
+            onPointerCancel={() => pressPhoneKey('up', 'up')}
+            className="w-20 h-12 rounded-xl bg-emerald-600/25 active:bg-emerald-500/50 border border-emerald-500/50 text-emerald-300 font-mono text-xs font-bold flex items-center justify-center gap-1 shadow-lg touch-none"
+            aria-label="Jump or Select"
+          >
+            {['MENU', 'LEVEL_SELECT', 'BALL_SKINS', 'LCD_COLOR'].includes(gameState) ? (
+              <>
+                <CornerDownLeft size={16} />
+                <span>OK</span>
+              </>
+            ) : (
+              <>
+                <ArrowUp size={18} />
+                <span>JUMP</span>
+              </>
+            )}
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-1.5 opacity-80 max-w-[420px] px-6 text-center select-none shrink-0">
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 font-mono tracking-tight">
+            <Keyboard size={12} className="text-slate-500" />
+            <span>CONTROLS:</span>
+          </div>
+          <p className="text-[10px] text-slate-500 font-mono leading-snug">
+            Menu: <span className="text-slate-400">▲/▼ [W/S]</span> • Select: <span className="text-slate-400">[Space/Enter]</span><br />
+            Ball: <span className="text-slate-400">◀/▶ [A/D]</span> • Jump: <span className="text-slate-400">[Space/W]</span> • Back: <span className="text-slate-400">[Esc]</span><br />
+            Cheats: <span className="text-slate-400">[#] Skip Level</span> • <span className="text-slate-400">[*] Mute Tone</span> • <span className="text-slate-400">[R] Reset Level</span>
+          </p>
+        </div>
+      )}
     </div>
   );
 }

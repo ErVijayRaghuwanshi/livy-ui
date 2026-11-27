@@ -868,7 +868,7 @@ export default function SettingsView({
 
       {/* 2. Main Content Area */}
       {mode === "ui" ? (
-        <div className="flex flex-1 min-h-0 overflow-hidden bg-(--color-bg-workbench)">
+        <div className="flex flex-col sm:flex-row flex-1 min-h-0 overflow-hidden bg-(--color-bg-workbench)">
           {/* Left Category Sidebar */}
           <SettingsSidebar
             categories={categories}
@@ -884,7 +884,7 @@ export default function SettingsView({
           />
 
           {/* Right Settings Rows */}
-          <div className="flex-1 bg-(--color-bg-primary) overflow-y-auto px-6 sm:px-8 py-6 space-y-7">
+          <div className="flex-1 bg-(--color-bg-primary) overflow-y-auto px-4 sm:px-8 py-4 sm:py-6 space-y-6 sm:space-y-7">
             {isResetSuccess && (
               <div className="flex items-center gap-2 p-3 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs animate-in fade-in">
                 <Check size={15} />

@@ -25,6 +25,7 @@ import { useSettings } from "../context/SettingsContext";
 import { v4 as uuidv4 } from "uuid";
 import { validateSql } from "../services/sqlValidator";
 import { triggerQueryFeedback } from "../utils/feedback";
+import { useViewport } from "../hooks/useViewport";
 import expand, { extract } from "emmet";
 
 // Configure Monaco to use local files instead of CDN
@@ -1717,6 +1718,7 @@ const SqlEditor = forwardRef(function SqlEditor({
     getPendingDiff,
   } = useSqlFiles();
 
+  const { isMobile } = useViewport();
   const activePendingDiff = activeFile ? getPendingDiff(activeFile.id) : null;
   const activeFileRef = useRef(activeFile);
   const toggleAutoSaveRef = useRef(toggleAutoSave);
@@ -3529,16 +3531,20 @@ const SqlEditor = forwardRef(function SqlEditor({
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Editor & Preview Workspace Area */}
-      <div className="flex-1 min-h-0 relative flex">
+      <div
+        className={`flex-1 min-h-0 relative flex ${
+          isMarkdownFile && markdownViewMode === "split" ? "flex-col sm:flex-row" : ""
+        }`}
+      >
         {/* Monaco Editor Container */}
         <div
-          className={`h-full relative min-h-0 ${
+          className={`relative min-h-0 ${
             !isMarkdownFile
-              ? "w-full"
+              ? "w-full h-full"
               : markdownViewMode === "edit"
-              ? "w-full"
+              ? "w-full h-full"
               : markdownViewMode === "split"
-              ? "w-1/2 border-r border-(--color-border)"
+              ? "w-full h-1/2 sm:w-1/2 sm:h-full border-b sm:border-b-0 sm:border-r border-(--color-border)"
               : "hidden"
           }`}
         >
@@ -3590,13 +3596,13 @@ const SqlEditor = forwardRef(function SqlEditor({
           )}
           {/* AI Diff Review Banner */}
           {activePendingDiff && (
-            <div className="flex items-center justify-between px-3 py-1.5 bg-gradient-to-r from-purple-950/90 via-[#1c1427]/90 to-purple-950/90 border-b border-purple-800/60 text-xs shadow-md z-20 shrink-0 animate-fadeIn backdrop-blur-sm">
+            <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-950/90 via-[#1c1427]/90 to-purple-950/90 border-b border-purple-800/60 text-xs shadow-md z-20 shrink-0 animate-fadeIn backdrop-blur-sm">
               <div className="flex items-center gap-2 min-w-0">
                 <Sparkles size={14} className="text-purple-400 shrink-0 animate-pulse" />
                 <span className="font-semibold text-purple-200 truncate">
                   AI Proposed Changes
                 </span>
-                <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-purple-900/60 border border-purple-700/50 text-purple-200">
+                <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-purple-900/60 border border-purple-700/50 text-purple-200 shrink-0">
                   <span className="text-emerald-400 font-semibold">+{activePendingDiff.addedLines}</span>
                   <span className="text-[#888888] mx-0.5">/</span>
                   <span className="text-red-400 font-semibold">-{activePendingDiff.removedLines}</span>
@@ -3607,8 +3613,8 @@ const SqlEditor = forwardRef(function SqlEditor({
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                {/* Diff View Mode Switcher */}
-                <div className="flex items-center rounded bg-[#181818] border border-(--color-border) p-0.5 text-[11px]">
+                {/* Diff View Mode Switcher (desktop/tablet; mobile always uses inline diff) */}
+                <div className="hidden sm:flex items-center rounded bg-[#181818] border border-(--color-border) p-0.5 text-[11px]">
                   <button
                     type="button"
                     onClick={() => setDiffViewMode("split")}
@@ -3684,7 +3690,7 @@ const SqlEditor = forwardRef(function SqlEditor({
               }}
               options={{
                 readOnly: true,
-                renderSideBySide: diffViewMode === "split",
+                renderSideBySide: !isMobile && diffViewMode === "split",
                 fontSize: settings["editor.fontSize"] || 14,
                 fontFamily: settings["editor.fontFamily"] || "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
                 minimap: { enabled: false },
@@ -3709,7 +3715,7 @@ const SqlEditor = forwardRef(function SqlEditor({
                 glyphMarginWidth: isMarkdownFile ? 0 : 16,
                 lineNumbersMinChars: 2,
                 minimap: {
-                  enabled: settings["editor.minimap.enabled"] ?? true,
+                  enabled: !isMobile && (settings["editor.minimap.enabled"] ?? true),
                   side: "right",
                   showSlider: "mouseover",
                   renderCharacters: true,
@@ -3754,8 +3760,8 @@ const SqlEditor = forwardRef(function SqlEditor({
         {/* Markdown Preview Container */}
         {isMarkdownFile && (markdownViewMode === "split" || markdownViewMode === "preview") && (
           <div
-            className={`h-full min-h-0 overflow-hidden bg-(--color-bg-primary) ${
-              markdownViewMode === "split" ? "w-1/2" : "w-full"
+            className={`min-h-0 overflow-hidden bg-(--color-bg-primary) ${
+              markdownViewMode === "split" ? "w-full h-1/2 sm:w-1/2 sm:h-full" : "w-full h-full"
             }`}
           >
             <MarkdownPreview

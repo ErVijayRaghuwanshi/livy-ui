@@ -22,6 +22,8 @@ import { useSettings } from "./context/SettingsContext";
 import { AiProvider } from "./context/AiContext";
 import AiChatPanel from "./components/AiChat/AiChatPanel";
 import PwaUpdateNotifier from "./components/PwaUpdateNotifier";
+import MobileBottomNav from "./components/MobileBottomNav";
+import { useViewport } from "./hooks/useViewport";
 
 const SIDEBAR_CACHE_KEY = "livy-ui-explorer-collapsed";
 const THEME_CACHE_KEY = "livy-ui-theme";
@@ -48,6 +50,7 @@ export default function App() {
 
   const [activeGames, setActiveGames] = useState({});
   const [pendingGame, setPendingGame] = useState(null); // 'bounce' | 'snake' | null
+  const { isMobile, isCompact } = useViewport();
 
   const handleTriggerBounce = useCallback(() => {
     if (activeTabId) {
@@ -139,27 +142,29 @@ export default function App() {
     localStorage.setItem("livy-ai-panel-width", String(aiPanelWidth));
   }, [aiPanelWidth]);
 
-  const handleAiResizeMouseDown = useCallback(
+  const handleAiResizePointerDown = useCallback(
     (e) => {
       e.preventDefault();
       setIsAiDragging(true);
       const startX = e.clientX;
       const startWidth = aiPanelWidth;
 
-      const handleMouseMove = (moveEvent) => {
+      const handlePointerMove = (moveEvent) => {
         const delta = startX - moveEvent.clientX;
         const newWidth = Math.min(Math.max(startWidth + delta, 280), 750);
         setAiPanelWidth(newWidth);
       };
 
-      const handleMouseUp = () => {
+      const handlePointerUp = () => {
         setIsAiDragging(false);
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
+        document.removeEventListener("pointermove", handlePointerMove);
+        document.removeEventListener("pointerup", handlePointerUp);
+        document.removeEventListener("pointercancel", handlePointerUp);
       };
 
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
+      document.addEventListener("pointermove", handlePointerMove);
+      document.addEventListener("pointerup", handlePointerUp);
+      document.addEventListener("pointercancel", handlePointerUp);
     },
     [aiPanelWidth]
   );
@@ -505,27 +510,30 @@ export default function App() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [files, openFiles, activeTabId, setActiveTab, addFile, removeFile, handleFocusFileSearch, handleFocusSchemaSearch, saveFile, restoreLastClosedTab, requestCloseFile, setActiveSidebarTab, setShowCommandPalette]);
 
-  // Resizable result panel
-  const handleMouseDown = (e) => {
+  // Resizable result panel (supports mouse + touch via PointerEvents)
+  const handleResultResizePointerDown = (e) => {
     e.preventDefault();
     setIsDragging(true);
     const startY = e.clientY;
     const startHeight = resultHeight;
 
-    const onMouseMove = (moveEvent) => {
+    const onPointerMove = (moveEvent) => {
       const delta = startY - moveEvent.clientY;
-      const newHeight = Math.min(Math.max(startHeight + delta, 100), window.innerHeight - 200);
+      const maxH = Math.max(140, window.innerHeight - (isMobile ? 150 : 200));
+      const newHeight = Math.min(Math.max(startHeight + delta, 100), maxH);
       setResultHeight(newHeight);
     };
 
-    const onMouseUp = () => {
+    const onPointerUp = () => {
       setIsDragging(false);
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
+      document.removeEventListener("pointermove", onPointerMove);
+      document.removeEventListener("pointerup", onPointerUp);
+      document.removeEventListener("pointercancel", onPointerUp);
     };
 
-    document.addEventListener("mousemove", onMouseMove);
-    document.addEventListener("mouseup", onMouseUp);
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", onPointerUp);
+    document.addEventListener("pointercancel", onPointerUp);
   };
 
   // Sidebar drag resizer handlers
@@ -640,7 +648,7 @@ export default function App() {
 
   return (
     <AiProvider editorRef={editorRef}>
-      <div className="flex flex-col h-screen overflow-hidden bg-(--color-bg-workbench)">
+      <div className="flex flex-col h-[100dvh] overflow-hidden bg-(--color-bg-workbench)">
         <ToastContainer />
         <PwaUpdateNotifier />
         <KeyboardShortcuts isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
@@ -694,7 +702,15 @@ export default function App() {
           setSidebarCollapsed(false);
         }}
         isAiPanelOpen={isAiPanelOpen}
-        onToggleAiPanel={() => setIsAiPanelOpen((p) => !p)}
+        onToggleAiPanel={() => {
+          setIsAiPanelOpen((p) => {
+            const next = !p;
+            if (next && isCompact) {
+              setSidebarCollapsed(true);
+            }
+            return next;
+          });
+        }}
       />
 
       <div className={`flex flex-1 min-h-0 bg-(--color-bg-workbench) ${isSidebarDragging || isAiDragging ? "select-none" : ""}`}>
@@ -703,69 +719,123 @@ export default function App() {
           activeTab={activeSidebarTab}
           setActiveTab={setActiveSidebarTab}
           sidebarCollapsed={sidebarCollapsed}
-          setSidebarCollapsed={setSidebarCollapsed}
+          setSidebarCollapsed={(valOrUpdater) => {
+            setSidebarCollapsed((prev) => {
+              const next = typeof valOrUpdater === "function" ? valOrUpdater(prev) : valOrUpdater;
+              if (!next && isCompact) {
+                setIsAiPanelOpen(false);
+              }
+              return next;
+            });
+          }}
           isSettingsOpen={isSettingsOpen}
           onOpenSettings={() => handleOpenSettings("commonlyUsed")}
           onOpenWorkspaceModal={() => setShowWorkspaceModal(true)}
           isAiPanelOpen={isAiPanelOpen}
-          onToggleAiPanel={() => setIsAiPanelOpen((p) => !p)}
+          onToggleAiPanel={() => {
+            setIsAiPanelOpen((p) => {
+              const next = !p;
+              if (next && isCompact) {
+                setSidebarCollapsed(true);
+              }
+              return next;
+            });
+          }}
         />
 
         {/* Floating Workspace Islands Container */}
         <div className="flex flex-1 min-h-0 min-w-0 p-[2px] gap-0 overflow-hidden">
-          {/* Sidebar tabs */}
-          <SidebarTabs
-            ref={sidebarTabsRef}
-            activeTab={activeSidebarTab}
-            collapsed={sidebarCollapsed}
-            setCollapsed={setSidebarCollapsed}
-            onInsertAtCursor={handleInsertAtCursor}
-            onRunSql={handleRunSqlFromSidebar}
-            width={sidebarWidth}
-            theme={theme}
-            toggleTheme={toggleTheme}
-            showConnectionModal={showConnectionModal}
-            setShowConnectionModal={setShowConnectionModal}
-            onOpenWorkspaceModal={() => setShowWorkspaceModal(true)}
-          />
-
-          <div
-            onMouseDown={handleSidebarMouseDown}
-            onDoubleClick={handleSidebarDoubleClick}
-            className={`dg-sidebar-resize-handle group ${isSidebarDragging || isCornerHovered ? "is-dragging" : ""}`}
-            title={sidebarCollapsed ? "Click or drag to expand sidebar" : "Drag to resize sidebar width, double-click to reset"}
-          >
-            {/* Hit area */}
-            <div className="absolute -inset-x-2 inset-y-0 z-10" />
-
-            {/* Thin blue line - visible only on hover or dragging */}
-            <div
-              className={`h-full w-[2px] rounded-full transition-opacity duration-150 ${
-                isSidebarDragging || isCornerHovered
-                  ? "bg-(--color-accent) opacity-100"
-                  : "bg-(--color-accent) opacity-0 group-hover:opacity-100"
-              }`}
-            />
-
-            {/* VS Code authentic 3-dot sash hint (vertical grip between sidebar and editor) */}
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-[3px] pointer-events-none">
+          {/* Sidebar tabs: Slide-over overlay drawer on phone/tablet (< 1024px), inline on desktop */}
+          {isCompact ? (
+            !sidebarCollapsed && (
               <div
-                className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
-                  isSidebarDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
-                }`}
+                className="fixed inset-0 z-50 flex bg-black/50 backdrop-blur-[1px] animate-in fade-in duration-150"
+                onClick={() => setSidebarCollapsed(true)}
+              >
+                <div
+                  className="w-[85vw] max-w-[320px] h-full p-1.5"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <SidebarTabs
+                    ref={sidebarTabsRef}
+                    activeTab={activeSidebarTab}
+                    collapsed={sidebarCollapsed}
+                    setCollapsed={setSidebarCollapsed}
+                    onInsertAtCursor={(text) => {
+                      handleInsertAtCursor(text);
+                      if (isMobile) setSidebarCollapsed(true);
+                    }}
+                    onRunSql={(sql) => {
+                      handleRunSqlFromSidebar(sql);
+                      if (isMobile) setSidebarCollapsed(true);
+                    }}
+                    width={sidebarWidth}
+                    theme={theme}
+                    toggleTheme={toggleTheme}
+                    showConnectionModal={showConnectionModal}
+                    setShowConnectionModal={setShowConnectionModal}
+                    onOpenWorkspaceModal={() => setShowWorkspaceModal(true)}
+                    isOverlay={true}
+                  />
+                </div>
+              </div>
+            )
+          ) : (
+            <>
+              <SidebarTabs
+                ref={sidebarTabsRef}
+                activeTab={activeSidebarTab}
+                collapsed={sidebarCollapsed}
+                setCollapsed={setSidebarCollapsed}
+                onInsertAtCursor={handleInsertAtCursor}
+                onRunSql={handleRunSqlFromSidebar}
+                width={sidebarWidth}
+                theme={theme}
+                toggleTheme={toggleTheme}
+                showConnectionModal={showConnectionModal}
+                setShowConnectionModal={setShowConnectionModal}
+                onOpenWorkspaceModal={() => setShowWorkspaceModal(true)}
               />
+
               <div
-                className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
-                  isSidebarDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
-                }`}
-              />
-              <div
-                className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
-                  isSidebarDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
-                }`}
-              />
-            </div>
-          </div>
+                onMouseDown={handleSidebarMouseDown}
+                onDoubleClick={handleSidebarDoubleClick}
+                className={`dg-sidebar-resize-handle group ${isSidebarDragging || isCornerHovered ? "is-dragging" : ""}`}
+                title={sidebarCollapsed ? "Click or drag to expand sidebar" : "Drag to resize sidebar width, double-click to reset"}
+              >
+                {/* Hit area */}
+                <div className="absolute -inset-x-2 inset-y-0 z-10" />
+
+                {/* Thin blue line - visible only on hover or dragging */}
+                <div
+                  className={`h-full w-[2px] rounded-full transition-opacity duration-150 ${
+                    isSidebarDragging || isCornerHovered
+                      ? "bg-(--color-accent) opacity-100"
+                      : "bg-(--color-accent) opacity-0 group-hover:opacity-100"
+                  }`}
+                />
+
+                {/* VS Code authentic 3-dot sash hint (vertical grip between sidebar and editor) */}
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-[3px] pointer-events-none">
+                  <div
+                    className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
+                      isSidebarDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
+                    }`}
+                  />
+                  <div
+                    className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
+                      isSidebarDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
+                    }`}
+                  />
+                  <div
+                    className={`w-[2.5px] h-[2.5px] rounded-full transition-colors duration-150 ${
+                      isSidebarDragging || isCornerHovered ? "bg-white" : "bg-[#6e6e6e] group-hover:bg-white"
+                    }`}
+                  />
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Main Workspace Column (Editor Island + Terminal Island) */}
           <div className="flex flex-col flex-1 min-h-0 min-w-0 gap-0 overflow-hidden">
@@ -888,9 +958,9 @@ export default function App() {
                   {/* Horizontal Resize Handle between Editor Island and Terminal Island */}
                   {shouldShowResults && (
                     <div
-                      onMouseDown={handleMouseDown}
+                      onPointerDown={handleResultResizePointerDown}
                       onDoubleClick={() => setResultHeight(DEFAULT_RESULT_HEIGHT)}
-                      className={`relative h-[2px] shrink-0 cursor-row-resize z-30 flex items-center justify-center select-none group ${
+                      className={`relative h-[2px] shrink-0 cursor-row-resize z-30 flex items-center justify-center select-none touch-none group ${
                         isDragging || isCornerHovered ? "is-dragging" : ""
                       }`}
                       title="Drag to resize results panel height, double-click to reset"
@@ -966,33 +1036,55 @@ export default function App() {
             })()}
           </div>
 
-          {/* Right-Side AI Copilot Panel */}
+          {/* Right-Side AI Copilot Panel: Slide-over overlay drawer on phone/tablet (< 1024px), inline on desktop */}
           {isAiPanelOpen && (
-            <>
+            isCompact ? (
               <div
-                onMouseDown={handleAiResizeMouseDown}
-                className={`dg-sidebar-resize-handle group ${isAiDragging ? "is-dragging" : ""}`}
-                title="Drag to resize panel width"
+                className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-[1px] animate-in fade-in duration-150"
+                onClick={() => setIsAiPanelOpen(false)}
               >
-                <div className="absolute -inset-x-2 inset-y-0 z-10" />
                 <div
-                  className={`h-full w-[2px] rounded-full transition-opacity duration-150 ${
-                    isAiDragging
-                      ? "bg-purple-500 opacity-100"
-                      : "bg-purple-500 opacity-0 group-hover:opacity-100"
-                  }`}
-                />
+                  className="w-[92vw] max-w-[420px] h-full p-1.5"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex flex-col bg-(--color-bg-secondary) rounded-xl border border-(--color-border) shadow-2xl overflow-hidden h-full">
+                    <AiChatPanel
+                      onClose={() => setIsAiPanelOpen(false)}
+                      onOpenSettings={() => {
+                        setIsAiPanelOpen(false);
+                        handleOpenSettings("ai");
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
-              <div
-                style={{ width: `${aiPanelWidth}px`, minWidth: "280px", maxWidth: "750px" }}
-                className="flex flex-col bg-(--color-bg-secondary) rounded-xl border border-(--color-border) shadow-xs shrink-0 overflow-hidden h-full z-20"
-              >
-                <AiChatPanel
-                  onClose={() => setIsAiPanelOpen(false)}
-                  onOpenSettings={() => handleOpenSettings("ai")}
-                />
-              </div>
-            </>
+            ) : (
+              <>
+                <div
+                  onPointerDown={handleAiResizePointerDown}
+                  className={`dg-sidebar-resize-handle touch-none group ${isAiDragging ? "is-dragging" : ""}`}
+                  title="Drag to resize panel width"
+                >
+                  <div className="absolute -inset-x-2 inset-y-0 z-10" />
+                  <div
+                    className={`h-full w-[2px] rounded-full transition-opacity duration-150 ${
+                      isAiDragging
+                        ? "bg-purple-500 opacity-100"
+                        : "bg-purple-500 opacity-0 group-hover:opacity-100"
+                    }`}
+                  />
+                </div>
+                <div
+                  style={{ width: `${aiPanelWidth}px`, minWidth: "280px", maxWidth: "750px" }}
+                  className="flex flex-col bg-(--color-bg-secondary) rounded-xl border border-(--color-border) shadow-xs shrink-0 overflow-hidden h-full z-20"
+                >
+                  <AiChatPanel
+                    onClose={() => setIsAiPanelOpen(false)}
+                    onOpenSettings={() => handleOpenSettings("ai")}
+                  />
+                </div>
+              </>
+            )
           )}
         </div>
       </div>
@@ -1007,6 +1099,17 @@ export default function App() {
         isSqlValidationEnabled={settings["editor.sqlValidation.enabled"] ?? true}
         onToggleSqlValidation={() => editorRef.current?.toggleSqlValidation?.()}
         onGotoLine={() => editorRef.current?.triggerGotoLine?.()}
+      />
+      <MobileBottomNav
+        activeTab={activeSidebarTab}
+        setActiveTab={setActiveSidebarTab}
+        sidebarCollapsed={sidebarCollapsed}
+        setSidebarCollapsed={setSidebarCollapsed}
+        isSettingsOpen={isSettingsOpen}
+        onOpenSettings={() => handleOpenSettings("commonlyUsed")}
+        isAiPanelOpen={isAiPanelOpen}
+        onToggleAiPanel={() => setIsAiPanelOpen((p) => !p)}
+        onCloseAiPanel={() => setIsAiPanelOpen(false)}
       />
     </div>
   </AiProvider>

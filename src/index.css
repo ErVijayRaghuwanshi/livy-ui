@@ -43,13 +43,55 @@ body {
   color: var(--color-text-primary);
   overflow: hidden;
   height: 100vh;
+  height: 100dvh;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #root {
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   background-color: var(--color-bg-workbench);
+}
+
+button,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+/* Hide scrollbars while preserving touch/wheel scrolling */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Safe area padding for notched phones / iOS PWA */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* On touch-only devices (no hover), keep hover-revealed action buttons visible */
+@media (hover: none) {
+  .touch-reveal {
+    opacity: 0.75 !important;
+  }
+  .touch-show {
+    display: flex !important;
+  }
+  .touch-hide {
+    display: none !important;
+  }
+}
+
+@media (max-width: 639px) {
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
 }
 
 /* Diff editor clickable '+' gutter decoration */

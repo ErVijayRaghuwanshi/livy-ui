@@ -44,7 +44,7 @@ export default function SettingsModal({
         className={`flex flex-col bg-(--color-bg-workbench) text-(--color-text-primary) shadow-2xl overflow-hidden transition-all duration-200 ${
           isMaximized
             ? "w-full h-full rounded-none border-none"
-            : "w-[90vw] max-w-[1120px] h-[82vh] max-h-[850px] rounded-xl border border-(--color-border)"
+            : "w-[95vw] sm:w-[90vw] max-w-[1120px] h-[88dvh] sm:h-[82vh] max-h-[850px] rounded-xl border border-(--color-border)"
         }`}
       >
         <SettingsView

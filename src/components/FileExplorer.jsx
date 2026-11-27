@@ -608,7 +608,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
             )}
 
             {/* Folder Actions on Hover (VS Code style: New File, New Folder, Delete) */}
-            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 touch-reveal shrink-0" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={() => handleStartCreate(node.handle, node.path, "file")}
                 className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"
@@ -733,7 +733,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
               />
             )}
 
-            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 touch-reveal shrink-0">
               <button
                 onClick={(e) => handleSaveAs(file.id, e)}
                 className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-emerald-400 transition-colors"
@@ -824,7 +824,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
               />
             )}
 
-            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 touch-reveal shrink-0">
               {workspace.isConnected && (
                 <button
                   onClick={(e) => handleCopyToWorkspace(file, e)}
@@ -1100,7 +1100,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
                       )}
                     </div>
 
-                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 touch-reveal shrink-0">
                       {!file.isLocalDisk && workspace.isConnected && (
                         <button
                           onClick={(e) => handleCopyToWorkspace(file, e)}
@@ -1180,7 +1180,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 touch-reveal shrink-0" onClick={(e) => e.stopPropagation()}>
                   <button
                     onClick={() => handleStartCreate(workspace.handle, "", "file")}
                     className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"
@@ -1267,7 +1267,7 @@ const FileExplorer = forwardRef(({ onInsertAtCursor, showHeaderFooter = true, on
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 touch-reveal" onClick={(e) => e.stopPropagation()}>
                   <button
                     onClick={() => handleStartCreate("browser", "", "file")}
                     className="p-0.5 rounded hover:bg-(--color-bg-primary) text-(--color-text-muted) hover:text-(--color-accent) transition-colors cursor-pointer"

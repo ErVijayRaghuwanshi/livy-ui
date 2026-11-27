@@ -167,7 +167,7 @@ export default function QueryHistory({ isOpen, onClose, onRerun }) {
                   </div>
                   <button
                     onClick={() => onRerun(entry.sql)}
-                    className="shrink-0 p-1.5 rounded opacity-0 group-hover:opacity-100 text-(--color-text-muted) hover:text-(--color-success) hover:bg-(--color-success)/10 transition-all"
+                    className="shrink-0 p-1.5 rounded opacity-0 group-hover:opacity-100 touch-reveal text-(--color-text-muted) hover:text-(--color-success) hover:bg-(--color-success)/10 transition-all"
                     title="Insert into editor"
                   >
                     <Play size={12} />

@@ -37,6 +37,7 @@ const SidebarTabs = forwardRef(({
   showConnectionModal,
   setShowConnectionModal,
   onOpenWorkspaceModal,
+  isOverlay = false,
 }, ref) => {
   const { 
     files, 
@@ -98,12 +99,20 @@ const SidebarTabs = forwardRef(({
     return null;
   }
 
+  const panelStyle = isOverlay
+    ? undefined
+    : { width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` };
+
+  const panelClass = `flex flex-col bg-(--color-bg-secondary) ${
+    isOverlay ? "w-full rounded-r-xl sm:rounded-xl" : "rounded-xl"
+  } border border-(--color-border) shadow-xs shrink-0 overflow-hidden h-full`;
+
   // 1. SETTINGS PANEL TAB
   if (activeTab === "settings") {
     return (
       <div
-        style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
-        className="flex flex-col bg-(--color-bg-secondary) rounded-xl border border-(--color-border) shadow-xs shrink-0 overflow-hidden h-full"
+        style={panelStyle}
+        className={panelClass}
       >
         <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border) bg-(--color-bg-secondary)/10">
           <span className="text-[11px] font-bold text-(--color-text-primary) uppercase tracking-wider">
@@ -131,8 +140,8 @@ const SidebarTabs = forwardRef(({
   if (activeTab === "search") {
     return (
       <div
-        style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
-        className="flex flex-col bg-(--color-bg-secondary) rounded-xl border border-(--color-border) shadow-xs shrink-0 overflow-hidden h-full"
+        style={panelStyle}
+        className={panelClass}
       >
         <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border) bg-(--color-bg-secondary)/10">
           <span className="text-[11px] font-bold text-(--color-text-primary) uppercase tracking-wider">
@@ -155,8 +164,8 @@ const SidebarTabs = forwardRef(({
   if (activeTab === "schema") {
     return (
       <div
-        style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
-        className="flex flex-col bg-(--color-bg-secondary) rounded-xl border border-(--color-border) shadow-xs shrink-0 overflow-hidden h-full"
+        style={panelStyle}
+        className={panelClass}
       >
         <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border) bg-(--color-bg-secondary)/10">
           <span className="text-[11px] font-bold text-(--color-text-primary) uppercase tracking-wider">
@@ -195,8 +204,8 @@ const SidebarTabs = forwardRef(({
   if (activeTab === "compute") {
     return (
       <div
-        style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
-        className="flex flex-col bg-(--color-bg-secondary) rounded-xl border border-(--color-border) shadow-xs shrink-0 overflow-hidden h-full"
+        style={panelStyle}
+        className={panelClass}
       >
         <ComputePanel
           onClose={() => setCollapsed(true)}
@@ -213,8 +222,8 @@ const SidebarTabs = forwardRef(({
 
   return (
     <div
-      style={{ width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }}
-      className="flex flex-col bg-(--color-bg-secondary) rounded-xl border border-(--color-border) shadow-xs shrink-0 overflow-hidden h-full"
+      style={panelStyle}
+      className={panelClass}
     >
       {/* Explorer Top Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border) bg-(--color-bg-secondary)/10">
@@ -257,7 +266,7 @@ const SidebarTabs = forwardRef(({
                 e.stopPropagation();
                 closeAllFiles();
               }}
-              className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-error) transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
+              className="p-1 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-error) transition-colors opacity-0 group-hover:opacity-100 touch-reveal cursor-pointer"
               title="Close All Editors"
             >
               <CircleMinus size={13} />
@@ -309,12 +318,12 @@ const SidebarTabs = forwardRef(({
                       
                       <div className="flex items-center justify-center w-4 h-4 ml-2" onClick={(e) => e.stopPropagation()}>
                         {isDirty && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-white group-hover:hidden" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-white group-hover:hidden touch-hide" />
                         )}
                         <button
                           onClick={() => requestCloseFile(file.id)}
-                          className={`p-0.5 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-error) transition-colors cursor-pointer ${
-                            isDirty ? "hidden group-hover:flex" : "opacity-0 group-hover:opacity-100 flex"
+                          className={`p-0.5 rounded hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-error) transition-colors cursor-pointer touch-reveal ${
+                            isDirty ? "hidden group-hover:flex touch-show" : "opacity-0 group-hover:opacity-100 flex"
                           }`}
                           title="Close Tab"
                         >

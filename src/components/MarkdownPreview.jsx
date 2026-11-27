@@ -216,7 +216,7 @@ export default function MarkdownPreview({
 
         const copyBtn = document.createElement("button");
         copyBtn.className =
-          "md-copy-btn absolute top-2 right-2 px-2 py-1 rounded bg-(--color-bg-secondary)/90 border border-(--color-border) text-(--color-text-muted) hover:text-(--color-text-primary) opacity-0 group-hover:opacity-100 transition-all cursor-pointer text-[11px] flex items-center gap-1 shadow-xs";
+          "md-copy-btn absolute top-2 right-2 px-2 py-1 rounded bg-(--color-bg-secondary)/90 border border-(--color-border) text-(--color-text-muted) hover:text-(--color-text-primary) opacity-0 group-hover:opacity-100 touch-reveal transition-all cursor-pointer text-[11px] flex items-center gap-1 shadow-xs";
         copyBtn.title = "Copy snippet";
         copyBtn.innerHTML = `
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

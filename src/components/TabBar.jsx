@@ -136,13 +136,13 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
   const isActiveMarkdown = activeFile?.name?.toLowerCase().endsWith(".md");
 
   return (
-    <div className="flex items-center bg-(--color-bg-workbench) border-b border-(--color-border) shrink-0 overflow-x-auto px-1.5 h-9 gap-1 select-none">
+    <div className="flex items-center bg-(--color-bg-workbench) border-b border-(--color-border) shrink-0 overflow-x-auto no-scrollbar touch-pan-x px-1.5 h-10 sm:h-9 gap-1 select-none">
       {!isActiveMarkdown && (
         <div className="flex items-center gap-1 pr-1.5 border-r border-(--color-border)/60 shrink-0">
           {running ? (
             <button
               onClick={handleCancel}
-              className="group flex items-center justify-center w-6 h-6 rounded-md bg-(--color-error)/15 text-(--color-error) hover:bg-(--color-error)/25 active:scale-95 transition-all cursor-pointer select-none"
+              className="group flex items-center justify-center w-7 h-7 sm:w-6 sm:h-6 rounded-md bg-(--color-error)/15 text-(--color-error) hover:bg-(--color-error)/25 active:scale-95 transition-all cursor-pointer select-none"
               title="Cancel Query"
             >
               <Loader2 size={12} className="animate-spin text-(--color-error)" />
@@ -151,7 +151,7 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
             <button
               onClick={handleRun}
               disabled={!canRun}
-              className={`group flex items-center justify-center w-6 h-6 rounded-md transition-all border select-none active:scale-95 ${
+              className={`group flex items-center justify-center w-7 h-7 sm:w-6 sm:h-6 rounded-md transition-all border select-none active:scale-95 ${
                 canRun
                   ? "bg-(--color-success)/10 text-(--color-success) border-(--color-success)/30 hover:border-(--color-success)/55 hover:bg-(--color-success)/20 cursor-pointer shadow-xs"
                   : "bg-transparent text-(--color-text-muted) border-transparent opacity-40 cursor-not-allowed pointer-events-none"
@@ -163,7 +163,7 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
           )}
           <button
             onClick={handleInsertSnippet}
-            className="group flex items-center justify-center w-6 h-6 rounded-md transition-all border border-transparent text-(--color-text-muted) hover:text-amber-400 hover:bg-(--color-bg-tertiary)/40 cursor-pointer select-none active:scale-95"
+            className="group flex items-center justify-center w-7 h-7 sm:w-6 sm:h-6 rounded-md transition-all border border-transparent text-(--color-text-muted) hover:text-amber-400 hover:bg-(--color-bg-tertiary)/40 cursor-pointer select-none active:scale-95"
             title={`Insert SQL Snippet (${isMac ? "⌥S" : "Alt+S"})`}
           >
             <Sparkles size={11} className="transition-transform group-hover:scale-110" />
@@ -288,14 +288,16 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
 
             <div className="flex items-center ml-auto shrink-0 relative w-4 h-4 justify-center">
               {dirtyFiles[file.id] && (
-                <span className="w-1.5 h-1.5 rounded-full bg-white group-hover:hidden transition-all" />
+                <span className={`w-1.5 h-1.5 rounded-full bg-white group-hover:hidden transition-all ${activeTabId === file.id ? "touch-hide" : ""}`} />
               )}
               <button
                 onClick={(e) => handleClose(e, file.id)}
                 onDoubleClick={(e) => e.stopPropagation()}
-                className={`p-0.5 rounded hover:bg-(--color-bg-tertiary) hover:text-(--color-error) transition-opacity absolute ${
+                className={`p-0.5 rounded hover:bg-(--color-bg-tertiary) hover:text-(--color-error) transition-opacity absolute touch-reveal ${
                   dirtyFiles[file.id]
-                    ? "opacity-0 group-hover:opacity-100 hidden group-hover:block"
+                    ? activeTabId === file.id
+                      ? "opacity-0 group-hover:opacity-100 hidden group-hover:block touch-show"
+                      : "opacity-0 group-hover:opacity-100 hidden group-hover:block"
                     : "opacity-0 group-hover:opacity-100"
                 }`}
                 title="Close tab"
@@ -309,7 +311,7 @@ export default function TabBar({ sidebarCollapsed, setSidebarCollapsed, editorRe
 
       <button
         onClick={() => addFile()}
-        className="flex items-center justify-center w-6 h-6 rounded-md text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary)/40 transition-colors shrink-0 ml-0.5 cursor-pointer"
+        className="flex items-center justify-center w-7 h-7 sm:w-6 sm:h-6 rounded-md text-(--color-text-muted) hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary)/40 transition-colors shrink-0 ml-0.5 cursor-pointer"
         title={`New File (${isMac ? "⌘+⌥+N" : "Ctrl+Alt+N"})`}
         aria-label="New File"
       >

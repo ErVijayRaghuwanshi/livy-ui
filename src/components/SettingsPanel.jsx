@@ -210,7 +210,7 @@ export default function SettingsPanel({
                           e.stopPropagation();
                           removeHost(h.id);
                         }}
-                        className="p-1 rounded text-(--color-text-muted) hover:text-(--color-error) hover:bg-(--color-error)/10 transition-colors opacity-0 group-hover:opacity-100 dg-spring-btn"
+                        className="p-1 rounded text-(--color-text-muted) hover:text-(--color-error) hover:bg-(--color-error)/10 transition-colors opacity-0 group-hover:opacity-100 touch-reveal dg-spring-btn"
                         title="Delete Host"
                       >
                         <Trash2 size={12} />

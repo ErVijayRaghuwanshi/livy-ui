@@ -564,7 +564,7 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
                       {host.id !== "default" && host.id !== "default-doris" && (
                         <button
                           onClick={() => removeHost(host.id)}
-                          className="opacity-0 group-hover:opacity-100 p-0.5 text-(--color-text-muted) hover:text-rose-400 transition-all cursor-pointer"
+                          className="opacity-0 group-hover:opacity-100 touch-reveal p-0.5 text-(--color-text-muted) hover:text-rose-400 transition-all cursor-pointer"
                           title="Delete Host"
                         >
                           <Trash2 size={11} />
@@ -729,7 +729,7 @@ export default function ComputePanel({ onClose, onInsertAtCursor, onRunSql, setS
                         {onRunSql && (
                           <button
                             onClick={() => quickRunSql(item.sql)}
-                            className="opacity-0 group-hover:opacity-100 flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500 hover:text-black transition-all cursor-pointer"
+                            className="opacity-0 group-hover:opacity-100 touch-reveal flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500 hover:text-black transition-all cursor-pointer"
                             title="Run query immediately"
                           >
                             <Play size={8} className="fill-current" />

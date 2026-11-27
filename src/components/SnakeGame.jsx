@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Volume2, VolumeX, RotateCcw, X, Keyboard, Gamepad2 } from 'lucide-react';
+import { Volume2, VolumeX, RotateCcw, X, Keyboard, Gamepad2, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, CornerDownLeft } from 'lucide-react';
+import { useViewport } from '../hooks/useViewport';
 
 // ==========================================
 // AUDIO SYNTHESIZER (Web Audio API)
@@ -138,6 +139,8 @@ export default function SnakeGame({ onClose }) {
   const [scale, setScale] = useState(1.8);
   const parentContainerRef = useRef(null);
   const canvasRef = useRef(null);
+  const touchStartRef = useRef(null);
+  const { isTouch, isMobile } = useViewport();
 
   const engineRef = useRef({
     snake: [],
@@ -154,14 +157,17 @@ export default function SnakeGame({ onClose }) {
       if (!parentContainerRef.current) return;
       const { clientWidth, clientHeight } = parentContainerRef.current;
       
+      const reservedHeight = (isTouch || clientWidth < 768) ? 195 : 90;
+      const availableHeight = Math.max(160, clientHeight - reservedHeight);
+
       const designWidth = 330;
       const designHeight = 250;
 
       const scaleX = clientWidth / designWidth;
-      const scaleY = clientHeight / designHeight;
+      const scaleY = availableHeight / designHeight;
       
       const finalScale = Math.min(scaleX, scaleY) * 0.92;
-      setScale(Math.max(1, finalScale));
+      setScale(Math.max(0.72, Math.min(finalScale, 2.2)));
     };
 
     const observer = new ResizeObserver(() => updateScale());
@@ -169,7 +175,7 @@ export default function SnakeGame({ onClose }) {
     updateScale(); // Initial call
 
     return () => observer.disconnect();
-  }, []);
+  }, [isTouch]);
 
   const toggleMute = () => {
     const nextMuted = !muted;
@@ -442,31 +448,72 @@ export default function SnakeGame({ onClose }) {
     return () => cancelAnimationFrame(animId);
   }, [gameState, theme, speed]);
 
+  const steerDirection = (dir) => {
+    const isMenuState = ['MENU', 'LCD_COLOR'].includes(gameState);
+    if (isMenuState) {
+      if (dir === 'UP') pressPhoneKey('up');
+      else if (dir === 'DOWN') pressPhoneKey('down');
+      return;
+    }
+    if (gameState !== 'PLAYING') return;
+    const engine = engineRef.current;
+    if (dir === 'LEFT' && engine.direction !== 'RIGHT') engine.nextDirection = 'LEFT';
+    else if (dir === 'RIGHT' && engine.direction !== 'LEFT') engine.nextDirection = 'RIGHT';
+    else if (dir === 'UP' && engine.direction !== 'DOWN') engine.nextDirection = 'UP';
+    else if (dir === 'DOWN' && engine.direction !== 'UP') engine.nextDirection = 'DOWN';
+  };
+
+  const handleLcdTouchStart = (e) => {
+    if (e.touches.length > 0) {
+      touchStartRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+      };
+    }
+  };
+
+  const handleLcdTouchEnd = (e) => {
+    if (!touchStartRef.current || e.changedTouches.length === 0) return;
+    const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
+    const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
+    touchStartRef.current = null;
+
+    if (Math.abs(dx) < 20 && Math.abs(dy) < 20) return;
+
+    if (Math.abs(dx) > Math.abs(dy)) {
+      steerDirection(dx < 0 ? 'LEFT' : 'RIGHT');
+    } else {
+      steerDirection(dy < 0 ? 'UP' : 'DOWN');
+    }
+  };
+
   const activeThemeColors = SCREEN_THEMES[theme];
   const listItems = getMenuList();
+  const showTouchControls = isTouch || isMobile;
 
   return (
     <div 
       ref={parentContainerRef}
       onClick={() => synth.init()}
-      className="w-full h-full bg-slate-950 flex flex-col items-center justify-center overflow-hidden relative select-none"
+      className="w-full h-full bg-slate-950 flex flex-col items-center justify-between py-3 sm:py-4 overflow-hidden relative select-none"
     >
-      {/* Floating Close button */}
-      <button 
-        onClick={onClose}
-        className="absolute top-4 right-4 p-2 rounded-full bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-all cursor-pointer shadow-lg z-50 hover:scale-105 active:scale-95"
-        title="Exit Game"
-      >
-        <X size={18} />
-      </button>
-
-      {/* Retro Header overlay */}
-      <div className="absolute top-4 left-6 flex items-center gap-2 text-xs font-semibold text-slate-400 tracking-wider">
-        <Gamepad2 size={16} className="text-emerald-500 animate-pulse" />
-        <span>LIVY RETRO SNAKE ARCADE</span>
+      {/* Top Header Bar */}
+      <div className="w-full flex items-center justify-between px-4 sm:px-6 shrink-0 z-40">
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 tracking-wider">
+          <Gamepad2 size={16} className="text-emerald-500 animate-pulse" />
+          <span className="truncate">LIVY RETRO SNAKE ARCADE</span>
+        </div>
+        <button 
+          onClick={onClose}
+          className="p-2 rounded-full bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-all cursor-pointer shadow-lg hover:scale-105 active:scale-95"
+          title="Exit Game"
+        >
+          <X size={18} />
+        </button>
       </div>
 
       {/* Main retro scaled game envelope */}
+      <div className="flex-1 flex items-center justify-center w-full min-h-0">
       <div 
         style={{
           transform: `scale(${scale})`,
@@ -503,7 +550,11 @@ export default function SnakeGame({ onClose }) {
           </div>
 
           {/* ACTIVE LCD DISPLAY PANEL */}
-          <div className="relative overflow-hidden w-full aspect-[300/180] bg-black/10 rounded border border-black/20">
+          <div
+            onTouchStart={handleLcdTouchStart}
+            onTouchEnd={handleLcdTouchEnd}
+            className="relative overflow-hidden w-full aspect-[300/180] bg-black/10 rounded border border-black/20 touch-none"
+          >
             
             {gameState === 'PLAYING' ? (
               <canvas
@@ -615,19 +666,100 @@ export default function SnakeGame({ onClose }) {
 
         </div>
       </div>
-
-      {/* Keyboard Controls Bar */}
-      <div className="absolute bottom-6 flex flex-col items-center gap-1.5 opacity-80 max-w-[420px] px-6 text-center select-none">
-        <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 font-mono tracking-tight">
-          <Keyboard size={12} className="text-slate-500" />
-          <span>CONTROLS:</span>
-        </div>
-        <p className="text-[10px] text-slate-500 font-mono leading-snug">
-          Menu: <span className="text-slate-400">▲/▼ [W/S]</span> • Select: <span className="text-slate-400">[Space/Enter]</span><br />
-          Steer Snake: <span className="text-slate-400">WASD or Arrow Keys</span> • Back: <span className="text-slate-400">[Esc]</span><br />
-          Toggles: <span className="text-slate-400">[*] Mute Tone</span> • <span className="text-slate-400">[R] Reset Game</span>
-        </p>
       </div>
+
+      {/* On-Screen Touch D-Pad OR Keyboard Controls Bar */}
+      {showTouchControls ? (
+        <div className="w-full max-w-[420px] px-4 pb-2 flex items-center justify-between gap-3 shrink-0 z-40 touch-none select-none">
+          {/* 4-Way D-Pad */}
+          <div className="grid grid-cols-3 gap-1.5 w-[156px]">
+            <div />
+            <button
+              type="button"
+              onPointerDown={(e) => { e.preventDefault(); synth.init(); steerDirection('UP'); }}
+              className="h-11 rounded-xl bg-slate-900/90 active:bg-emerald-600/40 border border-slate-700 active:border-emerald-400 text-slate-200 flex items-center justify-center shadow-lg touch-none"
+              aria-label="Up"
+            >
+              <ArrowUp size={18} />
+            </button>
+            <div />
+            <button
+              type="button"
+              onPointerDown={(e) => { e.preventDefault(); synth.init(); steerDirection('LEFT'); }}
+              className="h-11 rounded-xl bg-slate-900/90 active:bg-emerald-600/40 border border-slate-700 active:border-emerald-400 text-slate-200 flex items-center justify-center shadow-lg touch-none"
+              aria-label="Left"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <button
+              type="button"
+              onPointerDown={(e) => { e.preventDefault(); synth.init(); steerDirection('DOWN'); }}
+              className="h-11 rounded-xl bg-slate-900/90 active:bg-emerald-600/40 border border-slate-700 active:border-emerald-400 text-slate-200 flex items-center justify-center shadow-lg touch-none"
+              aria-label="Down"
+            >
+              <ArrowDown size={18} />
+            </button>
+            <button
+              type="button"
+              onPointerDown={(e) => { e.preventDefault(); synth.init(); steerDirection('RIGHT'); }}
+              className="h-11 rounded-xl bg-slate-900/90 active:bg-emerald-600/40 border border-slate-700 active:border-emerald-400 text-slate-200 flex items-center justify-center shadow-lg touch-none"
+              aria-label="Right"
+            >
+              <ArrowRight size={18} />
+            </button>
+          </div>
+
+          {/* Right side Menu / Reset / Select */}
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-1.5">
+              {gameState === 'PLAYING' && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); startGame(); }}
+                  className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-700 text-slate-300 active:bg-slate-800"
+                  title="Reset Game"
+                  aria-label="Reset Game"
+                >
+                  <RotateCcw size={15} />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (gameState !== 'MENU') handleGoToMenu();
+                  else onClose();
+                }}
+                className="px-3 py-2 rounded-lg bg-slate-900/90 border border-slate-700 text-[10px] font-mono font-bold text-slate-300 active:bg-slate-800"
+              >
+                {gameState === 'MENU' ? 'EXIT' : 'MENU'}
+              </button>
+            </div>
+            {['MENU', 'LCD_COLOR'].includes(gameState) && (
+              <button
+                type="button"
+                onPointerDown={(e) => { e.preventDefault(); synth.init(); pressPhoneKey('select'); }}
+                className="w-24 h-11 rounded-xl bg-emerald-600/25 active:bg-emerald-500/50 border border-emerald-500/50 text-emerald-300 font-mono text-xs font-bold flex items-center justify-center gap-1 shadow-lg touch-none"
+              >
+                <CornerDownLeft size={16} />
+                <span>SELECT</span>
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-1.5 opacity-80 max-w-[420px] px-6 text-center select-none shrink-0">
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 font-mono tracking-tight">
+            <Keyboard size={12} className="text-slate-500" />
+            <span>CONTROLS:</span>
+          </div>
+          <p className="text-[10px] text-slate-500 font-mono leading-snug">
+            Menu: <span className="text-slate-400">▲/▼ [W/S]</span> • Select: <span className="text-slate-400">[Space/Enter]</span><br />
+            Steer Snake: <span className="text-slate-400">WASD or Arrow Keys</span> • Back: <span className="text-slate-400">[Esc]</span><br />
+            Toggles: <span className="text-slate-400">[*] Mute Tone</span> • <span className="text-slate-400">[R] Reset Game</span>
+          </p>
+        </div>
+      )}
     </div>
   );
 }

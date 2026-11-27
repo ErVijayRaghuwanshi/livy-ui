@@ -465,7 +465,7 @@ export default function ChatMessage({ message }) {
           {/* Subtle Hover Action: Copy */}
           <button
             onClick={handleCopyFull}
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-[#858585] hover:text-white rounded hover:bg-(--color-bg-hover) cursor-pointer shrink-0"
+            className="opacity-0 group-hover:opacity-100 touch-reveal transition-opacity p-1 text-[#858585] hover:text-white rounded hover:bg-(--color-bg-hover) cursor-pointer shrink-0"
             title="Copy message"
           >
             {copiedFull ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}

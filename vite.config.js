@@ -14,6 +14,7 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: [
         "favicon.svg",
+        "favicon-32.png",
         "livy-ui.png",
         "robots.txt",
         "sitemap.xml",

@@ -99,13 +99,13 @@ export default function StatusBar({
         )}
 
         {/* Host */}
-        <span className="text-(--color-text-muted)/70 flex items-center gap-1">
+        <span className="hidden md:flex text-(--color-text-muted)/70 items-center gap-1">
           <span>{isDoris ? "🐬" : "⚡"}</span>
           <span>{activeHost.name}</span>
         </span>
 
         {/* Connection status */}
-        <div className="flex items-center gap-1.5" title={
+        <div className="flex items-center gap-1.5 shrink-0" title={
           !isOnline
             ? "Browser Offline: running on cached PWA app shell"
             : isServerReachable === false
@@ -120,7 +120,7 @@ export default function StatusBar({
                   ? "bg-amber-500 animate-pulse"
                   : "bg-green-500"
             }`} />
-          <span className="text-[10px] text-(--color-text-muted)/70">
+          <span className="hidden sm:inline text-[10px] text-(--color-text-muted)/70">
             {!isOnline ? "Offline" : isServerReachable === false ? (isDoris ? "Doris Unreachable" : "Server Down") : "Connected"}
           </span>
         </div>
@@ -164,10 +164,10 @@ export default function StatusBar({
       </div>
 
       {/* Right */}
-      <div className="flex items-center gap-3 shrink-0 ml-auto">
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto">
         {/* Language indicator (read-only, determined strictly by file extension) */}
         {activeFile && !activeFile.isSpecial && activeFile.id !== "settings" && (
-          <span className="px-1.5 py-0.5 font-medium text-[11px] text-(--color-text-muted) select-none">
+          <span className="hidden sm:inline px-1.5 py-0.5 font-medium text-[11px] text-(--color-text-muted) select-none">
             {getLanguageLabel(activeFile.name, isDoris)}
           </span>
         )}
@@ -181,7 +181,7 @@ export default function StatusBar({
           >
             <span>Ln {cursorPosition.lineNumber}, Col {cursorPosition.column}</span>
             {cursorPosition.selectedCount > 0 && (
-              <span className="text-(--color-accent) font-semibold ml-1">
+              <span className="hidden sm:inline text-(--color-accent) font-semibold ml-1">
                 ({cursorPosition.selectedCount} selected)
               </span>
             )}
@@ -191,7 +191,7 @@ export default function StatusBar({
         {/* Auto-Save Toggle */}
         <button
           onClick={toggleAutoSave}
-          className="flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary)/40 transition-all cursor-pointer"
+          className="hidden sm:flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm hover:text-(--color-text-primary) hover:bg-(--color-bg-tertiary)/40 transition-all cursor-pointer"
           title={`Auto-Save: ${autoSave ? "ON" : "OFF"} (Click to toggle)`}
         >
           <span className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${autoSave ? "bg-blue-400 shadow-[0_0_6px_rgba(96,165,250,0.6)] animate-pulse" : "bg-gray-500"}`} />

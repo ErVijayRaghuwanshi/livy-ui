@@ -21,54 +21,37 @@ export default function TitleBar({ onOpenCommandPalette, onOpenComputePanel, isA
   };
 
   return (
-    <div className="relative flex items-center justify-between h-9 px-3 bg-(--color-bg-secondary) border-b border-(--color-border) shrink-0 select-none text-xs text-(--color-text-secondary) z-40">
-      {/* Left: Brand logo & name + active compute badge */}
-      <div className="flex items-center gap-2 font-semibold text-(--color-text-primary) z-10">
-        <Zap size={14} className="text-(--color-accent) fill-current" />
-        <span className="tracking-tight text-[12px] font-medium">Livy UI</span>
-        {/* <span className={`text-[9px] font-semibold uppercase px-1.5 py-0.2 rounded tracking-wider border select-none ${
-          isDoris
-            ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/30"
-            : "bg-amber-500/10 text-amber-400 border-amber-500/30"
-        }`}>
-          {isDoris ? "🐬 Doris" : "⚡ Spark"}
-        </span> */}
+    <div className="relative flex items-center justify-between h-10 sm:h-9 px-2.5 sm:px-3 bg-(--color-bg-secondary) border-b border-(--color-border) shrink-0 select-none text-xs text-(--color-text-secondary) z-40 gap-2">
+      {/* Left: Brand logo & name */}
+      <div className="flex items-center gap-1.5 sm:gap-2 font-semibold text-(--color-text-primary) z-10 shrink-0">
+        <Zap size={15} className="text-(--color-accent) fill-current shrink-0" />
+        <span className="hidden sm:inline tracking-tight text-[12px] font-medium">Livy UI</span>
       </div>
 
-      {/* Center: Command Center Pill (Dead Centered Horizontally) */}
-      <div className="absolute left-1/2 -translate-x-1/2 w-full max-w-[360px] sm:max-w-[460px] px-4 z-10 pointer-events-auto">
+      {/* Center: Command Center Pill (Flex on mobile, Dead Centered Horizontally on sm+) */}
+      <div className="flex-1 min-w-0 max-w-[460px] sm:absolute sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:px-4 z-10 pointer-events-auto">
         <button
           onClick={onOpenCommandPalette}
-          className="flex items-center justify-between w-full h-6.5 px-3 bg-(--color-bg-primary) hover:bg-(--color-bg-tertiary)/60 border border-(--color-border) hover:border-(--color-accent)/40 rounded-lg text-(--color-text-muted) hover:text-(--color-text-primary) transition-all cursor-pointer shadow-xs"
+          className="flex items-center justify-between w-full h-7 sm:h-6.5 px-2.5 sm:px-3 bg-(--color-bg-primary) hover:bg-(--color-bg-tertiary)/60 border border-(--color-border) hover:border-(--color-accent)/40 rounded-lg text-(--color-text-muted) hover:text-(--color-text-primary) transition-all cursor-pointer shadow-xs"
         >
           <div className="flex items-center gap-1.5 truncate">
             <Search size={12} className="shrink-0 text-(--color-text-muted)" />
             <span className="truncate text-[11px]">
-              Search files or run commands
+              <span className="sm:hidden">Search or commands…</span>
+              <span className="hidden sm:inline">Search files or run commands</span>
             </span>
           </div>
-          <span className="text-[9px] font-mono bg-(--color-bg-tertiary) px-1.5 py-0.5 rounded border border-(--color-border) text-(--color-text-muted)">
+          <span className="hidden sm:inline text-[9px] font-mono bg-(--color-bg-tertiary) px-1.5 py-0.5 rounded border border-(--color-border) text-(--color-text-muted) shrink-0">
             {isMac ? "⌘P" : "Ctrl+P"}
           </span>
         </button>
       </div>
 
-      {/* Right: Quick compute switcher & AI Copilot toggle */}
-      <div className="flex items-center gap-2 z-10">
-        {/* {canInstall && !isStandalone && (
-          <button
-            onClick={installApp}
-            className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 hover:text-white text-[11px] font-medium transition-all cursor-pointer shadow-xs"
-            title="Install Livy UI as a standalone desktop app"
-          >
-            <Download size={12} className="text-blue-400" />
-            <span className="hidden sm:inline">Install App</span>
-          </button>
-        )} */}
-
+      {/* Right: AI Copilot toggle */}
+      <div className="flex items-center gap-2 z-10 shrink-0">
         <button
           onClick={onToggleAiPanel}
-          className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] transition-all cursor-pointer ${
+          className={`flex items-center gap-1.5 px-2.5 sm:px-2 py-1 min-h-[28px] sm:min-h-0 rounded-md border text-[11px] transition-all cursor-pointer ${
             isAiPanelOpen
               ? "bg-purple-950/60 text-purple-300 border-purple-500/50 shadow-[0_0_8px_rgba(168,85,247,0.3)]"
               : "bg-(--color-bg-primary) hover:bg-(--color-bg-tertiary)/60 text-(--color-text-secondary) hover:text-white border-(--color-border)"
@@ -78,25 +61,6 @@ export default function TitleBar({ onOpenCommandPalette, onOpenComputePanel, isA
           <Sparkles size={12} className={isAiPanelOpen ? "text-purple-400" : "text-[#858585]"} />
           <span className="font-medium text-[11px]">Chat</span>
         </button>
-
-        {/* <button
-          onClick={onOpenComputePanel}
-          className="flex items-center gap-2 px-2.5 py-1 bg-(--color-bg-primary) hover:bg-(--color-bg-tertiary)/60 border border-(--color-border) hover:border-(--color-accent)/40 rounded-md transition-all cursor-pointer shadow-2xs group"
-          title={`Compute Manager: ${activeHost.name} (${isDoris ? "Apache Doris" : "Spark Livy"}). Click to open.`}
-        >
-          <span className="text-xs select-none">{isDoris ? "🐬" : "⚡"}</span>
-          <span className={`w-1.5 h-1.5 rounded-full ${isDoris ? "bg-cyan-400" : (stateColors[sessionState] || "bg-gray-500")}`} />
-          <span className="text-[10px] font-mono text-(--color-text-secondary) group-hover:text-(--color-text-primary) font-medium truncate max-w-28">
-            {activeHost.name}
-          </span>
-          <span className={`text-[8px] font-bold uppercase px-1 py-0.2 rounded ${
-            isDoris
-              ? "bg-cyan-500/15 text-cyan-400 border border-cyan-500/25"
-              : "bg-amber-500/15 text-amber-400 border border-amber-500/25"
-          }`}>
-            {isDoris ? "Doris" : "Spark"}
-          </span>
-        </button> */}
       </div>
     </div>
   );

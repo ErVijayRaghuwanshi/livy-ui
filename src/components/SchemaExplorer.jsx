@@ -129,7 +129,7 @@ function TreeNode({ icon: Icon, label, sublabel, children, onOpen, onCopy, onIns
 
         )}
 
-        <div className={`ml-auto flex items-center gap-1 ${copied ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-opacity`}>
+        <div className={`ml-auto flex items-center gap-1 ${copied ? "opacity-100" : "opacity-0 group-hover:opacity-100 touch-reveal"} transition-opacity`}>
           {onRefresh && (
             <button
               onClick={(e) => {

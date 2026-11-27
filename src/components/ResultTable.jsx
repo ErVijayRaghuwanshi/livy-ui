@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AlertCircle, Loader2, Table, CheckCircle2, Ban, Clock, FileText, Copy, Check, Download, Search, X, FilterX, Hash, Type, Calendar, ToggleLeft, Binary, List, Braces, ChevronDown, Trash2, Plus, History, Workflow, FileSpreadsheet } from "lucide-react";
 import { useSqlFiles } from "../context/SqlFilesContext";
 import ExplainPlanView, { isExplainResult, extractPlanText } from "./ExplainPlanView";
+import { useViewport } from "../hooks/useViewport";
 
 export function getColumnType(field) {
   if (!field) return "string";
@@ -644,10 +645,12 @@ export default function ResultTable({ onClose, onMaximizeToggle, isMaximized }) 
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  const { isMobile } = useViewport();
   const [historyVisible, setHistoryVisible] = useState(() => {
     try {
       const saved = localStorage.getItem("livy-result-history-visible");
-      return saved !== null ? JSON.parse(saved) : true;
+      if (saved !== null) return JSON.parse(saved);
+      return typeof window !== "undefined" ? window.innerWidth >= 640 : true;
     } catch (e) {
       return true;
     }
@@ -759,9 +762,22 @@ export default function ResultTable({ onClose, onMaximizeToggle, isMaximized }) 
         )}
       </div>
 
-      {/* Right panel: VS Code terminal style selector */}
+      {/* Right panel: VS Code terminal style selector (slide-over drawer on mobile, inline on sm+) */}
       {historyVisible ? (
-        <div className="w-[180px] shrink-0 border-l border-(--color-border) bg-(--color-bg-secondary) flex flex-col h-full overflow-hidden">
+        <>
+          {isMobile && (
+            <div
+              className="absolute inset-0 z-20 bg-black/40 backdrop-blur-[1px]"
+              onClick={toggleHistory}
+            />
+          )}
+          <div
+            className={`${
+              isMobile
+                ? "absolute inset-y-0 right-0 z-30 w-[220px] shadow-2xl"
+                : "w-[180px] shrink-0"
+            } border-l border-(--color-border) bg-(--color-bg-secondary) flex flex-col h-full overflow-hidden`}
+          >
           <div className="flex items-center justify-between px-3 py-2 border-b border-(--color-border) text-[10px] font-bold text-(--color-text-secondary) tracking-wider uppercase bg-(--color-bg-secondary) select-none h-9 shrink-0">
             <span>Run History</span>
             <div className="flex items-center gap-1.5">
@@ -799,7 +815,10 @@ export default function ResultTable({ onClose, onMaximizeToggle, isMaximized }) 
               return (
                 <div
                   key={item.id}
-                  onClick={() => selectResult(activeTabId, item.id)}
+                  onClick={() => {
+                    selectResult(activeTabId, item.id);
+                    if (isMobile) toggleHistory();
+                  }}
                   className={`group flex items-center justify-between px-3 py-1.5 cursor-pointer text-xs select-none transition-colors border-l-2 ${
                     isActive
                       ? "bg-(--color-bg-tertiary) text-(--color-text-primary) border-(--color-accent)"
@@ -854,9 +873,9 @@ export default function ResultTable({ onClose, onMaximizeToggle, isMaximized }) 
                     </div>
                   </div>
 
-                  {/* Delete button, visible on hover */}
+                  {/* Delete button, visible on hover or touch */}
                   {renamingItemId !== item.id && (
-                    <div className="opacity-0 group-hover:opacity-100 flex items-center shrink-0 ml-1">
+                    <div className="opacity-0 group-hover:opacity-100 touch-reveal flex items-center shrink-0 ml-1">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -874,6 +893,7 @@ export default function ResultTable({ onClose, onMaximizeToggle, isMaximized }) 
             })}
           </div>
         </div>
+        </>
       ) : (
         <button
           onClick={toggleHistory}

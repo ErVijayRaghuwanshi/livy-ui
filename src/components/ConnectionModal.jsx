@@ -366,28 +366,28 @@ export default function ConnectionModal({ isOpen, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
-      <div className="dg-glassmorphic border border-(--color-border)/50 rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col h-[580px] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-200" onClick={(e) => e.stopPropagation()}>
+      <div className="dg-glassmorphic border border-(--color-border)/50 rounded-2xl shadow-2xl w-full max-w-3xl mx-2 sm:mx-4 flex flex-col h-[88dvh] sm:h-[580px] max-h-[92dvh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-200" onClick={(e) => e.stopPropagation()}>
         
         {/* Header bar */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-(--color-border)/60 bg-(--color-bg-secondary)/20">
-          <div className="flex flex-col gap-0.5">
-            <h2 className="text-base font-bold text-(--color-text-primary) tracking-wide">Workspace Settings</h2>
-            <p className="text-[11px] text-(--color-text-muted) font-medium">Configure cluster connections (Spark SQL & Apache Doris), Spark properties, and runtime packages.</p>
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-(--color-border)/60 bg-(--color-bg-secondary)/20 shrink-0">
+          <div className="flex flex-col gap-0.5 min-w-0 pr-2">
+            <h2 className="text-sm sm:text-base font-bold text-(--color-text-primary) tracking-wide truncate">Workspace Settings</h2>
+            <p className="text-[11px] text-(--color-text-muted) font-medium truncate sm:whitespace-normal">Configure cluster connections (Spark SQL & Apache Doris), Spark properties, and runtime packages.</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-all dg-spring-btn">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--color-bg-tertiary) text-(--color-text-muted) hover:text-(--color-text-primary) transition-all dg-spring-btn shrink-0">
             <X size={16} />
           </button>
         </div>
 
         {/* Workspace Body layout (Sidebar + Content Pane) */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex flex-col sm:flex-row overflow-hidden">
           
-          {/* Left Navigation Sidebar */}
-          <div className="w-52 bg-(--color-bg-secondary)/40 border-r border-(--color-border)/40 flex flex-col p-3.5 select-none shrink-0 gap-1">
-            <span className="text-[9px] font-bold text-(--color-text-muted) uppercase tracking-widest px-2 mb-1.5">Settings Panels</span>
+          {/* Left Navigation Sidebar (horizontal strip on mobile, vertical sidebar on sm+) */}
+          <div className="w-full sm:w-52 bg-(--color-bg-secondary)/40 border-b sm:border-b-0 sm:border-r border-(--color-border)/40 flex flex-row sm:flex-col p-2 sm:p-3.5 select-none shrink-0 gap-1 overflow-x-auto no-scrollbar">
+            <span className="hidden sm:block text-[9px] font-bold text-(--color-text-muted) uppercase tracking-widest px-2 mb-1.5">Settings Panels</span>
             <button
               onClick={() => setActiveTab("hosts")}
-              className={`flex items-center gap-2.5 py-2 px-3 text-xs font-semibold rounded-lg transition-all duration-150 justify-start ${
+              className={`flex items-center gap-2 sm:gap-2.5 py-2 px-3 text-xs font-semibold rounded-lg transition-all duration-150 justify-start shrink-0 whitespace-nowrap ${
                 activeTab === "hosts"
                   ? "bg-(--color-accent) text-white shadow-xs"
                   : "text-(--color-text-secondary) hover:bg-(--color-bg-tertiary)/40 hover:text-(--color-text-primary)"
@@ -398,7 +398,7 @@ export default function ConnectionModal({ isOpen, onClose }) {
             </button>
             <button
               onClick={() => setActiveTab("config")}
-              className={`flex items-center gap-2.5 py-2 px-3 text-xs font-semibold rounded-lg transition-all duration-150 justify-start ${
+              className={`flex items-center gap-2 sm:gap-2.5 py-2 px-3 text-xs font-semibold rounded-lg transition-all duration-150 justify-start shrink-0 whitespace-nowrap ${
                 activeTab === "config"
                   ? "bg-(--color-accent) text-white shadow-xs"
                   : "text-(--color-text-secondary) hover:bg-(--color-bg-tertiary)/40 hover:text-(--color-text-primary)"
@@ -414,7 +414,7 @@ export default function ConnectionModal({ isOpen, onClose }) {
             </button>
             <button
               onClick={() => setActiveTab("jars")}
-              className={`flex items-center gap-2.5 py-2 px-3 text-xs font-semibold rounded-lg transition-all duration-150 justify-start ${
+              className={`flex items-center gap-2 sm:gap-2.5 py-2 px-3 text-xs font-semibold rounded-lg transition-all duration-150 justify-start shrink-0 whitespace-nowrap ${
                 activeTab === "jars"
                   ? "bg-(--color-accent) text-white shadow-xs"
                   : "text-(--color-text-secondary) hover:bg-(--color-bg-tertiary)/40 hover:text-(--color-text-primary)"
@@ -430,7 +430,7 @@ export default function ConnectionModal({ isOpen, onClose }) {
             </button>
             <button
               onClick={() => setActiveTab("cors")}
-              className={`flex items-center gap-2.5 py-2 px-3 text-xs font-semibold rounded-lg transition-all duration-150 justify-start mt-auto border border-dashed border-(--color-border)/40 ${
+              className={`flex items-center gap-2 sm:gap-2.5 py-2 px-3 text-xs font-semibold rounded-lg transition-all duration-150 justify-start sm:mt-auto shrink-0 whitespace-nowrap border border-dashed border-(--color-border)/40 ${
                 activeTab === "cors"
                   ? "bg-(--color-warning)/10 border-(--color-warning)/30 text-(--color-warning)"
                   : "text-(--color-text-secondary) hover:bg-(--color-bg-tertiary)/30"
@@ -442,7 +442,7 @@ export default function ConnectionModal({ isOpen, onClose }) {
           </div>
 
           {/* Right Main Panel Content */}
-          <div className="flex-1 overflow-y-auto p-6 flex flex-col bg-(--color-bg-primary)/20">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col bg-(--color-bg-primary)/20">
             
             {/* TAB 1: DATA SOURCES (SPARK & DORIS) */}
             {activeTab === "hosts" && (
@@ -492,7 +492,7 @@ export default function ConnectionModal({ isOpen, onClose }) {
                                 </button>
                               </div>
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex flex-col sm:flex-row gap-2">
                               <input
                                 value={editName}
                                 onChange={(e) => setEditName(e.target.value)}
@@ -507,7 +507,7 @@ export default function ConnectionModal({ isOpen, onClose }) {
                               />
                             </div>
                             {editType === DATA_SOURCE_TYPES.DORIS && (
-                              <div className="grid grid-cols-4 gap-2">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
                                 <input
                                   value={editCluster}
                                   onChange={(e) => setEditCluster(e.target.value)}
