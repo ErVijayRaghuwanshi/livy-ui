@@ -390,6 +390,60 @@ function reducer(state, action) {
       };
     }
 
+    case "UPDATE_FILE_DIFF": {
+      const { fileId, originalContent, proposedContent } = action.payload;
+      const diff = state.pendingDiffs[fileId];
+      if (!diff) return state;
+
+      const nextFiles = state.files.map((f) =>
+        f.id === fileId
+          ? { ...f, content: proposedContent, updatedAt: new Date().toISOString() }
+          : f
+      );
+      const targetFile = nextFiles.find((f) => f.id === fileId);
+      const isDirty = targetFile ? targetFile.content !== targetFile.lastSavedContent : false;
+
+      // If all hunks were resolved (original matches proposed), finalize the diff
+      if (originalContent === proposedContent) {
+        const nextPending = { ...state.pendingDiffs };
+        delete nextPending[fileId];
+        return {
+          ...state,
+          files: nextFiles,
+          pendingDiffs: nextPending,
+          diffResolutions: {
+            ...state.diffResolutions,
+            [fileId]: "accepted",
+          },
+          dirtyFiles: {
+            ...state.dirtyFiles,
+            [fileId]: isDirty,
+          },
+        };
+      }
+
+      const diffStats = computeLineDiff(originalContent, proposedContent);
+      return {
+        ...state,
+        files: nextFiles,
+        pendingDiffs: {
+          ...state.pendingDiffs,
+          [fileId]: {
+            ...diff,
+            originalContent,
+            proposedContent,
+            addedLines: diffStats.addedLines,
+            removedLines: diffStats.removedLines,
+            hunks: diffStats.hunks,
+          },
+        },
+        dirtyFiles: {
+          ...state.dirtyFiles,
+          [fileId]: isDirty,
+        },
+      };
+    }
+
     case "ACCEPT_FILE_DIFF": {
       const { fileId } = action.payload;
       const diff = state.pendingDiffs[fileId];
@@ -2103,6 +2157,13 @@ export function SqlFilesProvider({ children }) {
     dispatch({ type: "ACCEPT_FILE_DIFF", payload: { fileId } });
   }, []);
 
+  const updatePendingDiff = useCallback((fileId, originalContent, proposedContent) => {
+    dispatch({
+      type: "UPDATE_FILE_DIFF",
+      payload: { fileId, originalContent, proposedContent },
+    });
+  }, []);
+
   const rejectDiff = useCallback((fileId) => {
     dispatch({ type: "REJECT_FILE_DIFF", payload: { fileId } });
   }, []);
@@ -2163,6 +2224,7 @@ export function SqlFilesProvider({ children }) {
     diffViewMode: state.diffViewMode,
     setDiffViewMode,
     stageDiff,
+    updatePendingDiff,
     acceptDiff,
     rejectDiff,
     hasPendingDiff,

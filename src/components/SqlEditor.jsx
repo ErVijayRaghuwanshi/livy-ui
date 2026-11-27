@@ -1,7 +1,8 @@
 import { useRef, useCallback, useState, forwardRef, useImperativeHandle, useEffect } from "react";
 import { loader } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
-import Editor, { DiffEditor } from "@monaco-editor/react";
+import Editor from "@monaco-editor/react";
+import MonacoDiffEditor from "./MonacoDiffEditor";
 import { Play, Loader2, Ban, AlignLeft, WrapText, Check, X, Sparkles, Columns2, AlignJustify } from "lucide-react";
 import MarkdownPreview from "./MarkdownPreview";
 import { format } from "sql-formatter";
@@ -1710,6 +1711,7 @@ const SqlEditor = forwardRef(function SqlEditor({
     pendingDiffs,
     diffViewMode,
     setDiffViewMode,
+    updatePendingDiff,
     acceptDiff,
     rejectDiff,
     getPendingDiff,
@@ -2202,12 +2204,18 @@ const SqlEditor = forwardRef(function SqlEditor({
     // Initialize model for active file
     if (activeFileRef.current) {
       let model = modelsRef.current.get(activeFileRef.current.id);
+      if (model?.isDisposed()) {
+        modelsRef.current.delete(activeFileRef.current.id);
+        model = null;
+      }
       if (!model) {
         const closedItem = closedModelsRef.current.get(activeFileRef.current.id);
         if (closedItem) {
-          model = closedItem.model;
           closedModelsRef.current.delete(activeFileRef.current.id);
-          modelsRef.current.set(activeFileRef.current.id, model);
+          if (!closedItem.model.isDisposed()) {
+            model = closedItem.model;
+            modelsRef.current.set(activeFileRef.current.id, model);
+          }
         }
       }
       const targetLang = getLanguageForFile(activeFileRef.current.name);
@@ -2228,6 +2236,11 @@ const SqlEditor = forwardRef(function SqlEditor({
       } else {
         if (model.getLanguageId() !== targetLang) {
           monaco.editor.setModelLanguage(model, targetLang);
+        }
+        if (model.getValue() !== activeFileRef.current.content) {
+          isApplyingExternalUpdateRef.current = true;
+          model.setValue(activeFileRef.current.content);
+          isApplyingExternalUpdateRef.current = false;
         }
       }
       editor.setModel(model);
@@ -2717,12 +2730,18 @@ const SqlEditor = forwardRef(function SqlEditor({
 
     // Get or create model
     let newModel = modelsRef.current.get(activeFile.id);
+    if (newModel?.isDisposed()) {
+      modelsRef.current.delete(activeFile.id);
+      newModel = null;
+    }
     if (!newModel) {
       const closedItem = closedModelsRef.current.get(activeFile.id);
       if (closedItem) {
-        newModel = closedItem.model;
         closedModelsRef.current.delete(activeFile.id);
-        modelsRef.current.set(activeFile.id, newModel);
+        if (!closedItem.model.isDisposed()) {
+          newModel = closedItem.model;
+          modelsRef.current.set(activeFile.id, newModel);
+        }
       }
     }
 
@@ -3652,12 +3671,17 @@ const SqlEditor = forwardRef(function SqlEditor({
           )}
 
           {activePendingDiff ? (
-            <DiffEditor
+            <MonacoDiffEditor
               height="100%"
               language={getLanguageForFile(activeFile?.name)}
               theme={theme === "light" ? "light" : VSCODE_DARK_CUSTOM}
               original={activePendingDiff.originalContent}
               modified={activePendingDiff.proposedContent}
+              onPartialChange={(nextOriginal, nextProposed) => {
+                if (activeFile?.id) {
+                  updatePendingDiff(activeFile.id, nextOriginal, nextProposed);
+                }
+              }}
               options={{
                 readOnly: true,
                 renderSideBySide: diffViewMode === "split",
@@ -3675,6 +3699,7 @@ const SqlEditor = forwardRef(function SqlEditor({
               height="100%"
               defaultLanguage={getLanguageForFile(activeFile?.name)}
               theme={theme === "light" ? "light" : VSCODE_DARK_CUSTOM}
+              keepCurrentModel={true}
               beforeMount={handleBeforeMount}
               onMount={handleEditorMount}
               options={{

@@ -52,6 +52,17 @@ body {
   background-color: var(--color-bg-workbench);
 }
 
+/* Diff editor clickable '+' gutter decoration */
+.diff-line-gutter-accept {
+  cursor: pointer !important;
+  border-radius: 3px;
+  transition: background-color 0.12s ease;
+}
+
+.diff-line-gutter-accept:hover {
+  background-color: rgba(16, 185, 129, 0.35) !important;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 10px;
